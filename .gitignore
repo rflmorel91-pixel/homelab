@@ -1,0 +1,8 @@
+.env
+*.pem
+*.key
+*.secret
+credentials/
+secrets/
+docker/*/data/
+docker/*/postgres/
