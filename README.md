@@ -375,3 +375,51 @@ Infrastructure, documentation, and services will continue to evolve as new techn
 This homelab represents hands-on practice with modern IT infrastructure technologies and is intended to demonstrate practical skills through real deployments rather than only theoretical coursework.
 
 **Repository:** [github.com/rflmorel91-pixel/homelab](https://github.com/rflmorel91-pixel/homelab)
+## 🔄 Reliability & Recovery
+
+### Power Outage Recovery
+
+**Status: Verified**
+
+Tested the homelab's ability to recover after a power outage and confirmed that core infrastructure services restart automatically.
+
+Recovery configuration verified:
+
+* Docker service enabled at boot
+* Cloudflare Tunnel service enabled at boot
+* Docker containers configured with `unless-stopped` restart policies
+* Nextcloud automatically restarts
+* Vaultwarden automatically restarts
+* Authentik automatically restarts
+* Nginx Proxy Manager automatically restarts
+* Uptime Kuma automatically restarts
+* Public HTTPS services become available after recovery
+
+This test demonstrated practical experience with service persistence, automatic recovery, and post-outage troubleshooting.
+
+### Public Service Verification
+
+The following services were verified through their public HTTPS endpoints:
+
+| Service     | Public Endpoint          | Result                 |
+| ----------- | ------------------------ | ---------------------- |
+| Nextcloud   | `cloud.fieldlookers.com` | HTTP 302 — Operational |
+| Vaultwarden | `vault.fieldlookers.com` | HTTP 200 — Operational |
+| Authentik   | `auth.fieldlookers.com`  | HTTP 302 — Operational |
+
+HTTPS ingress is handled through Nginx Proxy Manager, with Cloudflare Tunnel providing external connectivity.
+
+### Monitoring
+
+Uptime Kuma provides basic HTTP availability monitoring for:
+
+* Nextcloud
+* Vaultwarden
+* Authentik
+* Cloudflare Tunnel
+
+Monitoring interval:
+
+* 60 seconds
+
+The monitoring history has also captured temporary HTTP 502 events, providing real-world troubleshooting data rather than simulated failures.
