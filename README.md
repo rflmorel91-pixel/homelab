@@ -1,98 +1,377 @@
-# 🖥️ Homelab Portfolio
+# Homelab Infrastructure Portfolio
 
-Welcome to my homelab portfolio. This repository documents the infrastructure I have built to develop hands-on experience with Linux, virtualization, Docker, networking, automation, and self-hosted services.
+Welcome to my personal IT homelab.
 
----
+This repository documents my hands-on experience building, administering, monitoring, and documenting a small self-hosted infrastructure environment.
 
-## Hardware
-
-| Component | Details |
-|----------|---------|
-| Host | Dell OptiPlex 5060 SFF |
-| Hypervisor | Proxmox VE |
-| RAM | 12 GB |
-| Storage | 1 TB SSD |
-| Guest OS | Ubuntu Server |
+The goal of this project is to continuously develop practical skills in **Linux administration, virtualization, networking, Docker, storage, security, monitoring, and infrastructure documentation**.
 
 ---
 
-## Virtualization
+## 🏗️ Infrastructure Overview
 
-- Proxmox VE
-- Ubuntu Server Virtual Machine
-
----
-
-## Docker Services
-
-- ✅ Nextcloud
-- ✅ Vaultwarden
-- ✅ Authentik
-- ✅ Uptime Kuma
-
----
-
-## Networking
-
-- Cloudflare Tunnel
-- Nginx Proxy Manager
-- HTTPS Reverse Proxy
-- Internal Docker networking
-
----
-
-## Skills Demonstrated
-
-- Linux Administration
-- Docker & Docker Compose
-- Virtualization
-- Reverse Proxy Configuration
-- Identity Management (Authentik)
-- Password Management (Vaultwarden)
-- Cloudflare Tunnel
-- HTTPS/TLS
-- Networking
-- Troubleshooting
-- Documentation
-
----
-
-## Repository Structure
-
+```text
+                         Home Network
+                              │
+                              ▼
+                         Proxmox VE
+                              │
+              ┌───────────────┼────────────────┐
+              │               │                │
+              ▼               ▼                ▼
+          OMV NAS          Ubuntu Server     Other VMs
+              │               │
+              │               ├── Docker
+              │               │     ├── Nextcloud
+              │               │     ├── Vaultwarden
+              │               │     ├── Authentik
+              │               │     ├── Uptime Kuma
+              │               │     └── Other Services
+              │               │
+              ▼               ▼
+          SMB Storage      Web Services
+              │
+              ▼
+        Windows Clients
 ```
+
+---
+
+## 🚀 Projects
+
+### OpenMediaVault NAS
+
+**Status: Operational**
+
+Built an OpenMediaVault NAS as a virtual machine on Proxmox.
+
+Key components:
+
+* OpenMediaVault 8.3.1
+* Debian GNU/Linux 13.5
+* 2 CPU cores
+* 4 GB RAM
+* 64 GB OS disk
+* 200 GB dedicated NAS data disk
+* EXT4 filesystem
+* SMB/CIFS file sharing
+* Authenticated Windows access
+* Linux storage and filesystem administration
+
+Documentation:
+
+➡️ [OpenMediaVault NAS Documentation](docs/openmediavault.md)
+
+---
+
+### Proxmox Virtualization
+
+**Status: Operational**
+
+Proxmox VE is the virtualization platform for the homelab.
+
+Skills practiced:
+
+* Virtual machine creation
+* VM resource allocation
+* Virtual disk management
+* SCSI storage
+* VirtIO networking
+* ISO management
+* VM boot configuration
+* Linux VM administration
+* Troubleshooting VM startup problems
+
+---
+
+### Docker Infrastructure
+
+**Status: Operational**
+
+Docker is used to host and manage self-hosted applications.
+
+Skills practiced:
+
+* Docker installation
+* Docker Compose
+* Container management
+* Persistent volumes
+* Container networking
+* Environment variables
+* Service troubleshooting
+* Portainer administration
+
+Documentation:
+
+➡️ [Docker Documentation](docker/)
+
+---
+
+### Nextcloud
+
+**Status: Operational**
+
+Self-hosted cloud storage running in Docker.
+
+Skills practiced:
+
+* Docker deployment
+* Persistent storage
+* Nextcloud administration
+* File scanning
+* Background jobs
+* Trusted domains
+* Web access
+* Reverse proxy configuration
+
+---
+
+### Vaultwarden
+
+**Status: Operational**
+
+Self-hosted password management using Vaultwarden.
+
+Skills practiced:
+
+* Docker deployment
+* Secure configuration
+* Environment variables
+* Authentication
+* Persistent application storage
+* Reverse proxy integration
+
+---
+
+### Authentik / SSO
+
+**Status: In Progress**
+
+Authentication infrastructure using Authentik and OpenID Connect.
+
+Current work includes:
+
+* Authentik deployment
+* PostgreSQL
+* Redis
+* OAuth2/OpenID Connect
+* Nextcloud OIDC integration
+* Application/provider configuration
+* Discovery endpoint testing
+* Authentication troubleshooting
+
+---
+
+### Cloudflare Tunnel
+
+**Status: Operational**
+
+Cloudflare Tunnel is used to provide secure external access to selected homelab services without directly exposing inbound ports.
+
+Skills practiced:
+
+* Cloudflare Tunnel
+* `cloudflared`
+* DNS configuration
+* Hostname routing
+* HTTPS
+* Tunnel troubleshooting
+* Reverse proxy architecture
+
+---
+
+### Uptime Kuma
+
+**Status: Operational**
+
+Self-hosted monitoring for homelab services.
+
+Example monitored services include:
+
+* Nextcloud
+* Vaultwarden
+* Web applications
+* Network services
+
+Skills practiced:
+
+* Service monitoring
+* Availability monitoring
+* HTTP monitoring
+* Docker deployment
+* Troubleshooting outages
+
+---
+
+## 🛠️ Technology Stack
+
+### Virtualization
+
+* Proxmox VE
+* QEMU/KVM
+* Virtual Machines
+
+### Operating Systems
+
+* Debian
+* Ubuntu Server
+* Linux command line
+
+### Containers
+
+* Docker
+* Docker Compose
+* Portainer
+
+### Storage
+
+* OpenMediaVault
+* EXT4
+* Linux filesystems
+* SMB/CIFS
+* Virtual disks
+* NAS architecture
+
+### Networking
+
+* TCP/IP
+* IPv4
+* DHCP
+* DNS
+* HTTP/HTTPS
+* Reverse proxies
+* Cloudflare Tunnel
+* VirtIO networking
+
+### Security & Authentication
+
+* Authentik
+* OpenID Connect
+* OAuth2
+* Vaultwarden
+* HTTPS
+* Secrets management
+* Environment variables
+
+### Monitoring
+
+* Uptime Kuma
+
+### Documentation & Version Control
+
+* Git
+* GitHub
+* Markdown
+* Infrastructure documentation
+
+---
+
+## 📂 Repository Structure
+
+```text
 homelab/
-├── docs/
+│
 ├── docker/
-├── scripts/
-├── diagrams/
-├── images/
-└── backups/
+│   └── Docker-related configuration
+│
+├── docs/
+│   ├── openmediavault.md
+│   └── infrastructure documentation
+│
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## Current Projects
+## 🔐 Security Practices
 
-- Building a secure self-hosted cloud
-- Learning DevOps practices
-- Creating reusable Docker deployments
-- Developing infrastructure documentation
+This repository intentionally does **not** contain:
 
----
+* Passwords
+* API tokens
+* Authentication secrets
+* Private keys
+* Cloudflare credentials
+* Database credentials
+* `.env` files containing secrets
+* Personal sensitive data
 
-## Future Goals
+Sensitive configuration is stored outside the Git repository.
 
-- Grafana
-- Prometheus
-- Loki
-- GitHub Actions
-- Automated Backups
-- Infrastructure as Code
-- Monitoring Dashboards
-- Disaster Recovery Documentation
+The `.gitignore` file is used to help prevent accidental commits of secrets and private data.
 
 ---
 
-## About
+## 📚 Skills I'm Developing
 
-This homelab is an ongoing learning project focused on gaining practical experience in systems administration, virtualization, Docker, networking, and modern infrastructure technologies.
+This homelab is being used as a hands-on learning environment to develop skills for IT infrastructure and remote technical roles.
+
+Current areas of focus:
+
+* Linux system administration
+* Help desk / technical troubleshooting
+* Server administration
+* Virtualization
+* Docker
+* Networking
+* Storage
+* NAS administration
+* Authentication
+* Monitoring
+* Cloud services
+* Infrastructure documentation
+* Git and GitHub
+
+---
+
+## 🎯 Current Learning Goals
+
+* [x] Build a Proxmox virtualization environment
+* [x] Deploy Ubuntu Server
+* [x] Install Docker
+* [x] Deploy Portainer
+* [x] Deploy Nextcloud
+* [x] Deploy Vaultwarden
+* [x] Deploy Authentik
+* [x] Configure OIDC authentication
+* [x] Configure Cloudflare Tunnel
+* [x] Deploy Uptime Kuma
+* [x] Build OpenMediaVault NAS
+* [x] Configure SMB storage
+* [x] Document infrastructure in GitHub
+* [ ] Add dedicated backup storage
+* [ ] Implement a 3-2-1 backup strategy
+* [ ] Perform a documented disaster recovery test
+* [ ] Improve network segmentation
+* [ ] Expand monitoring
+* [ ] Continue building portfolio projects
+
+---
+
+## 📈 Homelab Philosophy
+
+The goal of this project is not simply to run applications.
+
+Each service is an opportunity to practice real infrastructure skills:
+
+**Deploy → Configure → Troubleshoot → Monitor → Document → Improve**
+
+Problems encountered during the build are documented because troubleshooting is an important part of real-world IT administration.
+
+---
+
+## 📌 Project Status
+
+This homelab is an active learning and portfolio project.
+
+Infrastructure, documentation, and services will continue to evolve as new technologies and projects are added.
+
+---
+
+## 👨‍💻 About This Project
+
+This homelab represents hands-on practice with modern IT infrastructure technologies and is intended to demonstrate practical skills through real deployments rather than only theoretical coursework.
+
+**Repository:** [github.com/rflmorel91-pixel/homelab](https://github.com/rflmorel91-pixel/homelab)
