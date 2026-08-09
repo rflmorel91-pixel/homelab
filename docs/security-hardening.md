@@ -88,3 +88,19 @@ ${distro_id}:${distro_codename}-security
 test -f /var/run/reboot-required && echo "Reboot required" || echo "No reboot required"
 No reboot required
 
+## Firewall Hardening
+
+### UFW Status
+
+The Ubuntu Server firewall was reviewed using:
+
+```bash
+sudo ufw status verbose
+
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+
+22/tcp                     ALLOW IN    Anywhere
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+
