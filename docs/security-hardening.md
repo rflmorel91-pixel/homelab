@@ -67,3 +67,24 @@ enabled
 systemctl status ufw --no-pager
 Active: active (exited)
 
+## System Updates & Patch Management
+
+### Package Updates
+
+Ubuntu package repositories are regularly refreshed to ensure the system receives current security and maintenance updates.
+
+Update package information:
+
+```bash
+sudo apt update
+73 packages can be upgraded.
+apt list --upgradable
+systemctl status unattended-upgrades --no-pager
+Loaded: loaded (...; enabled; preset: enabled)
+Active: active (running)
+/etc/apt/apt.conf.d/50unattended-upgrades
+${distro_id}:${distro_codename}
+${distro_id}:${distro_codename}-security
+test -f /var/run/reboot-required && echo "Reboot required" || echo "No reboot required"
+No reboot required
+
