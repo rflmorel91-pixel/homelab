@@ -4,12 +4,13 @@
 
 Security is an important part of the homelab environment.
 
-The infrastructure uses multiple layers of security including Linux permissions, SSH administration, firewall controls, secure remote access, reverse proxy protection, and application security practices.
+The infrastructure uses multiple layers of security including Linux permissions, SSH hardening, firewall rules, automatic updates, and controlled service exposure.
 
-This project provides hands-on experience with securing Linux servers, protecting self-hosted services, managing access, and reducing unnecessary exposure.
+This project provides hands-on experience with securing Linux servers, protecting self-hosted applications, and following basic infrastructure security practices.
 
 ---
-## SSH Security
+
+# SSH Security
 
 SSH is used for secure remote administration of the Ubuntu Server system.
 
@@ -17,90 +18,260 @@ The homelab uses SSH to manage the server without requiring direct console acces
 
 Security practices include:
 
-- Remote administration through SSH
-- User-based access control
-- Key-based authentication
-- Avoiding unnecessary direct exposure to the internet
+* Remote administration through SSH
+* User-based access control
+* Key-based authentication
+* Avoiding unnecessary direct exposure to the internet
+* Restricting access through firewall rules
 
-Useful SSH commands:
+## SSH Verification
 
 Check SSH service status:
 
 ```bash
-systemctl status ssh
+sudo systemctl status ssh
 ```
 
-
-Restart SSH service:
+Restart SSH service after configuration changes:
 
 ```bash
 sudo systemctl restart ssh
 ```
 
+SSH access is protected by:
 
-SSH provides secure administrative access while keeping management services separated from public applications.
-## Firewall Hardening
+* Firewall restrictions
+* User authentication
+* Private network access
+* Cloudflare Tunnel for public services instead of exposing SSH
 
-### UFW Status
+---
 
-Ubuntu Server uses UFW (Uncomplicated Firewall) to manage host-based firewall rules.
+# Firewall Hardening
 
-Firewall verification:
+Ubuntu Server uses UFW (Uncomplicated Firewall) to control host-based firewall rules.
+
+The firewall follows the principle of:
+
+* Deny unwanted incoming traffic
+* Allow required services only
+* Allow outgoing connections
+* Prevent unauthorized network access
+
+## Verify Firewall Status
+
+The firewall was reviewed using:
 
 ```bash
 sudo ufw status verbose
+```
+
+Verified configuration:
+
+```text
 Status: active
 Logging: on (low)
 
 Default: deny (incoming), allow (outgoing), deny (routed)
 
-To                         Action      From
-
 22/tcp                     ALLOW IN    Anywhere
 22/tcp (v6)                ALLOW IN    Anywhere (v6)
+```
+
+## SSH Firewall Rule
+
+SSH access is allowed through UFW:
+
+```bash
 sudo ufw allow OpenSSH
+```
+
+Verify firewall rules:
+
+```bash
 sudo ufw status numbered
+```
+
+Expected result:
+
+```text
 [ 1] 22/tcp      ALLOW IN    Anywhere
 [ 2] 22/tcp (v6) ALLOW IN    Anywhere (v6)
+```
+
+## Firewall Service Verification
+
+Confirm UFW starts automatically:
+
+```bash
 sudo systemctl is-enabled ufw
+```
+
+Result:
+
+```text
 enabled
-systemctl status ufw --no-pager
+```
+
+Verify service status:
+
+```bash
+sudo systemctl status ufw --no-pager
+```
+
+Result:
+
+```text
 Active: active (exited)
+```
 
-## System Updates & Patch Management
+---
 
-### Package Updates
+# System Updates & Patch Management
 
-Ubuntu package repositories are regularly refreshed to ensure the system receives current security and maintenance updates.
+Keeping the operating system updated is an important security practice.
+
+Ubuntu package repositories are regularly checked for security updates and maintenance releases.
+
+## Package Update Verification
 
 Update package information:
 
 ```bash
 sudo apt update
-73 packages can be upgraded.
-apt list --upgradable
-systemctl status unattended-upgrades --no-pager
-Loaded: loaded (...; enabled; preset: enabled)
-Active: active (running)
-/etc/apt/apt.conf.d/50unattended-upgrades
-${distro_id}:${distro_codename}
-${distro_id}:${distro_codename}-security
-test -f /var/run/reboot-required && echo "Reboot required" || echo "No reboot required"
-No reboot required
+```
 
-## Firewall Hardening
-
-### UFW Status
-
-The Ubuntu Server firewall was reviewed using:
+Check available upgrades:
 
 ```bash
-sudo ufw status verbose
+apt list --upgradable
+```
 
-Status: active
-Logging: on (low)
-Default: deny (incoming), allow (outgoing), deny (routed)
+## Automatic Security Updates
 
-22/tcp                     ALLOW IN    Anywhere
-22/tcp (v6)                ALLOW IN    Anywhere (v6)
+The server uses unattended upgrades to automatically install approved security updates.
+
+Verify service status:
+
+```bash
+systemctl status unattended-upgrades --no-pager
+```
+
+Verified:
+
+```text
+Loaded: loaded
+Active: active (running)
+```
+
+Check installed version:
+
+```bash
+apt policy unattended-upgrades
+```
+
+Installed package:
+
+```text
+unattended-upgrades:
+Installed: 2.12ubuntu9
+```
+
+## Test Automatic Updates
+
+A dry run was performed:
+
+```bash
+sudo unattended-upgrade --dry-run --debug
+```
+
+Result:
+
+```text
+No packages found that can be upgraded unattended and no pending auto-removals
+
+upgrade result: True
+```
+
+This confirms unattended upgrades are functioning correctly.
+
+---
+
+# Kernel and Reboot Management
+
+After updates, verify whether the system requires a reboot:
+
+```bash
+test -f /var/run/reboot-required && echo "Reboot required" || echo "No reboot required"
+```
+
+Current result:
+
+```text
+No reboot required
+```
+
+---
+
+# Service Exposure Management
+
+Public services are not directly exposed through SSH or open firewall ports.
+
+External access is provided through:
+
+* Cloudflare Tunnel
+* Reverse proxy services
+* HTTPS encryption
+* Authentication layers
+
+Current security architecture:
+
+```text
+Internet
+   |
+Cloudflare Tunnel
+   |
+Nginx Proxy Manager
+   |
+Docker Services
+   |
+Ubuntu Server
+   |
+UFW Firewall
+```
+
+---
+
+# Future Security Improvements
+
+Planned improvements:
+
+* Disable password-based SSH authentication
+* Enable SSH key-only authentication
+* Configure Fail2Ban
+* Add regular security audits
+* Implement centralized logging
+* Add automated backup verification
+* Document disaster recovery procedures
+
+---
+
+# Security Verification Checklist
+
+Completed:
+
+* [x] SSH enabled and verified
+* [x] Firewall enabled
+* [x] Incoming traffic restricted
+* [x] SSH firewall rule configured
+* [x] Automatic security updates enabled
+* [x] Unattended upgrades tested
+* [x] Reboot status verified
+
+Future:
+
+* [ ] SSH key-only authentication
+* [ ] Fail2Ban deployment
+* [ ] Security monitoring
+* [ ] Backup restore testing
 
