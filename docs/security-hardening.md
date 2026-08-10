@@ -47,6 +47,11 @@ SSH access is protected by:
 
 ---
 
+### SSH Verification
+SSH configuration was validated with `sudo sshd -t`.
+The SSH service was reloaded and verified as active with `sudo systemctl reload ssh` and `sudo systemctl is-active ssh`.
+A fresh SSH connection from Windows was successfully authenticated using an Ed25519 public key.
+Password-based SSH authentication is no longer permitted.
 # Firewall Hardening
 
 Ubuntu Server uses UFW (Uncomplicated Firewall) to control host-based firewall rules.
