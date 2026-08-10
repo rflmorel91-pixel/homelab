@@ -275,3 +275,46 @@ Future:
 * [ ] Security monitoring
 * [ ] Backup restore testing
 
+
+## Firewall Hardening
+
+The Ubuntu Server VM uses UFW (Uncomplicated Firewall) to control incoming and outgoing network traffic.
+
+### UFW Configuration
+
+UFW is enabled and configured with secure default policies:
+
+    Status: active
+    Logging: on (low)
+    Default: deny (incoming), allow (outgoing), deny (routed)
+
+### SSH Access
+
+SSH access is explicitly permitted on TCP port 22:
+
+    22/tcp       ALLOW IN    Anywhere
+    22/tcp (v6)  ALLOW IN    Anywhere (v6)
+
+The configured UFW rule is:
+
+    ufw allow 22/tcp
+
+### Verification
+
+Firewall status was verified with:
+
+    sudo ufw status verbose
+    sudo ufw status numbered
+    sudo ufw show added
+
+Verified configuration:
+
+- UFW is active.
+- Incoming connections are denied by default.
+- Outgoing connections are allowed by default.
+- Routed traffic is denied by default.
+- SSH access is allowed on TCP port 22.
+- IPv4 and IPv6 SSH rules are present.
+- UFW logging is enabled at the low level.
+
+This configuration provides a basic firewall security layer while maintaining required SSH administration access.
