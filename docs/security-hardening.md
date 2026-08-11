@@ -323,3 +323,56 @@ Verified configuration:
 - UFW logging is enabled at the low level.
 
 This configuration provides a basic firewall security layer while maintaining required SSH administration access.
+
+## OpenMediaVault Firewall Audit
+
+The OpenMediaVault server was audited as part of the homelab security hardening process.
+
+### Firewall Baseline
+
+The OpenMediaVault system does not use UFW. The installed firewall components include nftables and iptables.
+
+The firewall configuration was verified with:
+
+```bash
+sudo nft list ruleset
+sudo iptables -L -n -v
+sudo omv-confdbadm read conf.system.network.iptables.rule --prettify
+```
+
+Verified baseline:
+
+* nftables ruleset is empty.
+* iptables contains no configured rules.
+* OMV firewall configuration contains no configured rules.
+* UFW is not installed.
+
+### Network Configuration
+
+The OpenMediaVault server uses:
+
+```text
+IP address: 192.168.1.137
+Interface: ens18
+Network: 192.168.1.0/24
+Gateway: 192.168.1.1
+```
+
+### Services Audited
+
+The following services were verified:
+
+* SSH — TCP port 22
+* OMV Web Administration — TCP port 80
+* SMB — TCP ports 139 and 445
+* NFS — disabled
+* SSH root login — disabled in the effective SSH configuration
+* SSH public-key authentication — enabled
+* SSH TCP forwarding — disabled
+* SSH compression — disabled
+
+### Security Status
+
+The OMV firewall baseline has been documented before implementing additional firewall rules. No firewall changes were made during this audit.
+
+This provides a verified starting point for future OMV firewall hardening while avoiding disruption to SSH, web administration, and SMB services.
