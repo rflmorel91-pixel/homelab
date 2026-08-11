@@ -6,3 +6,4 @@ credentials/
 secrets/
 docker/*/data/
 docker/*/postgres/
+logs/

@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 set -u
+LOGFILE="$HOME/homelab/logs/health-check.log"
+DATE=$(date "+%Y-%m-%d %H:%M:%S")
+log() {
+    echo "$1" | tee -a "$LOGFILE"
+}
 
+exec > >(tee -a "$LOGFILE") 2>&1
 echo "========================================"
 echo "        HOMELAB HEALTH CHECK"
 echo "========================================"
