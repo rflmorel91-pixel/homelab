@@ -107,6 +107,7 @@ Docker Network
 Application Container
    ↓
 Application
+```
 
 ## Future Improvements
 
