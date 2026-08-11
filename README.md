@@ -34,6 +34,19 @@ The goal of this project is to continuously develop practical skills in **Linux 
               ▼
         Windows Clients
 ```
+## 🖥️ Hardware Platform
+
+The homelab is built on a **Dell OptiPlex 5060** serving as the primary virtualization host.
+
+### Host Platform
+
+* **System:** Dell OptiPlex 5060
+* **Role:** Proxmox virtualization host
+* **Hypervisor:** Proxmox VE
+* **Virtualization:** KVM/QEMU
+* **Primary workloads:** Linux virtual machines, storage services, Docker workloads, and infrastructure services
+
+The system provides a compact and power-efficient platform for running multiple virtualized services while providing hands-on experience with virtualization, Linux administration, networking, storage, security, and infrastructure management.
 
 ---
 
