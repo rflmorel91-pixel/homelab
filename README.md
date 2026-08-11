@@ -50,6 +50,59 @@ The system provides a compact and power-efficient platform for running multiple 
 
 ---
 
+## 🌐 Networking & Architecture
+
+The homelab uses a private IPv4 network with Proxmox providing the virtualization layer for the infrastructure.
+
+### Network Configuration
+
+* **Private network:** `192.168.1.0/24`
+* **Default gateway:** `192.168.1.1`
+* **OpenMediaVault:** `192.168.1.137`
+* **OpenMediaVault interface:** `ens18`
+* **Ubuntu Server:** Hosts the primary Docker environment
+* **Virtualization:** Proxmox VE
+
+### External Access Architecture
+
+```text
+                         Internet
+                            │
+                            ▼
+                       Cloudflare
+                            │
+                     Cloudflare Tunnel
+                            │
+                            ▼
+                    Ubuntu Server VM
+                            │
+                         Docker
+                            │
+             ┌──────────────┼──────────────┐
+             ▼              ▼              ▼
+       Nginx Proxy      Nextcloud      Vaultwarden
+        Manager                         Authentik
+```
+
+Cloudflare Tunnel provides secure external connectivity to selected services without requiring traditional inbound port forwarding on the home network.
+
+Nginx Proxy Manager is used for reverse proxy and HTTPS ingress where applicable, while Docker provides the application hosting environment.
+
+### Internal Services
+
+The internal network supports:
+
+* Proxmox virtualization
+* Ubuntu Server workloads
+* OpenMediaVault storage
+* Docker containers
+* SMB file sharing
+* Infrastructure monitoring
+* Authentication services
+
+Network configuration and service connectivity are documented and verified as part of the ongoing homelab administration process.
+
+
 ## 🚀 Projects
 
 ### OpenMediaVault NAS
