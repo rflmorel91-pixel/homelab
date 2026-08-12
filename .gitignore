@@ -7,3 +7,9 @@ secrets/
 docker/*/data/
 docker/*/postgres/
 logs/
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
