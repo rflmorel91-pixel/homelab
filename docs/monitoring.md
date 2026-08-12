@@ -109,15 +109,51 @@ Application Container
 Application
 ```
 
+## Observability Stack
+
+The homelab uses a Prometheus-based observability stack for infrastructure and container metrics.
+
+### Components
+
+| Component | Purpose | Port |
+|---|---|---:|
+| Prometheus | Metrics collection and querying | 9090 |
+| Grafana | Metrics visualization and dashboards | 3000 |
+| Node Exporter | Ubuntu host/system metrics | 9100 |
+| cAdvisor | Docker container metrics | 8081 |
+| Uptime Kuma | Service availability monitoring | 3001 |
+
+### Monitoring Architecture
+
+```text
+Ubuntu Server
+     │
+     ├── Node Exporter
+     │       │
+     │       └── Host Metrics
+     │
+     └── cAdvisor
+             │
+             └── Container Metrics
+                     │
+                     ▼
+                 Prometheus
+                     │
+                     ▼
+                  Grafana
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+   Docker Monitoring     Node Exporter Full
+       Dashboard             Dashboard
 ## Future Improvements
+
 
 Planned monitoring improvements include:
 
 - Monitor Nginx Proxy Manager directly
 - Add an independent Cloudflare Tunnel health check
 - Add internal service checks
-- Monitor Docker container health
-- Monitor CPU and memory usage
 - Monitor disk usage
 - Monitor NAS storage
 - Configure notifications
