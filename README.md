@@ -38,15 +38,30 @@ The goal of this project is to continuously develop practical skills in **Linux 
 
 The homelab is built on a **Dell OptiPlex 5060** serving as the primary virtualization host.
 
-### Host Platform
+### Physical Host
 
 * **System:** Dell OptiPlex 5060
-* **Role:** Proxmox virtualization host
-* **Hypervisor:** Proxmox VE
+* **CPU:** Intel Core i5-8500 @ 3.00 GHz
+* **CPU Cores:** 6
+* **Memory:** 16 GB DDR4
+* **Memory Speed:** 2666 MT/s
+* **Storage:** ~1 TB physical disk
+* **Hypervisor:** Proxmox VE 9.2.5
+* **Host OS:** Debian GNU/Linux 13 (Trixie)
 * **Virtualization:** KVM/QEMU
-* **Primary workloads:** Linux virtual machines, storage services, Docker workloads, and infrastructure services
+* **Storage Backend:** LVM-thin
 
-The system provides a compact and power-efficient platform for running multiple virtualized services while providing hands-on experience with virtualization, Linux administration, networking, storage, security, and infrastructure management.
+### Virtualized Workloads
+
+The physical host provides the virtualization layer for multiple infrastructure workloads, including:
+
+* Ubuntu Server virtual machine
+* OpenMediaVault virtual machine
+* Docker-based application services
+* Storage services
+* Monitoring and infrastructure services
+
+The platform provides a compact and power-efficient environment for hands-on experience with virtualization, Linux administration, networking, storage, security, monitoring, and infrastructure automation.
 
 ---
 
