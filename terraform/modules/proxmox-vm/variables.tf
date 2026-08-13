@@ -38,3 +38,7 @@ variable "terraform_vm_password" {
 variable "cloud_image_id" {
   type = string
 }
+variable "vm_username" {
+  type    = string
+  default = "terraform"
+}

@@ -21,7 +21,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   initialization {
     user_account {
-      username = "terraform"
+      username = var.vm_username
       password = var.terraform_vm_password
     }
 
