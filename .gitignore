@@ -13,3 +13,4 @@ logs/
 *.tfstate.*
 crash.log
 crash.*.log
+*.tfvars
