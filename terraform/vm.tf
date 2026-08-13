@@ -1,37 +1,14 @@
-resource "proxmox_virtual_environment_vm" "terraform_test" {
-  name      = var.vm_name
-  vm_id     = var.vm_id
-  node_name = var.proxmox_node
+module "terraform_test" {
+  source = "./modules/proxmox-vm"
 
-  cpu {
-    cores = var.vm_cores
-  }
-
-  memory {
-    dedicated = var.vm_memory
-  }
-
-  initialization {
-    user_account {
-      username = "terraform"
-      password = var.terraform_vm_password
-    }
-
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-    }
-  }
-
-  disk {
-    datastore_id = var.vm_datastore
-    interface    = "scsi0"
-    size         = var.vm_disk_size
-    file_id      = proxmox_download_file.ubuntu_cloud_image.id
-  }
-
-  network_device {
-    bridge = var.vm_bridge
-  }
+  vm_name               = var.vm_name
+  vm_id                 = var.vm_id
+  proxmox_node          = var.proxmox_node
+  vm_cores              = var.vm_cores
+  vm_memory             = var.vm_memory
+  vm_disk_size          = var.vm_disk_size
+  vm_datastore          = var.vm_datastore
+  vm_bridge             = var.vm_bridge
+  terraform_vm_password = var.terraform_vm_password
+  cloud_image_id        = proxmox_download_file.ubuntu_cloud_image.id
 }
