@@ -23,8 +23,7 @@ provider "proxmox" {
 resource "proxmox_virtual_environment_vm" "terraform_test" {
   name      = var.vm_name
   vm_id     = var.vm_id
-  node_name = "proxmox"
-
+  node_name = var.proxmox_node
   cpu {
     cores = var.vm_cores
   }
@@ -46,7 +45,7 @@ resource "proxmox_virtual_environment_vm" "terraform_test" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = var.vm_datastore
     interface    = "scsi0"
     size         = var.vm_disk_size
     file_id      = proxmox_download_file.ubuntu_cloud_image.id
@@ -58,8 +57,8 @@ resource "proxmox_virtual_environment_vm" "terraform_test" {
 }
 resource "proxmox_download_file" "ubuntu_cloud_image" {
   content_type = "iso"
-  datastore_id = "local"
-  node_name    = "proxmox"
+  datastore_id = var.image_datastore
+  node_name    = var.proxmox_node
 
   url       = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
   file_name = "noble-server-cloudimg-amd64.img"

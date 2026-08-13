@@ -37,3 +37,14 @@ variable "vm_bridge" {
   type    = string
   default = "vmbr0"
 }
+
+variable "proxmox_node" {
+variable "vm_datastore" {
+  type    = string
+  default = "local-lvm"
+}
+
+variable "image_datastore" {
+  type    = string
+  default = "local"
+}
