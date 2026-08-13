@@ -17,3 +17,18 @@ output "vm_node" {
 output "vm_mac_address" {
   value = proxmox_virtual_environment_vm.terraform_test.mac_addresses[0]
 }
+output "vm2_id" {
+  value = proxmox_virtual_environment_vm.terraform_test_2.vm_id
+}
+
+output "vm2_name" {
+  value = proxmox_virtual_environment_vm.terraform_test_2.name
+}
+
+output "vm2_node" {
+  value = proxmox_virtual_environment_vm.terraform_test_2.node_name
+}
+
+output "vm2_mac_address" {
+  value = proxmox_virtual_environment_vm.terraform_test_2.mac_addresses[0]
+}
