@@ -165,6 +165,46 @@ Skills practiced:
 
 ---
 
+### Terraform Infrastructure as Code
+
+**Status: Operational**
+
+Terraform is used to automate and manage Proxmox infrastructure through the Proxmox API.
+
+Skills practiced:
+
+* Terraform installation and configuration
+* Proxmox API authentication
+* Terraform provider configuration
+* Infrastructure as Code
+* Proxmox virtual machine provisioning
+* Reusable Terraform modules
+* Parameterized VM configuration
+* Terraform plan and apply workflows
+* Infrastructure validation
+* Git-based infrastructure management
+* GitHub Actions CI automation
+* Terraform formatting and validation
+
+### Terraform CI
+
+The repository includes a GitHub Actions workflow that automatically validates Terraform configuration on pushes to `main` and pull requests.
+
+CI checks include:
+
+* Terraform initialization
+* Terraform formatting
+* Terraform validation
+* Terraform version consistency
+
+The CI workflow intentionally does not apply infrastructure changes. Proxmox changes are reviewed locally with `terraform plan` before being applied.
+
+Documentation:
+
+➡️ [Terraform Infrastructure Documentation](docs/terraform.md)
+
+---
+
 ### Docker Infrastructure
 
 **Status: Operational**
