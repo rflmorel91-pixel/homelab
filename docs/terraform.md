@@ -181,10 +181,35 @@ Applies approved infrastructure changes.
 
 Terraform has successfully created and manages all three test virtual machines.
 
+
+## GitHub Actions CI
+
+Terraform configuration is automatically validated through GitHub Actions.
+
+The workflow runs on pushes to `main` and pull requests targeting `main`.
+
+CI checks include:
+
+* Terraform initialization without a backend
+* Terraform formatting
+* Terraform validation
+* Terraform version consistency
+
+The CI workflow does not automatically apply infrastructure changes to Proxmox.
+
+Infrastructure changes remain controlled through the local Terraform workflow:
+
+```text
+terraform plan
+       │
+       ▼
+Review Changes
+       │
+       ▼
+terraform apply
+```
+
 ## State Management
-
-Terraform state is stored locally in the Terraform project directory.
-
 State files are excluded from Git using the repository `.gitignore`:
 
 ```gitignore
