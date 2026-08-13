@@ -30,19 +30,67 @@ variable "terraform_vm_password" {
   sensitive = true
 }
 
+variable "vm_name" {
+  type    = string
+  default = "terraform-test"
+}
+
+variable "vm_id" {
+  type    = number
+  default = 101
+}
+
+variable "vm_cores" {
+  type    = number
+  default = 2
+}
+
+variable "vm_memory" {
+  type    = number
+  default = 2048
+}
+
+variable "vm_disk_size" {
+  type    = number
+  default = 20
+}
+
+variable "vm_bridge" {
+  type    = string
+  default = "vmbr0"
+}
+
 output "terraform_version_check" {
   value = "Terraform is working successfully"
 }
+
+output "vm_id" {
+  value = proxmox_virtual_environment_vm.terraform_test.vm_id
+}
+
+output "vm_name" {
+  value = proxmox_virtual_environment_vm.terraform_test.name
+}
+
+output "vm_node" {
+  value = proxmox_virtual_environment_vm.terraform_test.node_name
+}
+
+output "vm_mac_address" {
+  value = proxmox_virtual_environment_vm.terraform_test.mac_addresses[0]
+}
+
 resource "proxmox_virtual_environment_vm" "terraform_test" {
-  name      = "terraform-test"
+  name      = var.vm_name
+  vm_id     = var.vm_id
   node_name = "proxmox"
 
   cpu {
-    cores = 2
+    cores = var.vm_cores
   }
 
   memory {
-    dedicated = 2048
+    dedicated = var.vm_memory
   }
 
   initialization {
@@ -60,12 +108,12 @@ resource "proxmox_virtual_environment_vm" "terraform_test" {
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
-    size         = 20
+    size         = var.vm_disk_size
     file_id      = proxmox_download_file.ubuntu_cloud_image.id
   }
 
   network_device {
-    bridge = "vmbr0"
+    bridge = var.vm_bridge
   }
 }
 resource "proxmox_download_file" "ubuntu_cloud_image" {
