@@ -52,3 +52,12 @@ variable "image_datastore" {
   type    = string
   default = "local"
 }
+variable "ubuntu_image_url" {
+  type    = string
+  default = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+}
+
+variable "ubuntu_image_file_name" {
+  type    = string
+  default = "noble-server-cloudimg-amd64.img"
+}

@@ -25,6 +25,6 @@ resource "proxmox_download_file" "ubuntu_cloud_image" {
   datastore_id = var.image_datastore
   node_name    = var.proxmox_node
 
-  url       = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-  file_name = "noble-server-cloudimg-amd64.img"
+  url       = var.ubuntu_image_url
+  file_name = var.ubuntu_image_file_name
 }
