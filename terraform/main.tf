@@ -20,41 +20,6 @@ provider "proxmox" {
   }
 }
 
-resource "proxmox_virtual_environment_vm" "terraform_test" {
-  name      = var.vm_name
-  vm_id     = var.vm_id
-  node_name = var.proxmox_node
-  cpu {
-    cores = var.vm_cores
-  }
-
-  memory {
-    dedicated = var.vm_memory
-  }
-
-  initialization {
-    user_account {
-      username = "terraform"
-      password = var.terraform_vm_password
-    }
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-    }
-  }
-
-  disk {
-    datastore_id = var.vm_datastore
-    interface    = "scsi0"
-    size         = var.vm_disk_size
-    file_id      = proxmox_download_file.ubuntu_cloud_image.id
-  }
-
-  network_device {
-    bridge = var.vm_bridge
-  }
-}
 resource "proxmox_download_file" "ubuntu_cloud_image" {
   content_type = "iso"
   datastore_id = var.image_datastore
