@@ -61,3 +61,27 @@ variable "ubuntu_image_file_name" {
   type    = string
   default = "noble-server-cloudimg-amd64.img"
 }
+variable "vm2_name" {
+  type    = string
+  default = "terraform-test-2"
+}
+
+variable "vm2_id" {
+  type    = number
+  default = 102
+}
+
+variable "vm2_cores" {
+  type    = number
+  default = 2
+}
+
+variable "vm2_memory" {
+  type    = number
+  default = 2048
+}
+
+variable "vm2_disk_size" {
+  type    = number
+  default = 20
+}

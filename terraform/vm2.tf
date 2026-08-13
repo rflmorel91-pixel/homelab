@@ -1,14 +1,14 @@
 resource "proxmox_virtual_environment_vm" "terraform_test_2" {
-  name      = "terraform-test-2"
-  vm_id     = 102
+  name      = var.vm2_name
+  vm_id     = var.vm2_id
   node_name = var.proxmox_node
 
   cpu {
-    cores = 2
+    cores = var.vm2_cores
   }
 
   memory {
-    dedicated = 2048
+    dedicated = var.vm2_memory
   }
 
   initialization {
@@ -27,7 +27,7 @@ resource "proxmox_virtual_environment_vm" "terraform_test_2" {
   disk {
     datastore_id = var.vm_datastore
     interface    = "scsi0"
-    size         = 20
+    size         = var.vm2_disk_size
     file_id      = proxmox_download_file.ubuntu_cloud_image.id
   }
 
