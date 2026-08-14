@@ -357,4 +357,30 @@ The verified workflow is:
 
 `EC2 → AWS Backup → Backup Vault → Recovery Point`
 
-The backup plan retains recovery points for 7 days. No restore operation has been performed yet. Future improvements can include restore testing, cross-region backup, additional protected resources, backup notifications, and automated recovery procedures.
+The backup plan retains recovery points for 7 days. A restore operation was successfully tested and validated. Future improvements can include cross-region backup, additional protected resources, backup notifications, and automated recovery procedures.
+
+### Backup Restore Validation
+
+A full restore test was performed using the completed recovery point `ami-0cfd2bb6e34c12fbf`.
+
+The restore job completed successfully and created a new EC2 instance:
+
+| Setting | Value |
+|---|---|
+| Restore Job | `59442ea3-18d7-47ab-ada3-662e4494750d` |
+| Recovery Point | `ami-0cfd2bb6e34c12fbf` |
+| Restored Instance | `i-0600319d1b14f60c5` |
+| Instance Type | `t3.micro` |
+| Restore Status | `COMPLETED` |
+| Validation Status | Instance reached `running` state |
+| Cleanup Status | Restored test instance terminated |
+
+The restored instance was verified in `us-east-2a` using the original VPC, subnet, security group, and SSH key configuration. The restored instance successfully entered the `running` state and was then terminated after validation to avoid unnecessary resource usage.
+
+This confirms that the AWS Backup recovery point can be used to restore the protected EC2 workload successfully.
+
+The verified disaster-recovery workflow is:
+
+`EC2 → AWS Backup → Recovery Point → Restore → Running EC2 → Validation → Cleanup`
+
+No production restore was required. The restore was performed against the completed recovery point as a controlled disaster-recovery validation exercise.
