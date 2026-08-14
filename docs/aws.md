@@ -254,3 +254,19 @@ The snapshot was verified through the AWS CLI after creation and reached a compl
 Because the existing root EBS volume is unencrypted, this snapshot is also unencrypted. EBS encryption by default is enabled for future volumes, while migration of the existing root volume remains a future hardening and recovery exercise.
 
 Future backup work can include automated snapshot policies, retention management, encrypted backup copies, and restoration testing.
+
+### Backup Verification
+
+The completed snapshot was independently verified after creation.
+
+The backup chain was confirmed as:
+
+- EC2 instance: `i-0656dad4a272bef78`
+- Root volume: `vol-0c36c7f2f48091efc`
+- Snapshot: `snap-011c02daa1d796d81`
+
+The snapshot reached `completed` state with `100%` progress and remains available in the standard EBS snapshot storage tier.
+
+The source root volume remains attached to the running EC2 instance as `/dev/sda1`.
+
+No restoration or replacement of the production root volume was performed during this exercise.
