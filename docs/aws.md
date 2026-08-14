@@ -183,3 +183,30 @@ aws cloudwatch get-metric-statistics \
 ```
 
 This establishes an initial monitoring baseline that can later be extended with CloudWatch alarms, dashboards, and automated alerting.
+
+## EBS Encryption
+
+The initial EC2 storage audit found that EBS encryption by default was disabled in `us-east-2`.
+
+The EC2 root volume was also identified as unencrypted:
+
+| Setting | Value |
+|---|---|
+| Root Volume | `vol-0c36c7f2f48091efc` |
+| Size | 8 GiB |
+| Type | gp3 |
+| Encryption | Not encrypted |
+
+EBS encryption by default was then enabled for the `us-east-2` region.
+
+Verification:
+
+```bash
+aws ec2 get-ebs-encryption-by-default \
+  --profile rafael-aws \
+  --region us-east-2
+
+True
+```
+
+Enabling encryption by default protects future EBS volumes. The existing root volume remains unencrypted and is documented as a future hardening item.
