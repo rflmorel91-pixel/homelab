@@ -119,3 +119,28 @@ Planned AWS work:
 - Connect AWS concepts with Terraform
 - Manage AWS infrastructure through Infrastructure as Code
 - Add AWS automation to the existing homelab portfolio
+
+## Cost Management
+
+A monthly AWS Budget was created to provide cost visibility and spending alerts for the homelab environment.
+
+| Setting | Configuration |
+|---|---|
+| Budget Name | homelab-monthly-budget |
+| Monthly Limit | $10 USD |
+| Alert Type | Actual spending |
+| Alert Threshold | 80% |
+| Notification | Email |
+| Email | rflmorel91@gmail.com |
+
+The budget provides an early warning for AWS spending. It does not enforce a hard spending limit.
+
+The budget was verified using the AWS CLI:
+
+```bash
+aws budgets describe-budgets \
+  --profile rafael-aws \
+  --account-id 723681698511
+```
+
+The notification subscriber was also verified through the AWS Budgets API.
