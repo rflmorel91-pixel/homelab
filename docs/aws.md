@@ -230,3 +230,27 @@ The final AWS EC2 security baseline was verified after implementing the initial 
 The AWS Security Group and Ubuntu UFW provide layered protection for SSH access.
 
 The EC2 instance was also verified as running and reachable through SSH after the firewall configuration was applied.
+
+## Backup and Recovery
+
+An EBS snapshot was created to establish an initial backup and recovery baseline for the AWS EC2 environment.
+
+| Setting | Value |
+|---|---|
+| Source Volume | `vol-0c36c7f2f48091efc` |
+| Snapshot | `snap-011c02daa1d796d81` |
+| Snapshot State | Completed |
+| Progress | 100% |
+| Size | 8 GiB |
+| Encryption | Not encrypted |
+| Description | Homelab AWS root volume backup |
+| Name Tag | `homelab-aws-root-backup` |
+| Project Tag | `90-day-it-program` |
+| Environment Tag | `homelab` |
+| Managed By | `manual` |
+
+The snapshot was verified through the AWS CLI after creation and reached a completed state.
+
+Because the existing root EBS volume is unencrypted, this snapshot is also unencrypted. EBS encryption by default is enabled for future volumes, while migration of the existing root volume remains a future hardening and recovery exercise.
+
+Future backup work can include automated snapshot policies, retention management, encrypted backup copies, and restoration testing.
