@@ -8,6 +8,174 @@ The goal of this project is to continuously develop practical skills in **Linux 
 
 ---
 
+## 💼 Professional Focus
+
+This homelab serves as both a technical learning environment and a practical IT infrastructure portfolio.
+
+The focus is on building reliable, secure, documented, and repeatable infrastructure solutions for small businesses, home-based businesses, remote workers, and small offices.
+
+The working approach is:
+
+**Assess → Build → Secure → Monitor → Verify → Document**
+
+The project combines hands-on infrastructure engineering with documentation, automation, and service packaging.
+
+---
+
+## 🛠️ IT Infrastructure Services
+
+The capabilities demonstrated in this portfolio can be delivered as clearly defined infrastructure services.
+
+| Service                                    | Starting Price |
+| ------------------------------------------ | -------------: |
+| Server & Infrastructure Setup              |       **$350** |
+| Backup & Disaster Recovery                 |       **$250** |
+| Monitoring & Alerting                      |       **$200** |
+| Linux Security Hardening                   |       **$200** |
+| Virtualization & Infrastructure Automation |       **$300** |
+
+Services are designed as fixed-scope starter engagements. Additional work can be quoted separately based on client requirements.
+
+### Service Workflow
+
+```text
+Client Need
+    ↓
+Assessment
+    ↓
+Scope & Quote
+    ↓
+Implementation
+    ↓
+Security
+    ↓
+Verification
+    ↓
+Documentation
+    ↓
+Client Handoff
+```
+
+Business documentation:
+
+* [IT Services Catalog](docs/business/services.md)
+* [Client Services](docs/business/client-services.md)
+* [Service Proposal](docs/business/service-proposal.md)
+* [Client Assessment](docs/business/client-assessment.md)
+* [Service Quote & Statement of Work](docs/business/service-quote.md)
+* [Client Lead & Engagement Tracker](docs/business/client-leads.md)
+
+---
+
+## 🎯 Portfolio Capabilities
+
+This portfolio demonstrates practical experience with:
+
+### Infrastructure
+
+* Proxmox VE
+* KVM/QEMU virtualization
+* Linux server administration
+* OpenMediaVault
+* Storage administration
+* SMB/CIFS file services
+* Network configuration
+
+### Containers & Applications
+
+* Docker
+* Docker Compose
+* Portainer
+* Nextcloud
+* Vaultwarden
+* Authentik
+* Nginx Proxy Manager
+* Uptime Kuma
+
+### Cloud & Remote Access
+
+* AWS EC2
+* AWS Backup
+* CloudWatch
+* SNS
+* Cloudflare
+* Cloudflare Tunnel
+
+### Infrastructure as Code & Automation
+
+* Terraform
+* Proxmox API
+* Reusable Terraform modules
+* Git
+* GitHub
+* GitHub Actions
+* Bash automation
+
+### Security
+
+* SSH hardening
+* SSH key authentication
+* UFW firewall configuration
+* User and access reviews
+* Security update configuration
+* Service exposure review
+
+### Monitoring & Observability
+
+* Prometheus
+* Grafana
+* Node Exporter
+* cAdvisor
+* Uptime Kuma
+* Automated health checks
+* Alerting and notifications
+
+### Backup & Disaster Recovery
+
+* AWS Backup configuration
+* Recovery point verification
+* Restore testing
+* Recovery validation
+* Recovery documentation
+
+The AWS backup workflow has been tested through a complete controlled restore:
+
+```text
+EC2
+ ↓
+AWS Backup
+ ↓
+Recovery Point
+ ↓
+Restore
+ ↓
+Validation
+ ↓
+Cleanup
+```
+
+---
+
+## 📋 Documentation & Delivery
+
+Infrastructure changes are documented and tracked using Git and GitHub.
+
+The portfolio emphasizes:
+
+* Reproducible configuration
+* Version-controlled infrastructure
+* Validation before deployment
+* Security baselines
+* Monitoring and health verification
+* Backup verification
+* Recovery testing
+* Client-ready documentation
+* Clear project scope and handoff procedures
+
+The goal is not simply to make infrastructure work, but to make it **understandable, repeatable, verifiable, and maintainable**.
+
+---
+
 ## 🏗️ Infrastructure Overview
 
 ```text
