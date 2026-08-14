@@ -144,3 +144,42 @@ aws budgets describe-budgets \
 ```
 
 The notification subscriber was also verified through the AWS Budgets API.
+
+## CloudWatch Monitoring
+
+Amazon CloudWatch monitoring was verified for the EC2 instance `i-0656dad4a272bef78`.
+
+Available EC2 metrics include:
+
+- CPU utilization
+- Network traffic
+- EBS activity
+- CPU credit usage
+- EC2 status checks
+- Instance and system health indicators
+
+### Monitoring Baseline
+
+The initial CloudWatch baseline showed:
+
+| Metric | Result |
+|---|---|
+| CPU Utilization | Very low / idle |
+| StatusCheckFailed | 0 |
+| NetworkIn | Low traffic |
+| NetworkOut | Low traffic |
+
+CloudWatch metric queries were performed using the AWS CLI with the `rafael-aws` SSO profile.
+
+Example:
+
+```bash
+aws cloudwatch get-metric-statistics \
+  --profile rafael-aws \
+  --region us-east-2 \
+  --namespace AWS/EC2 \
+  --metric-name CPUUtilization \
+  --dimensions Name=InstanceId,Value=i-0656dad4a272bef78
+```
+
+This establishes an initial monitoring baseline that can later be extended with CloudWatch alarms, dashboards, and automated alerting.
