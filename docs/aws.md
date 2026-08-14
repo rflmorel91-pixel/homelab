@@ -210,3 +210,23 @@ True
 ```
 
 Enabling encryption by default protects future EBS volumes. The existing root volume remains unencrypted and is documented as a future hardening item.
+
+## Security Baseline Verification
+
+The final AWS EC2 security baseline was verified after implementing the initial hardening controls.
+
+| Control | Result |
+|---|---|
+| Security Group SSH | TCP 22 from `69.127.140.117/32` only |
+| UFW | Active |
+| UFW Incoming | Deny by default |
+| UFW Outgoing | Allow by default |
+| UFW SSH | TCP 22 from `69.127.140.117` only |
+| IMDSv2 | Required |
+| IAM Instance Profile | None |
+| EBS Encryption by Default | Enabled |
+| Root EBS Volume | Existing volume remains unencrypted |
+
+The AWS Security Group and Ubuntu UFW provide layered protection for SSH access.
+
+The EC2 instance was also verified as running and reachable through SSH after the firewall configuration was applied.
