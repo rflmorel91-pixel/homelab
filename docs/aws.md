@@ -290,3 +290,22 @@ A CloudWatch CPU utilization alarm was configured for the AWS EC2 instance.
 The alarm was verified through the AWS CLI and transitioned to `OK` after CloudWatch evaluated two consecutive datapoints below the 80% threshold.
 
 The alarm currently provides monitoring and state evaluation without notification actions. Future improvements can include SNS notifications, additional health alarms, CloudWatch dashboards, and automated incident response.
+
+### EC2 Status Check Alarm
+
+A second CloudWatch alarm was configured to monitor EC2 instance status checks.
+
+| Setting | Value |
+|---|---|
+| Alarm | `homelab-aws-ec2-status-check` |
+| Instance | `i-0656dad4a272bef78` |
+| Metric | `StatusCheckFailed` |
+| Statistic | Maximum |
+| Period | 300 seconds |
+| Evaluation Periods | 1 |
+| Threshold | Greater Than 0 |
+| Actions | None configured |
+
+The alarm was verified through the AWS CLI and transitioned to `OK` after CloudWatch evaluated a `0.0` datapoint, confirming that no EC2 status-check failures were detected.
+
+Together, the CPU utilization and status-check alarms provide an initial CloudWatch monitoring baseline for the AWS EC2 instance.
