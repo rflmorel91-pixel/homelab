@@ -331,3 +331,30 @@ The resulting monitoring and alerting workflow is:
 `EC2 → CloudWatch → Alarm → SNS → Email`
 
 No automated remediation actions are configured. Future improvements can include additional CloudWatch alarms, SNS integrations, dashboards, and automated incident response.
+
+### AWS Backup
+
+AWS Backup was configured to protect the homelab EC2 instance using a dedicated backup vault and daily backup plan.
+
+| Setting | Value |
+|---|---|
+| Backup Vault | `homelab-aws-vault` |
+| Region | `us-east-2` |
+| Backup Plan | `homelab-aws-daily` |
+| Schedule | Daily at 05:00 UTC |
+| Retention | 7 days |
+| Resource Selection | `Project=90-day-it-program` |
+| Protected Resource | `homelab-aws-01` |
+| Backup Type | EC2 |
+| Recovery Point | `ami-0cfd2bb6e34c12fbf` |
+| Recovery Point Status | `COMPLETED` |
+
+EC2 was explicitly enabled for AWS Backup in the `us-east-2` region. A tag-based backup selection was configured so resources tagged with `Project=90-day-it-program` are automatically selected by the backup plan.
+
+An on-demand EC2 backup was successfully executed using AWS Backup. The backup job transitioned to `COMPLETED` and produced a completed recovery point in the `homelab-aws-vault` backup vault.
+
+The verified workflow is:
+
+`EC2 → AWS Backup → Backup Vault → Recovery Point`
+
+The backup plan retains recovery points for 7 days. No restore operation has been performed yet. Future improvements can include restore testing, cross-region backup, additional protected resources, backup notifications, and automated recovery procedures.
