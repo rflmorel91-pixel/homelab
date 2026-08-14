@@ -285,11 +285,11 @@ A CloudWatch CPU utilization alarm was configured for the AWS EC2 instance.
 | Evaluation Periods | 2 |
 | Threshold | 80% |
 | Condition | Greater Than |
-| Actions | None configured |
+| Actions | SNS notification enabled |
 
 The alarm was verified through the AWS CLI and transitioned to `OK` after CloudWatch evaluated two consecutive datapoints below the 80% threshold.
 
-The alarm currently provides monitoring and state evaluation without notification actions. Future improvements can include SNS notifications, additional health alarms, CloudWatch dashboards, and automated incident response.
+The alarm currently provides monitoring and state evaluation with SNS email notification actions enabled. Future improvements can include additional health alarms, CloudWatch dashboards, and automated incident response.
 
 ### EC2 Status Check Alarm
 
@@ -309,3 +309,25 @@ A second CloudWatch alarm was configured to monitor EC2 instance status checks.
 The alarm was verified through the AWS CLI and transitioned to `OK` after CloudWatch evaluated a `0.0` datapoint, confirming that no EC2 status-check failures were detected.
 
 Together, the CPU utilization and status-check alarms provide an initial CloudWatch monitoring baseline for the AWS EC2 instance.
+
+### SNS Alerting
+
+Amazon SNS was configured to provide email notifications for CloudWatch alarm events.
+
+| Setting | Value |
+|---|---|
+| Topic | `homelab-aws-alerts` |
+| Region | `us-east-2` |
+| Protocol | Email |
+| Subscription | Confirmed |
+| CPU Alarm | SNS notification enabled |
+| Status Check Alarm | SNS notification enabled |
+| Alarm Actions | Enabled |
+
+The SNS notification path was tested independently using the AWS CLI. A test message was successfully published to the topic and received by the subscribed email address.
+
+The resulting monitoring and alerting workflow is:
+
+`EC2 → CloudWatch → Alarm → SNS → Email`
+
+No automated remediation actions are configured. Future improvements can include additional CloudWatch alarms, SNS integrations, dashboards, and automated incident response.
