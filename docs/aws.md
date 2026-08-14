@@ -270,3 +270,23 @@ The snapshot reached `completed` state with `100%` progress and remains availabl
 The source root volume remains attached to the running EC2 instance as `/dev/sda1`.
 
 No restoration or replacement of the production root volume was performed during this exercise.
+
+## CloudWatch Alarms
+
+A CloudWatch CPU utilization alarm was configured for the AWS EC2 instance.
+
+| Setting | Value |
+|---|---|
+| Alarm | `homelab-aws-ec2-high-cpu` |
+| Instance | `i-0656dad4a272bef78` |
+| Metric | `CPUUtilization` |
+| Statistic | Average |
+| Period | 300 seconds |
+| Evaluation Periods | 2 |
+| Threshold | 80% |
+| Condition | Greater Than |
+| Actions | None configured |
+
+The alarm was verified through the AWS CLI and transitioned to `OK` after CloudWatch evaluated two consecutive datapoints below the 80% threshold.
+
+The alarm currently provides monitoring and state evaluation without notification actions. Future improvements can include SNS notifications, additional health alarms, CloudWatch dashboards, and automated incident response.
