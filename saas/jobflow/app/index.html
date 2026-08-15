@@ -285,6 +285,48 @@
 
   </section>
 
+  <section class="panel">
+
+    <h2>Create Invoice</h2>
+
+    <form id="invoiceForm">
+
+      <select id="invoiceJob" required>
+        <option value="">Select completed job</option>
+      </select>
+
+      <input
+        id="invoiceNumber"
+        type="text"
+        placeholder="Invoice number"
+        required
+      >
+
+      <input
+        id="invoiceAmount"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="Amount"
+        required
+      >
+
+      <button type="submit">Create Invoice</button>
+
+    </form>
+
+  </section>
+
+  <section class="panel">
+
+    <h2>Invoices</h2>
+
+    <div id="invoiceList">
+      <p class="empty">No invoices yet.</p>
+    </div>
+
+  </section>
+
 </main>
 
 <script>
@@ -303,6 +345,10 @@ let estimates = JSON.parse(
 
 let schedules = JSON.parse(
   localStorage.getItem("jobflow_schedules") || "[]"
+);
+
+let invoices = JSON.parse(
+  localStorage.getItem("jobflow_invoices") || "[]"
 );
 
 const customerForm =
@@ -334,6 +380,15 @@ const scheduleJob =
 
 const scheduleList =
   document.getElementById("scheduleList");
+
+const invoiceForm =
+  document.getElementById("invoiceForm");
+
+const invoiceJob =
+  document.getElementById("invoiceJob");
+
+const invoiceList =
+  document.getElementById("invoiceList");
 
 const jobCustomer =
   document.getElementById("jobCustomer");
@@ -406,6 +461,142 @@ function renderScheduleJobs() {
       </option>
 
     `).join("");
+}
+
+
+function renderInvoiceJobs() {
+
+  const completedJobs =
+    jobs.filter(job => job.status === "Completed");
+
+  if (completedJobs.length === 0) {
+
+    invoiceJob.innerHTML =
+      '<option value="">No completed jobs available</option>';
+
+    return;
+  }
+
+  invoiceJob.innerHTML =
+    '<option value="">Select completed job</option>' +
+
+    completedJobs.map(job => `
+
+      <option value="${job.id}">
+        ${job.title}
+      </option>
+
+    `).join("");
+}
+
+
+function updateInvoiceStatus(invoiceId, newStatus) {
+
+  const invoice =
+    invoices.find(i => i.id === invoiceId);
+
+  if (!invoice) {
+    return;
+  }
+
+  if (
+    newStatus === "Sent" &&
+    invoice.status !== "Draft"
+  ) {
+    return;
+  }
+
+  if (
+    newStatus === "Paid" &&
+    invoice.status !== "Sent"
+  ) {
+    return;
+  }
+
+  invoice.status = newStatus;
+
+  localStorage.setItem(
+    "jobflow_invoices",
+    JSON.stringify(invoices)
+  );
+
+  renderInvoices();
+}
+
+
+function renderInvoices() {
+
+  if (invoices.length === 0) {
+
+    invoiceList.innerHTML =
+      '<p class="empty">No invoices yet.</p>';
+
+    return;
+  }
+
+  invoiceList.innerHTML =
+    invoices.map(invoice => {
+
+      const job =
+        jobs.find(j => j.id === invoice.jobId);
+
+      const customer =
+        job
+          ? customers.find(c => c.id === job.customerId)
+          : null;
+
+      return `
+
+        <div class="job">
+
+          <strong>
+            ${invoice.invoiceNumber}
+          </strong>
+
+          <div>
+            Customer:
+            ${customer ? customer.name : "Unknown"}
+          </div>
+
+          <div>
+            Job:
+            ${job ? job.title : "Unknown Job"}
+          </div>
+
+          <div>
+            Amount:
+            $${invoice.amount.toFixed(2)}
+          </div>
+
+          <div class="status">
+            ${invoice.status}
+          </div>
+
+          <div style="margin-top: 12px;">
+
+            ${
+              invoice.status === "Draft"
+                ? `<button onclick="updateInvoiceStatus(${invoice.id}, 'Sent')">
+                     Send Invoice
+                   </button>`
+                : ""
+            }
+
+            ${
+              invoice.status === "Sent"
+                ? `<button onclick="updateInvoiceStatus(${invoice.id}, 'Paid')">
+                     Mark Paid
+                   </button>`
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      `;
+
+    }).join("");
 }
 
 
@@ -780,6 +971,54 @@ function updateEstimateStatus(estimateId, newStatus) {
 }
 
 
+invoiceForm.addEventListener(
+  "submit",
+  function(event) {
+
+    event.preventDefault();
+
+    const jobId =
+      Number(invoiceJob.value);
+
+    const job =
+      jobs.find(j => j.id === jobId);
+
+    if (!job || job.status !== "Completed") {
+      return;
+    }
+
+    const invoice = {
+
+      id: Date.now(),
+
+      jobId: jobId,
+
+      invoiceNumber:
+        document.getElementById("invoiceNumber").value,
+
+      amount:
+        Number(
+          document.getElementById("invoiceAmount").value
+        ),
+
+      status: "Draft"
+    };
+
+    invoices.push(invoice);
+
+    localStorage.setItem(
+      "jobflow_invoices",
+      JSON.stringify(invoices)
+    );
+
+    invoiceForm.reset();
+
+    renderInvoiceJobs();
+    renderInvoices();
+  }
+);
+
+
 scheduleForm.addEventListener(
   "submit",
   function(event) {
@@ -877,6 +1116,8 @@ renderEstimateJobs();
 renderEstimates();
 renderScheduleJobs();
 renderSchedules();
+renderInvoiceJobs();
+renderInvoices();
 
 </script>
 
