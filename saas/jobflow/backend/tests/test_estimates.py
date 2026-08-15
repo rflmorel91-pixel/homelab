@@ -131,3 +131,17 @@ def test_create_estimate_requires_existing_job(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found"
+
+
+def test_create_estimate_rejects_invalid_status(client):
+    response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": 1,
+            "description": "Invalid status estimate",
+            "amount": 100.00,
+            "status": "not_a_real_status",
+        },
+    )
+
+    assert response.status_code == 422

@@ -123,3 +123,17 @@ def test_create_job_requires_existing_customer(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Customer not found"
+
+
+def test_create_job_rejects_invalid_status(client):
+    response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": 1,
+            "title": "Invalid Status Job",
+            "description": "Should be rejected",
+            "status": "not_a_real_status",
+        },
+    )
+
+    assert response.status_code == 422
