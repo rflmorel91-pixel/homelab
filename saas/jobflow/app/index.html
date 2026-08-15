@@ -409,6 +409,42 @@ function renderScheduleJobs() {
 }
 
 
+function updateJobStatus(jobId, newStatus) {
+
+  const job =
+    jobs.find(j => j.id === jobId);
+
+  if (!job) {
+    return;
+  }
+
+  if (
+    newStatus === "In Progress" &&
+    job.status !== "Scheduled"
+  ) {
+    return;
+  }
+
+  if (
+    newStatus === "Completed" &&
+    job.status !== "In Progress"
+  ) {
+    return;
+  }
+
+  job.status = newStatus;
+
+  localStorage.setItem(
+    "jobflow_jobs",
+    JSON.stringify(jobs)
+  );
+
+  renderJobs();
+  renderScheduleJobs();
+  renderSchedules();
+}
+
+
 function renderSchedules() {
 
   if (schedules.length === 0) {
@@ -454,7 +490,27 @@ function renderSchedules() {
           </div>
 
           <div class="status">
-            Scheduled
+            ${job ? job.status : "Scheduled"}
+          </div>
+
+          <div style="margin-top: 12px;">
+
+            ${
+              job && job.status === "Scheduled"
+                ? `<button onclick="updateJobStatus(${job.id}, 'In Progress')">
+                     Start Job
+                   </button>`
+                : ""
+            }
+
+            ${
+              job && job.status === "In Progress"
+                ? `<button onclick="updateJobStatus(${job.id}, 'Completed')">
+                     Complete Job
+                   </button>`
+                : ""
+            }
+
           </div>
 
         </div>
