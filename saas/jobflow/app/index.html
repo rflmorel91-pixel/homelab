@@ -247,6 +247,44 @@
 
   </section>
 
+  <section class="panel">
+
+    <h2>Schedule Job</h2>
+
+    <form id="scheduleForm">
+
+      <select id="scheduleJob" required>
+        <option value="">Select job</option>
+      </select>
+
+      <input
+        id="scheduleDate"
+        type="date"
+        required
+      >
+
+      <input
+        id="scheduleTime"
+        type="time"
+        required
+      >
+
+      <button type="submit">Schedule Job</button>
+
+    </form>
+
+  </section>
+
+  <section class="panel">
+
+    <h2>Schedule</h2>
+
+    <div id="scheduleList">
+      <p class="empty">No scheduled jobs yet.</p>
+    </div>
+
+  </section>
+
 </main>
 
 <script>
@@ -261,6 +299,10 @@ let jobs = JSON.parse(
 
 let estimates = JSON.parse(
   localStorage.getItem("jobflow_estimates") || "[]"
+);
+
+let schedules = JSON.parse(
+  localStorage.getItem("jobflow_schedules") || "[]"
 );
 
 const customerForm =
@@ -283,6 +325,15 @@ const estimateJob =
 
 const estimateList =
   document.getElementById("estimateList");
+
+const scheduleForm =
+  document.getElementById("scheduleForm");
+
+const scheduleJob =
+  document.getElementById("scheduleJob");
+
+const scheduleList =
+  document.getElementById("scheduleList");
 
 const jobCustomer =
   document.getElementById("jobCustomer");
@@ -329,6 +380,88 @@ function renderCustomers() {
       </option>
 
     `).join("");
+}
+
+
+function renderScheduleJobs() {
+
+  const approvedJobs =
+    jobs.filter(job => job.status === "Approved");
+
+  if (approvedJobs.length === 0) {
+
+    scheduleJob.innerHTML =
+      '<option value="">No approved jobs available</option>';
+
+    return;
+  }
+
+  scheduleJob.innerHTML =
+    '<option value="">Select job</option>' +
+
+    approvedJobs.map(job => `
+
+      <option value="${job.id}">
+        ${job.title}
+      </option>
+
+    `).join("");
+}
+
+
+function renderSchedules() {
+
+  if (schedules.length === 0) {
+
+    scheduleList.innerHTML =
+      '<p class="empty">No scheduled jobs yet.</p>';
+
+    return;
+  }
+
+  scheduleList.innerHTML =
+    schedules.map(schedule => {
+
+      const job =
+        jobs.find(j => j.id === schedule.jobId);
+
+      const customer =
+        job
+          ? customers.find(c => c.id === job.customerId)
+          : null;
+
+      return `
+
+        <div class="job">
+
+          <strong>
+            ${job ? job.title : "Unknown Job"}
+          </strong>
+
+          <div>
+            Customer:
+            ${customer ? customer.name : "Unknown"}
+          </div>
+
+          <div>
+            Date:
+            ${schedule.date}
+          </div>
+
+          <div>
+            Time:
+            ${schedule.time}
+          </div>
+
+          <div class="status">
+            Scheduled
+          </div>
+
+        </div>
+
+      `;
+
+    }).join("");
 }
 
 
@@ -551,6 +684,7 @@ jobForm.addEventListener(
 
     renderJobs();
     renderEstimateJobs();
+    renderScheduleJobs();
   }
 );
 
@@ -588,6 +722,58 @@ function updateEstimateStatus(estimateId, newStatus) {
   renderEstimateJobs();
   renderEstimates();
 }
+
+
+scheduleForm.addEventListener(
+  "submit",
+  function(event) {
+
+    event.preventDefault();
+
+    const jobId =
+      Number(scheduleJob.value);
+
+    const job =
+      jobs.find(j => j.id === jobId);
+
+    if (!job || job.status !== "Approved") {
+      return;
+    }
+
+    const schedule = {
+
+      id: Date.now(),
+
+      jobId: jobId,
+
+      date:
+        document.getElementById("scheduleDate").value,
+
+      time:
+        document.getElementById("scheduleTime").value
+    };
+
+    schedules.push(schedule);
+
+    localStorage.setItem(
+      "jobflow_schedules",
+      JSON.stringify(schedules)
+    );
+
+    job.status = "Scheduled";
+
+    localStorage.setItem(
+      "jobflow_jobs",
+      JSON.stringify(jobs)
+    );
+
+    scheduleForm.reset();
+
+    renderJobs();
+    renderScheduleJobs();
+    renderSchedules();
+  }
+);
 
 
 estimateForm.addEventListener(
@@ -633,6 +819,8 @@ renderCustomers();
 renderJobs();
 renderEstimateJobs();
 renderEstimates();
+renderScheduleJobs();
+renderSchedules();
 
 </script>
 
