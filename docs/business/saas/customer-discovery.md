@@ -85,7 +85,7 @@ Primary hypothesis:
 
 Customer communication, photos, estimates, and follow-up may create administrative work.
 
-Status: Research complete  
+Status: Research complete
 Interview: Pending
 
 ---
@@ -96,7 +96,7 @@ Primary hypothesis:
 
 Scheduling and workload management may create administrative work.
 
-Status: Research complete  
+Status: Research complete
 Interview: Pending
 
 ---
@@ -107,7 +107,7 @@ Primary hypothesis:
 
 Estimates, pricing, scheduling, and payments may create administrative work.
 
-Status: Research complete  
+Status: Research complete
 Interview: Pending
 
 ---
@@ -118,7 +118,7 @@ Primary hypothesis:
 
 Owner-operated customer and job administration may create manual work.
 
-Status: Research complete  
+Status: Research complete
 Interview: Pending
 
 ---
@@ -129,7 +129,7 @@ Primary hypothesis:
 
 Text-based quoting and scheduling may create fragmented customer information.
 
-Status: Research complete  
+Status: Research complete
 Interview: Pending
 
 ---
@@ -202,11 +202,11 @@ Potential MVP feature:
 
 ### Validation Score
 
-Pain severity: /5  
-Frequency: /5  
-Time cost: /5  
-Existing workaround: /5  
-Willingness to pay: /5  
+Pain severity: /5
+Frequency: /5
+Time cost: /5
+Existing workaround: /5
+Willingness to pay: /5
 
 Total: /25
 
