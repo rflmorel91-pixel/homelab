@@ -7,6 +7,18 @@ from app.models import Customer, Job
 from app.schemas import JobCreate, JobRead, JobUpdate
 
 
+JOB_STATUS_TRANSITIONS = {
+    "customer_requested": {"quoted"},
+    "quoted": {"approved"},
+    "approved": {"scheduled"},
+    "scheduled": {"in_progress"},
+    "in_progress": {"completed"},
+    "completed": {"invoiced"},
+    "invoiced": {"paid"},
+    "paid": set(),
+}
+
+
 router = APIRouter(
     prefix="/jobs",
     tags=["Jobs"],
@@ -83,6 +95,21 @@ def update_job(
             status_code=404,
             detail="Customer not found",
         )
+
+    if job.status != db_job.status:
+        allowed_statuses = JOB_STATUS_TRANSITIONS.get(
+            db_job.status,
+            set(),
+        )
+
+        if job.status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid job status transition: "
+                    f"{db_job.status} -> {job.status}"
+                ),
+            )
 
     for field, value in job.model_dump().items():
         setattr(db_job, field, value)

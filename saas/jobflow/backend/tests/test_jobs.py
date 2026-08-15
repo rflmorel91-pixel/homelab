@@ -76,7 +76,7 @@ def test_job_crud(client):
             "customer_id": customer["id"],
             "title": "Updated Job",
             "description": "Updated description",
-            "status": "scheduled",
+            "status": "quoted",
         },
     )
 
@@ -86,7 +86,7 @@ def test_job_crud(client):
 
     assert updated_job["title"] == "Updated Job"
     assert updated_job["description"] == "Updated description"
-    assert updated_job["status"] == "scheduled"
+    assert updated_job["status"] == "quoted"
 
     list_response = client.get(
         "/api/v1/jobs/"
