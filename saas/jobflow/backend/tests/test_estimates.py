@@ -79,6 +79,18 @@ def test_estimate_crud(client):
     assert get_response.status_code == 200
     assert get_response.json()["amount"] == "2500.00"
 
+    send_response = client.put(
+        f"/api/v1/estimates/{estimate_id}",
+        json={
+            "job_id": job["id"],
+            "description": "Updated estimate",
+            "amount": "2750.00",
+            "status": "sent",
+        },
+    )
+
+    assert send_response.status_code == 200
+
     update_response = client.put(
         f"/api/v1/estimates/{estimate_id}",
         json={
@@ -111,12 +123,11 @@ def test_estimate_crud(client):
 
     assert delete_response.status_code == 204
 
-    missing_response = client.get(
+    get_deleted_response = client.get(
         f"/api/v1/estimates/{estimate_id}"
     )
 
-    assert missing_response.status_code == 404
-
+    assert get_deleted_response.status_code == 404
 
 def test_create_estimate_requires_existing_job(client):
     response = client.post(

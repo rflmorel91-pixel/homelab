@@ -7,6 +7,14 @@ from app.models import Estimate, Job
 from app.schemas import EstimateCreate, EstimateRead, EstimateUpdate
 
 
+ESTIMATE_STATUS_TRANSITIONS = {
+    "draft": {"sent"},
+    "sent": {"approved", "declined"},
+    "approved": set(),
+    "declined": set(),
+}
+
+
 router = APIRouter(
     prefix="/estimates",
     tags=["Estimates"],
@@ -83,6 +91,21 @@ def update_estimate(
             raise HTTPException(
                 status_code=404,
                 detail="Job not found",
+            )
+
+    if estimate.status != db_estimate.status:
+        allowed_statuses = ESTIMATE_STATUS_TRANSITIONS.get(
+            db_estimate.status,
+            set(),
+        )
+
+        if estimate.status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid estimate status transition: "
+                    f"{db_estimate.status} -> {estimate.status}"
+                ),
             )
 
     for field, value in estimate.model_dump().items():
