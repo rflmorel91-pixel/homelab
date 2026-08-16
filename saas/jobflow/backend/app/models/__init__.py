@@ -1,3 +1,5 @@
+from app.models.user import User
+from app.models.tenant_membership import TenantMembership
 from app.models.tenant import Tenant
 from app.models.customer import Customer
 from app.models.job import Job
@@ -7,6 +9,8 @@ from app.models.payment import Payment
 from app.models.schedule import Schedule
 
 __all__ = [
+    "TenantMembership",
+    "User",
     "Tenant",
     "Customer",
     "Job",
