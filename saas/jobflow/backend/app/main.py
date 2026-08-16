@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.customers import router as customers_router
 from app.api.estimates import router as estimates_router
 from app.api.jobs import router as jobs_router
+from app.api.invoices import router as invoices_router
+
 
 
 app = FastAPI(
@@ -37,6 +39,10 @@ app.include_router(
     prefix="/api/v1",
 )
 
+app.include_router(
+    invoices_router,
+    prefix="/api/v1",
+)
 
 @app.get("/api/v1/health")
 def health_check():

@@ -253,6 +253,33 @@
         <button type="submit">Create Estimate</button>
       </form>
     </section>
+    <section class="panel">
+      <h2>Create Invoice</h2>
+
+      <form id="invoiceForm">
+        <select id="invoiceJob" required>
+          <option value="">Select job</option>
+        </select>
+
+        <input
+          id="invoiceDescription"
+          type="text"
+          placeholder="Invoice description"
+          required
+        >
+
+        <input
+          id="invoiceAmount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Amount"
+          required
+        >
+
+        <button type="submit">Create Invoice</button>
+      </form>
+    </section>
 
   </div>
 
@@ -276,6 +303,12 @@
       <p class="empty">Loading estimates...</p>
     </div>
   </section>
+  <section class="panel">
+    <h2>Invoices</h2>
+    <div id="invoiceList">
+      <p class="empty">Loading invoices...</p>
+    </div>
+  </section>
 
 </main>
 
@@ -285,17 +318,21 @@
   let customers = [];
   let jobs = [];
   let estimates = [];
+  let invoices = [];
 
   const customerForm = document.getElementById("customerForm");
   const jobForm = document.getElementById("jobForm");
   const estimateForm = document.getElementById("estimateForm");
+  const invoiceForm = document.getElementById("invoiceForm");
 
   const customerList = document.getElementById("customerList");
   const jobList = document.getElementById("jobList");
   const estimateList = document.getElementById("estimateList");
+  const invoiceList = document.getElementById("invoiceList");
 
   const jobCustomer = document.getElementById("jobCustomer");
   const estimateJob = document.getElementById("estimateJob");
+  const invoiceJob = document.getElementById("invoiceJob");
 
   const errorMessage = document.getElementById("errorMessage");
   const successMessage = document.getElementById("successMessage");
@@ -366,17 +403,20 @@
 
   async function loadData() {
     try {
-      [customers, jobs, estimates] = await Promise.all([
+      [customers, jobs, estimates, invoices] = await Promise.all([
         apiRequest("/customers/"),
         apiRequest("/jobs/"),
-        apiRequest("/estimates/")
+        apiRequest("/estimates/"),
+        apiRequest("/invoices/")
       ]);
 
       renderCustomers();
       renderJobs();
       renderEstimates();
+      renderInvoices();
       updateJobCustomerOptions();
       updateEstimateJobOptions();
+      updateInvoiceJobOptions();
 
     } catch (error) {
       showError(error.message);
@@ -417,6 +457,21 @@
       `).join("");
   }
 
+  function updateInvoiceJobOptions() {
+    if (jobs.length === 0) {
+      invoiceJob.innerHTML =
+        '<option value="">No jobs available</option>';
+      return;
+    }
+
+    invoiceJob.innerHTML =
+      '<option value="">Select job</option>' +
+      jobs.map(job => `
+        <option value="${job.id}">
+          ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
 
   function renderCustomers() {
     if (customers.length === 0) {
@@ -637,7 +692,111 @@
     }
   }
 
+  function renderInvoices() {
+    if (invoices.length === 0) {
+      invoiceList.innerHTML =
+        '<p class="empty">No invoices yet.</p>';
+      return;
+    }
 
+    invoiceList.innerHTML = invoices.map(invoice => {
+      const job =
+        jobs.find(job => job.id === invoice.job_id);
+
+      const customer =
+        job
+          ? customers.find(
+              customer => customer.id === job.customer_id
+            )
+          : null;
+
+      let actions = "";
+
+      if (invoice.status === "draft") {
+        actions = `
+          <button
+            onclick="updateInvoiceStatus(${invoice.id}, 'sent')"
+          >
+            Send Invoice
+          </button>
+        `;
+      }
+
+      if (invoice.status === "sent") {
+        actions = `
+          <button
+            class="success"
+            onclick="updateInvoiceStatus(${invoice.id}, 'paid')"
+          >
+            Mark Paid
+          </button>
+        `;
+      }
+
+      return `
+        <div class="card">
+          <strong>
+            ${escapeHtml(invoice.description || "Invoice")}
+          </strong>
+
+          <div>
+            Customer:
+            ${customer
+              ? escapeHtml(customer.name)
+              : "Unknown customer"}
+          </div>
+
+          <div>
+            Job:
+            ${job
+              ? escapeHtml(job.title)
+              : "Unknown job"}
+          </div>
+
+          <div class="amount">
+            Amount: $${escapeHtml(invoice.amount)}
+          </div>
+
+          <span class="status">
+            ${escapeHtml(invoice.status)}
+          </span>
+
+          ${
+            actions
+              ? `<div class="actions">${actions}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+  async function updateInvoiceStatus(invoiceId, newStatus) {
+    const invoice =
+      invoices.find(item => item.id === invoiceId);
+
+    if (!invoice) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/invoices/${invoiceId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          job_id: invoice.job_id,
+          description: invoice.description,
+          amount: invoice.amount,
+          status: newStatus
+        })
+      });
+
+      await loadData();
+
+      showSuccess(`Invoice ${newStatus}.`);
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
   customerForm.addEventListener("submit", async event => {
     event.preventDefault();
 
@@ -687,6 +846,30 @@
     }
   });
 
+  invoiceForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/invoices/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: Number(invoiceJob.value),
+          description:
+            document.getElementById("invoiceDescription").value,
+          amount:
+            document.getElementById("invoiceAmount").value
+        })
+      });
+
+      invoiceForm.reset();
+      await loadData();
+
+      showSuccess("Invoice created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
 
   estimateForm.addEventListener("submit", async event => {
     event.preventDefault();

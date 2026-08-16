@@ -1,0 +1,133 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Invoice, Job
+from app.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate
+
+
+INVOICE_STATUS_TRANSITIONS = {
+    "draft": {"sent"},
+    "sent": {"paid"},
+    "paid": set(),
+}
+
+
+router = APIRouter(
+    prefix="/invoices",
+    tags=["Invoices"],
+)
+
+
+@router.post("/", response_model=InvoiceRead, status_code=201)
+def create_invoice(
+    invoice: InvoiceCreate,
+    db: Session = Depends(get_db),
+):
+    job = db.get(Job, invoice.job_id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    db_invoice = Invoice(**invoice.model_dump())
+
+    db.add(db_invoice)
+    db.commit()
+    db.refresh(db_invoice)
+
+    return db_invoice
+
+
+@router.get("/", response_model=list[InvoiceRead])
+def list_invoices(
+    db: Session = Depends(get_db),
+):
+    result = db.execute(
+        select(Invoice).order_by(Invoice.id)
+    )
+
+    return result.scalars().all()
+
+
+@router.get("/{invoice_id}", response_model=InvoiceRead)
+def get_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+):
+    invoice = db.get(Invoice, invoice_id)
+
+    if invoice is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found",
+        )
+
+    return invoice
+
+
+@router.put("/{invoice_id}", response_model=InvoiceRead)
+def update_invoice(
+    invoice_id: int,
+    invoice: InvoiceUpdate,
+    db: Session = Depends(get_db),
+):
+    db_invoice = db.get(Invoice, invoice_id)
+
+    if db_invoice is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found",
+        )
+
+    if invoice.job_id != db_invoice.job_id:
+        job = db.get(Job, invoice.job_id)
+
+        if job is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Job not found",
+            )
+
+    if invoice.status != db_invoice.status:
+        allowed_statuses = INVOICE_STATUS_TRANSITIONS.get(
+            db_invoice.status,
+            set(),
+        )
+
+        if invoice.status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid invoice status transition: "
+                    f"{db_invoice.status} -> {invoice.status}"
+                ),
+            )
+
+    for field, value in invoice.model_dump().items():
+        setattr(db_invoice, field, value)
+
+    db.commit()
+    db.refresh(db_invoice)
+
+    return db_invoice
+
+
+@router.delete("/{invoice_id}", status_code=204)
+def delete_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+):
+    db_invoice = db.get(Invoice, invoice_id)
+
+    if db_invoice is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found",
+        )
+
+    db.delete(db_invoice)
+    db.commit()
