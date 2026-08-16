@@ -231,3 +231,65 @@ def test_job_status_progression(client):
 
         assert response.status_code == 200
         assert response.json()["status"] == status
+
+
+def test_cannot_move_job_to_different_customer(client):
+    customer1_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Original Job Customer",
+            "phone": "555-0700",
+            "email": "original-job@example.com",
+            "address": "700 Original Street",
+        },
+    )
+
+    assert customer1_response.status_code == 201
+    customer1 = customer1_response.json()
+
+    customer2_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Different Job Customer",
+            "phone": "555-0800",
+            "email": "different-job@example.com",
+            "address": "800 Different Street",
+        },
+    )
+
+    assert customer2_response.status_code == 201
+    customer2 = customer2_response.json()
+
+    job_response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer1["id"],
+            "title": "Immovable Job",
+            "description": "Job ownership test",
+        },
+    )
+
+    assert job_response.status_code == 201
+    job = job_response.json()
+
+    move_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer2["id"],
+            "title": "Immovable Job",
+            "description": "Job ownership test",
+            "status": "customer_requested",
+        },
+    )
+
+    assert move_response.status_code == 409
+    assert move_response.json()["detail"] == (
+        "Job cannot be moved to a different customer"
+    )
+
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_after.status_code == 200
+    assert job_after.json()["customer_id"] == customer1["id"]

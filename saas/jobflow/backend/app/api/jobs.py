@@ -88,12 +88,10 @@ def update_job(
             detail="Job not found",
         )
 
-    customer = db.get(Customer, job.customer_id)
-
-    if customer is None:
+    if job.customer_id != db_job.customer_id:
         raise HTTPException(
-            status_code=404,
-            detail="Customer not found",
+            status_code=409,
+            detail="Job cannot be moved to a different customer",
         )
 
     if job.status != db_job.status:
