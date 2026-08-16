@@ -3,8 +3,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Invoice, Job, Payment
+from app.models import Customer, Invoice, Job, Payment, Tenant
 from app.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate
+from app.tenant_context import get_current_tenant
 
 
 INVOICE_STATUS_TRANSITIONS = {
@@ -24,8 +25,16 @@ router = APIRouter(
 def create_invoice(
     invoice: InvoiceCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    job = db.get(Job, invoice.job_id)
+    job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == invoice.job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if job is None:
         raise HTTPException(
@@ -45,9 +54,14 @@ def create_invoice(
 @router.get("/", response_model=list[InvoiceRead])
 def list_invoices(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Invoice).order_by(Invoice.id)
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Invoice.id)
     )
 
     return result.scalars().all()
@@ -57,8 +71,17 @@ def list_invoices(
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    invoice = db.get(Invoice, invoice_id)
+    invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if invoice is None:
         raise HTTPException(
@@ -74,8 +97,17 @@ def update_invoice(
     invoice_id: int,
     invoice: InvoiceUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_invoice = db.get(Invoice, invoice_id)
+    db_invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_invoice is None:
         raise HTTPException(
@@ -133,7 +165,14 @@ def update_invoice(
         previous_status == "draft"
         and invoice.status == "sent"
     ):
-        job = db.get(Job, db_invoice.job_id)
+        job = db.scalar(
+            select(Job)
+            .join(Customer, Customer.id == Job.customer_id)
+            .where(
+                Job.id == db_invoice.job_id,
+                Customer.tenant_id == tenant.id,
+            )
+        )
 
         if job is not None and job.status == "completed":
             job.status = "invoiced"
@@ -148,8 +187,17 @@ def update_invoice(
 def delete_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_invoice = db.get(Invoice, invoice_id)
+    db_invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_invoice is None:
         raise HTTPException(

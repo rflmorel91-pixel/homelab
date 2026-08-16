@@ -1184,3 +1184,339 @@ def test_cross_tenant_schedule_delete_is_hidden(
         headers={"X-Tenant-ID": str(tenant_b.id)},
     )
     assert original.status_code == 200
+
+
+def test_cannot_create_invoice_for_another_tenants_job(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Invoice Tenant A",
+        "invoice-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Invoice Tenant B",
+        "invoice-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Invoice Customer B",
+            "phone": "555-3800",
+            "email": "invoice-b@example.com",
+            "address": "3800 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Invoice Tenant B Job",
+            "description": "Private Tenant B job",
+        },
+    ).json()
+
+    response = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Cross Tenant Invoice",
+            "amount": "800.00",
+            "status": "draft",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
+
+
+def test_cross_tenant_invoice_read_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Invoice Read Tenant A",
+        "invoice-read-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Invoice Read Tenant B",
+        "invoice-read-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Invoice Read Customer B",
+            "phone": "555-3900",
+            "email": "invoice-read-b@example.com",
+            "address": "3900 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Private Invoice Job",
+            "description": "Private to Tenant B",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Tenant B Private Invoice",
+            "amount": "925.00",
+            "status": "draft",
+        },
+    ).json()
+
+    response = client.get(
+        f"/api/v1/invoices/{invoice_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invoice not found"
+
+
+def test_invoice_lists_are_isolated_by_tenant(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Invoice List Tenant A",
+        "invoice-list-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Invoice List Tenant B",
+        "invoice-list-tenant-b",
+    )
+
+    customer_a = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "name": "Invoice List Customer A",
+            "phone": "555-4001",
+            "email": "invoice-list-a@example.com",
+            "address": "4001 Tenant A Street",
+        },
+    ).json()
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Invoice List Customer B",
+            "phone": "555-4002",
+            "email": "invoice-list-b@example.com",
+            "address": "4002 Tenant B Street",
+        },
+    ).json()
+
+    job_a = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "customer_id": customer_a["id"],
+            "title": "Invoice List Job A",
+            "description": "Tenant A",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Invoice List Job B",
+            "description": "Tenant B",
+        },
+    ).json()
+
+    invoice_a = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_a["id"],
+            "description": "Invoice A",
+            "amount": "600.00",
+            "status": "draft",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Invoice B",
+            "amount": "700.00",
+            "status": "draft",
+        },
+    ).json()
+
+    list_a = client.get(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+    assert list_a.status_code == 200
+    assert [item["id"] for item in list_a.json()] == [invoice_a["id"]]
+
+    list_b = client.get(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+    assert list_b.status_code == 200
+    assert [item["id"] for item in list_b.json()] == [invoice_b["id"]]
+
+
+def test_cross_tenant_invoice_update_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Invoice Update Tenant A",
+        "invoice-update-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Invoice Update Tenant B",
+        "invoice-update-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Invoice Update Customer B",
+            "phone": "555-4100",
+            "email": "invoice-update-b@example.com",
+            "address": "4100 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Invoice Update Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Protected Invoice",
+            "amount": "800.00",
+            "status": "draft",
+        },
+    ).json()
+
+    response = client.put(
+        f"/api/v1/invoices/{invoice_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Hijacked Invoice",
+            "amount": "999.00",
+            "status": "sent",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invoice not found"
+
+    original = client.get(
+        f"/api/v1/invoices/{invoice_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+
+    assert original.status_code == 200
+    assert original.json()["description"] == "Protected Invoice"
+    assert original.json()["amount"] == "800.00"
+    assert original.json()["status"] == "draft"
+
+
+def test_cross_tenant_invoice_delete_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Invoice Delete Tenant A",
+        "invoice-delete-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Invoice Delete Tenant B",
+        "invoice-delete-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Invoice Delete Customer B",
+            "phone": "555-4200",
+            "email": "invoice-delete-b@example.com",
+            "address": "4200 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Invoice Delete Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Undeletable Invoice",
+            "amount": "850.00",
+            "status": "draft",
+        },
+    ).json()
+
+    response = client.delete(
+        f"/api/v1/invoices/{invoice_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invoice not found"
+
+    original = client.get(
+        f"/api/v1/invoices/{invoice_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+
+    assert original.status_code == 200
