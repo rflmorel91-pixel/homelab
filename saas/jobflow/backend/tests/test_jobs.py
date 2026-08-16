@@ -293,3 +293,57 @@ def test_cannot_move_job_to_different_customer(client):
 
     assert job_after.status_code == 200
     assert job_after.json()["customer_id"] == customer1["id"]
+
+
+def test_cannot_delete_job_with_child_records(client):
+    customer_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Protected Job Customer",
+            "phone": "555-0900",
+            "email": "protected-job@example.com",
+            "address": "900 Protected Street",
+        },
+    )
+
+    assert customer_response.status_code == 201
+    customer = customer_response.json()
+
+    job_response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer["id"],
+            "title": "Protected Job",
+            "description": "Job with child records",
+        },
+    )
+
+    assert job_response.status_code == 201
+    job = job_response.json()
+
+    estimate_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Protected estimate",
+            "amount": "500.00",
+            "status": "draft",
+        },
+    )
+
+    assert estimate_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == (
+        "Cannot delete job with existing related records"
+    )
+
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_after.status_code == 200

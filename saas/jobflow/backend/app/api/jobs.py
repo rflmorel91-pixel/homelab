@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer, Job
+from app.models import Customer, Estimate, Invoice, Job, Schedule
 from app.schemas import JobCreate, JobRead, JobUpdate
 
 
@@ -129,6 +129,30 @@ def delete_job(
         raise HTTPException(
             status_code=404,
             detail="Job not found",
+        )
+
+    related_records = (
+        db.execute(
+            select(Estimate.id).where(
+                Estimate.job_id == job_id
+            ).limit(1)
+        ).first()
+        or db.execute(
+            select(Schedule.id).where(
+                Schedule.job_id == job_id
+            ).limit(1)
+        ).first()
+        or db.execute(
+            select(Invoice.id).where(
+                Invoice.job_id == job_id
+            ).limit(1)
+        ).first()
+    )
+
+    if related_records is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete job with existing related records",
         )
 
     db.delete(db_job)
