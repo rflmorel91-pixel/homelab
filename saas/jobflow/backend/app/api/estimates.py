@@ -138,5 +138,11 @@ def delete_estimate(
             detail="Estimate not found",
         )
 
+    if db_estimate.status in {"approved", "declined"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete terminal estimate",
+        )
+
     db.delete(db_estimate)
     db.commit()

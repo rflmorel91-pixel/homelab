@@ -121,13 +121,16 @@ def test_estimate_crud(client):
         f"/api/v1/estimates/{estimate_id}"
     )
 
-    assert delete_response.status_code == 204
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == (
+        "Cannot delete terminal estimate"
+    )
 
-    get_deleted_response = client.get(
+    get_after_delete = client.get(
         f"/api/v1/estimates/{estimate_id}"
     )
 
-    assert get_deleted_response.status_code == 404
+    assert get_after_delete.status_code == 200
 
 def test_create_estimate_requires_existing_job(client):
     response = client.post(
@@ -339,3 +342,104 @@ def test_cannot_move_estimate_to_different_job(client):
 
     assert estimate_after.status_code == 200
     assert estimate_after.json()["job_id"] == job1["id"]
+
+
+def test_cannot_delete_approved_estimate(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    quoted_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "quoted",
+        },
+    )
+
+    assert quoted_response.status_code == 200
+
+    estimate_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Protected approved estimate",
+            "amount": "900.00",
+            "status": "draft",
+        },
+    )
+
+    assert estimate_response.status_code == 201
+    estimate = estimate_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Protected approved estimate",
+            "amount": "900.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    approved_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Protected approved estimate",
+            "amount": "900.00",
+            "status": "approved",
+        },
+    )
+
+    assert approved_response.status_code == 200
+
+    delete_response = client.delete(
+        f"/api/v1/estimates/{estimate['id']}"
+    )
+
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == (
+        "Cannot delete terminal estimate"
+    )
+
+    estimate_after = client.get(
+        f"/api/v1/estimates/{estimate['id']}"
+    )
+
+    assert estimate_after.status_code == 200
+    assert estimate_after.json()["status"] == "approved"
+
+
+
+def test_delete_draft_estimate(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    create_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Deletable draft estimate",
+            "amount": "400.00",
+            "status": "draft",
+        },
+    )
+
+    assert create_response.status_code == 201
+    estimate = create_response.json()
+
+    delete_response = client.delete(
+        f"/api/v1/estimates/{estimate['id']}"
+    )
+
+    assert delete_response.status_code == 204
+
+    get_response = client.get(
+        f"/api/v1/estimates/{estimate['id']}"
+    )
+
+    assert get_response.status_code == 404
