@@ -166,3 +166,114 @@ def test_create_payment_rejects_invalid_method(client):
     )
 
     assert response.status_code == 422
+
+
+def test_full_payment_automatically_pays_invoice_and_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    statuses = [
+        "quoted",
+        "approved",
+        "scheduled",
+        "in_progress",
+        "completed",
+    ]
+
+    current_job = job
+
+    for status in statuses:
+        response = client.put(
+            f"/api/v1/jobs/{job['id']}",
+            json={
+                "customer_id": customer["id"],
+                "title": current_job["title"],
+                "description": current_job["description"],
+                "status": status,
+            },
+        )
+
+        assert response.status_code == 200
+        current_job = response.json()
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Automatic payment invoice",
+            "amount": "1000.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Automatic payment invoice",
+            "amount": "1000.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    job_response = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_response.status_code == 200
+    assert job_response.json()["status"] == "invoiced"
+
+    partial_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "400.00",
+            "method": "card",
+            "reference": "PARTIAL-001",
+        },
+    )
+
+    assert partial_response.status_code == 201
+
+    invoice_after_partial = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    job_after_partial = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert invoice_after_partial.status_code == 200
+    assert invoice_after_partial.json()["status"] == "sent"
+    assert job_after_partial.status_code == 200
+    assert job_after_partial.json()["status"] == "invoiced"
+
+    final_payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "600.00",
+            "method": "card",
+            "reference": "FINAL-001",
+        },
+    )
+
+    assert final_payment_response.status_code == 201
+
+    final_invoice = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    final_job = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert final_invoice.status_code == 200
+    assert final_invoice.json()["status"] == "paid"
+    assert final_job.status_code == 200
+    assert final_job.json()["status"] == "paid"

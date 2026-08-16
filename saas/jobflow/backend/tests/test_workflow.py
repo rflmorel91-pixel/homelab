@@ -180,29 +180,16 @@ def test_complete_jobflow_workflow(client):
     assert payment["amount"] == "1250.00"
     assert payment["method"] == "card"
 
-    paid_invoice_response = client.put(
-        f"/api/v1/invoices/{invoice['id']}",
-        json={
-            "job_id": job_id,
-            "description": "Workflow Test Invoice",
-            "amount": "1250.00",
-            "status": "paid",
-        },
+    paid_invoice_response = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    paid_job_response = client.get(
+        f"/api/v1/jobs/{job_id}"
     )
 
     assert paid_invoice_response.status_code == 200
     assert paid_invoice_response.json()["status"] == "paid"
-
-    paid_job_response = client.put(
-        f"/api/v1/jobs/{job_id}",
-        json={
-            "customer_id": customer["id"],
-            "title": "Workflow Test Job",
-            "description": "Complete automated JobFlow workflow",
-            "status": "paid",
-        },
-    )
-
     assert paid_job_response.status_code == 200
     assert paid_job_response.json()["status"] == "paid"
 

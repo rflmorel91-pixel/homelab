@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Invoice, Payment
+from app.models import Invoice, Job, Payment
 from app.schemas import PaymentCreate, PaymentRead, PaymentUpdate
 
 
@@ -29,6 +29,21 @@ def create_payment(
     db_payment = Payment(**payment.model_dump())
 
     db.add(db_payment)
+    db.flush()
+
+    total_paid = db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0))
+        .where(Payment.invoice_id == invoice.id)
+    )
+
+    if total_paid >= invoice.amount and invoice.status == "sent":
+        invoice.status = "paid"
+
+        job = db.get(Job, invoice.job_id)
+
+        if job is not None and job.status == "invoiced":
+            job.status = "paid"
+
     db.commit()
     db.refresh(db_payment)
 
