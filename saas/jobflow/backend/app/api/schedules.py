@@ -81,13 +81,10 @@ def update_schedule(
         )
 
     if schedule.job_id != db_schedule.job_id:
-        job = db.get(Job, schedule.job_id)
-
-        if job is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Job not found",
-            )
+        raise HTTPException(
+            status_code=409,
+            detail="Schedule cannot be moved to a different job",
+        )
 
     for field, value in schedule.model_dump().items():
         setattr(db_schedule, field, value)

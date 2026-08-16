@@ -196,3 +196,45 @@ def test_creating_schedule_automatically_schedules_approved_job(client):
 
     assert job_response.status_code == 200
     assert job_response.json()["status"] == "scheduled"
+
+
+def test_cannot_move_schedule_to_different_job(client):
+    customer = create_customer(client)
+
+    job1 = create_job(client, customer["id"])
+    job2 = create_job(client, customer["id"])
+
+    schedule_response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job1["id"],
+            "scheduled_start": "2026-08-26T09:00:00",
+            "scheduled_end": "2026-08-26T11:00:00",
+            "notes": "Immovable schedule",
+        },
+    )
+
+    assert schedule_response.status_code == 201
+    schedule = schedule_response.json()
+
+    move_response = client.put(
+        f"/api/v1/schedules/{schedule['id']}",
+        json={
+            "job_id": job2["id"],
+            "scheduled_start": "2026-08-26T09:00:00",
+            "scheduled_end": "2026-08-26T11:00:00",
+            "notes": "Immovable schedule",
+        },
+    )
+
+    assert move_response.status_code == 409
+    assert move_response.json()["detail"] == (
+        "Schedule cannot be moved to a different job"
+    )
+
+    schedule_after = client.get(
+        f"/api/v1/schedules/{schedule['id']}"
+    )
+
+    assert schedule_after.status_code == 200
+    assert schedule_after.json()["job_id"] == job1["id"]
