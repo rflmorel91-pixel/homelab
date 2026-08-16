@@ -281,6 +281,42 @@
       </form>
     </section>
 
+    <section class="panel">
+      <h2>Create Payment</h2>
+
+      <form id="paymentForm">
+        <select id="paymentInvoice" required>
+          <option value="">Select invoice</option>
+        </select>
+
+        <input
+          id="paymentAmount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Amount"
+          required
+        >
+
+        <select id="paymentMethod" required>
+          <option value="">Select payment method</option>
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="card">Card</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="other">Other</option>
+        </select>
+
+        <input
+          id="paymentReference"
+          type="text"
+          placeholder="Reference"
+        >
+
+        <button type="submit">Record Payment</button>
+      </form>
+    </section>
+
   </div>
 
   <section class="panel">
@@ -310,6 +346,13 @@
     </div>
   </section>
 
+  <section class="panel">
+    <h2>Payments</h2>
+    <div id="paymentList">
+      <p class="empty">Loading payments...</p>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -319,20 +362,24 @@
   let jobs = [];
   let estimates = [];
   let invoices = [];
+  let payments = [];
 
   const customerForm = document.getElementById("customerForm");
   const jobForm = document.getElementById("jobForm");
   const estimateForm = document.getElementById("estimateForm");
   const invoiceForm = document.getElementById("invoiceForm");
+  const paymentForm = document.getElementById("paymentForm");
 
   const customerList = document.getElementById("customerList");
   const jobList = document.getElementById("jobList");
   const estimateList = document.getElementById("estimateList");
   const invoiceList = document.getElementById("invoiceList");
+  const paymentList = document.getElementById("paymentList");
 
   const jobCustomer = document.getElementById("jobCustomer");
   const estimateJob = document.getElementById("estimateJob");
   const invoiceJob = document.getElementById("invoiceJob");
+  const paymentInvoice = document.getElementById("paymentInvoice");
 
   const errorMessage = document.getElementById("errorMessage");
   const successMessage = document.getElementById("successMessage");
@@ -403,20 +450,23 @@
 
   async function loadData() {
     try {
-      [customers, jobs, estimates, invoices] = await Promise.all([
+      [customers, jobs, estimates, invoices, payments] = await Promise.all([
         apiRequest("/customers/"),
         apiRequest("/jobs/"),
         apiRequest("/estimates/"),
-        apiRequest("/invoices/")
+        apiRequest("/invoices/"),
+        apiRequest("/payments/")
       ]);
 
       renderCustomers();
       renderJobs();
       renderEstimates();
       renderInvoices();
+      renderPayments();
       updateJobCustomerOptions();
       updateEstimateJobOptions();
       updateInvoiceJobOptions();
+      updatePaymentInvoiceOptions();
 
     } catch (error) {
       showError(error.message);
@@ -469,6 +519,24 @@
       jobs.map(job => `
         <option value="${job.id}">
           ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
+
+
+  function updatePaymentInvoiceOptions() {
+    if (invoices.length === 0) {
+      paymentInvoice.innerHTML =
+        '<option value="">No invoices available</option>';
+      return;
+    }
+
+    paymentInvoice.innerHTML =
+      '<option value="">Select invoice</option>' +
+      invoices.map(invoice => `
+        <option value="${invoice.id}">
+          ${escapeHtml(invoice.description || `Invoice ${invoice.id}`)}
+          - $${escapeHtml(invoice.amount)}
         </option>
       `).join("");
   }
@@ -797,6 +865,52 @@
       showError(error.message);
     }
   }
+
+
+  function renderPayments() {
+    if (payments.length === 0) {
+      paymentList.innerHTML =
+        '<p class="empty">No payments yet.</p>';
+      return;
+    }
+
+    paymentList.innerHTML = payments.map(payment => {
+      const invoice =
+        invoices.find(
+          invoice => invoice.id === payment.invoice_id
+        );
+
+      return `
+        <div class="card">
+          <strong>
+            Payment #${escapeHtml(payment.id)}
+          </strong>
+
+          <div>
+            Invoice:
+            ${invoice
+              ? escapeHtml(
+                  invoice.description || `Invoice ${invoice.id}`
+                )
+              : "Unknown invoice"}
+          </div>
+
+          <div class="amount">
+            Amount: $${escapeHtml(payment.amount)}
+          </div>
+
+          <div>
+            Method: ${escapeHtml(payment.method)}
+          </div>
+
+          <div>
+            Reference:
+            ${escapeHtml(payment.reference || "")}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
   customerForm.addEventListener("submit", async event => {
     event.preventDefault();
 
@@ -865,6 +979,34 @@
       await loadData();
 
       showSuccess("Invoice created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  paymentForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/payments/", {
+        method: "POST",
+        body: JSON.stringify({
+          invoice_id: Number(paymentInvoice.value),
+          amount:
+            document.getElementById("paymentAmount").value,
+          method:
+            document.getElementById("paymentMethod").value,
+          reference:
+            document.getElementById("paymentReference").value || null
+        })
+      });
+
+      paymentForm.reset();
+      await loadData();
+
+      showSuccess("Payment recorded.");
 
     } catch (error) {
       showError(error.message);

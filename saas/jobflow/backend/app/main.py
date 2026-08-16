@@ -5,6 +5,7 @@ from app.api.customers import router as customers_router
 from app.api.estimates import router as estimates_router
 from app.api.jobs import router as jobs_router
 from app.api.invoices import router as invoices_router
+from app.api.payments import router as payments_router
 
 
 
@@ -41,6 +42,11 @@ app.include_router(
 
 app.include_router(
     invoices_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    payments_router,
     prefix="/api/v1",
 )
 
