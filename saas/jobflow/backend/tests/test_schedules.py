@@ -238,3 +238,166 @@ def test_cannot_move_schedule_to_different_job(client):
 
     assert schedule_after.status_code == 200
     assert schedule_after.json()["job_id"] == job1["id"]
+
+
+def test_deleting_last_schedule_reopens_scheduled_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    quoted_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "quoted",
+        },
+    )
+    assert quoted_response.status_code == 200
+
+    approved_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "approved",
+        },
+    )
+    assert approved_response.status_code == 200
+
+    schedule_response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-27T09:00:00",
+            "scheduled_end": "2026-08-27T11:00:00",
+            "notes": "Schedule deletion lifecycle test",
+        },
+    )
+
+    assert schedule_response.status_code == 201
+    schedule = schedule_response.json()
+
+    scheduled_job = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert scheduled_job.status_code == 200
+    assert scheduled_job.json()["status"] == "scheduled"
+
+    delete_response = client.delete(
+        f"/api/v1/schedules/{schedule['id']}"
+    )
+
+    assert delete_response.status_code == 204
+
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_after.status_code == 200
+    assert job_after.json()["status"] == "approved"
+
+
+def test_deleting_schedule_does_not_rewind_in_progress_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    for status in ["quoted", "approved"]:
+        response = client.put(
+            f"/api/v1/jobs/{job['id']}",
+            json={
+                "customer_id": customer["id"],
+                "title": job["title"],
+                "description": job["description"],
+                "status": status,
+            },
+        )
+        assert response.status_code == 200
+
+    schedule_response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-28T09:00:00",
+            "scheduled_end": "2026-08-28T11:00:00",
+            "notes": "In-progress deletion test",
+        },
+    )
+    assert schedule_response.status_code == 201
+    schedule = schedule_response.json()
+
+    start_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "in_progress",
+        },
+    )
+    assert start_response.status_code == 200
+
+    delete_response = client.delete(
+        f"/api/v1/schedules/{schedule['id']}"
+    )
+    assert delete_response.status_code == 204
+
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_after.status_code == 200
+    assert job_after.json()["status"] == "in_progress"
+
+
+def test_deleting_one_of_multiple_schedules_keeps_job_scheduled(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    for status in ["quoted", "approved"]:
+        response = client.put(
+            f"/api/v1/jobs/{job['id']}",
+            json={
+                "customer_id": customer["id"],
+                "title": job["title"],
+                "description": job["description"],
+                "status": status,
+            },
+        )
+        assert response.status_code == 200
+
+    first_schedule = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-29T09:00:00",
+            "scheduled_end": "2026-08-29T11:00:00",
+            "notes": "First schedule",
+        },
+    )
+    assert first_schedule.status_code == 201
+
+    second_schedule = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-30T09:00:00",
+            "scheduled_end": "2026-08-30T11:00:00",
+            "notes": "Second schedule",
+        },
+    )
+    assert second_schedule.status_code == 201
+
+    delete_response = client.delete(
+        f"/api/v1/schedules/{first_schedule.json()['id']}"
+    )
+    assert delete_response.status_code == 204
+
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_after.status_code == 200
+    assert job_after.json()["status"] == "scheduled"

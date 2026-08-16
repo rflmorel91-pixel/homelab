@@ -108,5 +108,22 @@ def delete_schedule(
             detail="Schedule not found",
         )
 
+    job = db.get(Job, db_schedule.job_id)
+
     db.delete(db_schedule)
+    db.flush()
+
+    remaining_schedule = db.execute(
+        select(Schedule.id)
+        .where(Schedule.job_id == db_schedule.job_id)
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if (
+        remaining_schedule is None
+        and job is not None
+        and job.status == "scheduled"
+    ):
+        job.status = "approved"
+
     db.commit()
