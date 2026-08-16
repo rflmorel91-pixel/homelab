@@ -84,13 +84,10 @@ def update_invoice(
         )
 
     if invoice.job_id != db_invoice.job_id:
-        job = db.get(Job, invoice.job_id)
-
-        if job is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Job not found",
-            )
+        raise HTTPException(
+            status_code=409,
+            detail="Invoice cannot be moved to a different job",
+        )
 
     previous_status = db_invoice.status
 

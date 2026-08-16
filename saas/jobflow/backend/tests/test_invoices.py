@@ -344,3 +344,45 @@ def test_cannot_delete_invoice_with_payments(client):
     )
 
     assert invoice_after.status_code == 200
+
+
+def test_cannot_move_invoice_to_different_job(client):
+    customer = create_customer(client)
+
+    job1 = create_job(client, customer["id"])
+    job2 = create_job(client, customer["id"])
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job1["id"],
+            "description": "Immovable invoice",
+            "amount": "750.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    move_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job2["id"],
+            "description": "Immovable invoice",
+            "amount": "750.00",
+            "status": "draft",
+        },
+    )
+
+    assert move_response.status_code == 409
+    assert move_response.json()["detail"] == (
+        "Invoice cannot be moved to a different job"
+    )
+
+    invoice_after = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert invoice_after.status_code == 200
+    assert invoice_after.json()["job_id"] == job1["id"]
