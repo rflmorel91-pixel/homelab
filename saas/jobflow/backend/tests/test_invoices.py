@@ -507,3 +507,74 @@ def test_cannot_change_amount_of_paid_invoice(client):
     assert invoice_after.status_code == 200
     assert invoice_after.json()["amount"] == "1000.00"
     assert invoice_after.json()["status"] == "paid"
+
+
+def test_paid_invoice_cannot_be_reopened_manually(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Terminal paid invoice",
+            "amount": "500.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Terminal paid invoice",
+            "amount": "500.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "TERMINAL-PAID-001",
+        },
+    )
+
+    assert payment_response.status_code == 201
+
+    paid_invoice = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert paid_invoice.status_code == 200
+    assert paid_invoice.json()["status"] == "paid"
+
+    reopen_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Terminal paid invoice",
+            "amount": "500.00",
+            "status": "sent",
+        },
+    )
+
+    assert reopen_response.status_code == 400
+    assert reopen_response.json()["detail"] == (
+        "Invalid invoice status transition: paid -> sent"
+    )
+
+    final_invoice = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert final_invoice.status_code == 200
+    assert final_invoice.json()["status"] == "paid"
