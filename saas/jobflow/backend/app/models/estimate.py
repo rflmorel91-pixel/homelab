@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -18,7 +19,7 @@ class Estimate(Base):
 
     description: Mapped[str | None] = mapped_column(Text)
 
-    amount: Mapped[float] = mapped_column(
+    amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
     )
