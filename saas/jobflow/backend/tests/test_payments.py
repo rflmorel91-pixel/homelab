@@ -277,3 +277,49 @@ def test_full_payment_automatically_pays_invoice_and_job(client):
     assert final_invoice.json()["status"] == "paid"
     assert final_job.status_code == 200
     assert final_job.json()["status"] == "paid"
+
+
+def test_payment_rejects_overpayment(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+    invoice = create_invoice(client, job["id"])
+
+    first_payment = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "1000.00",
+            "method": "card",
+            "reference": "OVERPAY-001",
+        },
+    )
+
+    assert first_payment.status_code == 201
+
+    overpayment = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "300.00",
+            "method": "card",
+            "reference": "OVERPAY-002",
+        },
+    )
+
+    assert overpayment.status_code == 400
+    assert overpayment.json()["detail"] == (
+        "Payment exceeds remaining invoice balance"
+    )
+
+    payments_response = client.get("/api/v1/payments/")
+
+    assert payments_response.status_code == 200
+
+    invoice_payments = [
+        payment
+        for payment in payments_response.json()
+        if payment["invoice_id"] == invoice["id"]
+    ]
+
+    assert len(invoice_payments) == 1
+    assert invoice_payments[0]["amount"] == "1000.00"

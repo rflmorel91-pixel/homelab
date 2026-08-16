@@ -26,17 +26,24 @@ def create_payment(
             detail="Invoice not found",
         )
 
-    db_payment = Payment(**payment.model_dump())
-
-    db.add(db_payment)
-    db.flush()
-
-    total_paid = db.scalar(
+    existing_total = db.scalar(
         select(func.coalesce(func.sum(Payment.amount), 0))
         .where(Payment.invoice_id == invoice.id)
     )
 
-    if total_paid >= invoice.amount and invoice.status == "sent":
+    new_total = existing_total + payment.amount
+
+    if new_total > invoice.amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment exceeds remaining invoice balance",
+        )
+
+    db_payment = Payment(**payment.model_dump())
+
+    db.add(db_payment)
+
+    if new_total == invoice.amount and invoice.status == "sent":
         invoice.status = "paid"
 
         job = db.get(Job, invoice.job_id)
