@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer, Job
+from app.models import Customer, Job, Tenant
 from app.schemas import CustomerCreate, CustomerRead, CustomerUpdate
+from app.tenant_context import get_current_tenant
 
 
 router = APIRouter(
@@ -17,8 +18,12 @@ router = APIRouter(
 def create_customer(
     customer: CustomerCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_customer = Customer(**customer.model_dump())
+    db_customer = Customer(
+        tenant_id=tenant.id,
+        **customer.model_dump(),
+    )
 
     db.add(db_customer)
     db.commit()
@@ -30,9 +35,12 @@ def create_customer(
 @router.get("/", response_model=list[CustomerRead])
 def list_customers(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Customer).order_by(Customer.id)
+        select(Customer)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Customer.id)
     )
 
     return result.scalars().all()
@@ -42,8 +50,14 @@ def list_customers(
 def get_customer(
     customer_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    customer = db.get(Customer, customer_id)
+    customer = db.scalar(
+        select(Customer).where(
+            Customer.id == customer_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if customer is None:
         raise HTTPException(
@@ -59,8 +73,14 @@ def update_customer(
     customer_id: int,
     customer: CustomerUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_customer = db.get(Customer, customer_id)
+    db_customer = db.scalar(
+        select(Customer).where(
+            Customer.id == customer_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_customer is None:
         raise HTTPException(
@@ -81,8 +101,14 @@ def update_customer(
 def delete_customer(
     customer_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_customer = db.get(Customer, customer_id)
+    db_customer = db.scalar(
+        select(Customer).where(
+            Customer.id == customer_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_customer is None:
         raise HTTPException(

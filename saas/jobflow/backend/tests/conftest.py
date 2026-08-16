@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
 from app.main import app
+from app.models import Tenant
 
 
 TEST_DATABASE_URL = (
@@ -31,7 +32,9 @@ def clean_test_database():
     with test_engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE TABLE jobs, customers "
+                "TRUNCATE TABLE "
+                "tenant_memberships, users, tenants, "
+                "jobs, customers "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -49,6 +52,43 @@ def db_session() -> Generator[Session, None, None]:
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
+    def override_get_db():
+        db = TestingSessionLocal()
+
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    db = TestingSessionLocal()
+
+    try:
+        tenant = Tenant(
+            name="Default Test Tenant",
+            slug="default-test-tenant",
+        )
+        db.add(tenant)
+        db.commit()
+        db.refresh(tenant)
+        tenant_id = tenant.id
+    finally:
+        db.close()
+
+    with TestClient(
+        app,
+        headers={
+            "X-Tenant-ID": str(tenant_id),
+        },
+    ) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def raw_client() -> Generator[TestClient, None, None]:
     def override_get_db():
         db = TestingSessionLocal()
 
