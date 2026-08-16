@@ -3,8 +3,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Invoice, Job, Payment
+from app.models import Customer, Invoice, Job, Payment, Tenant
 from app.schemas import PaymentCreate, PaymentRead, PaymentUpdate
+from app.tenant_context import get_current_tenant
 
 
 router = APIRouter(
@@ -63,8 +64,17 @@ def sync_invoice_payment_status(
 def create_payment(
     payment: PaymentCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    invoice = db.get(Invoice, payment.invoice_id)
+    invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == payment.invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if invoice is None:
         raise HTTPException(
@@ -101,9 +111,15 @@ def create_payment(
 @router.get("/", response_model=list[PaymentRead])
 def list_payments(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Payment).order_by(Payment.id)
+        select(Payment)
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Payment.id)
     )
 
     return result.scalars().all()
@@ -113,8 +129,18 @@ def list_payments(
 def get_payment(
     payment_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    payment = db.get(Payment, payment_id)
+    payment = db.scalar(
+        select(Payment)
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Payment.id == payment_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if payment is None:
         raise HTTPException(
@@ -130,8 +156,18 @@ def update_payment(
     payment_id: int,
     payment: PaymentUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_payment = db.get(Payment, payment_id)
+    db_payment = db.scalar(
+        select(Payment)
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Payment.id == payment_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_payment is None:
         raise HTTPException(
@@ -139,8 +175,25 @@ def update_payment(
             detail="Payment not found",
         )
 
-    old_invoice = db.get(Invoice, db_payment.invoice_id)
-    new_invoice = db.get(Invoice, payment.invoice_id)
+    old_invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == db_payment.invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
+
+    new_invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == payment.invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if new_invoice is None:
         raise HTTPException(
@@ -190,8 +243,18 @@ def update_payment(
 def delete_payment(
     payment_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_payment = db.get(Payment, payment_id)
+    db_payment = db.scalar(
+        select(Payment)
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Payment.id == payment_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_payment is None:
         raise HTTPException(
@@ -199,7 +262,15 @@ def delete_payment(
             detail="Payment not found",
         )
 
-    invoice = db.get(Invoice, db_payment.invoice_id)
+    invoice = db.scalar(
+        select(Invoice)
+        .join(Job, Job.id == Invoice.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Invoice.id == db_payment.invoice_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     db.delete(db_payment)
     db.flush()

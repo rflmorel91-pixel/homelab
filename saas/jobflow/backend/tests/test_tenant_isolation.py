@@ -1520,3 +1520,407 @@ def test_cross_tenant_invoice_delete_is_hidden(
     )
 
     assert original.status_code == 200
+
+
+def test_cannot_create_payment_for_another_tenants_invoice(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Payment Tenant A",
+        "payment-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Payment Tenant B",
+        "payment-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Payment Customer B",
+            "phone": "555-4300",
+            "email": "payment-b@example.com",
+            "address": "4300 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Payment Tenant B Job",
+            "description": "Private Tenant B job",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Private Tenant B Invoice",
+            "amount": "1000.00",
+            "status": "draft",
+        },
+    ).json()
+
+    response = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "CROSS-TENANT-001",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invoice not found"
+
+
+def test_cross_tenant_payment_read_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Payment Read Tenant A",
+        "payment-read-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Payment Read Tenant B",
+        "payment-read-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Payment Read Customer B",
+            "phone": "555-4400",
+            "email": "payment-read-b@example.com",
+            "address": "4400 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Payment Read Job B",
+            "description": "Private",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Payment Read Invoice",
+            "amount": "1100.00",
+            "status": "draft",
+        },
+    ).json()
+
+    payment_b = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "400.00",
+            "method": "card",
+            "reference": "PAYMENT-READ-001",
+        },
+    ).json()
+
+    response = client.get(
+        f"/api/v1/payments/{payment_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Payment not found"
+
+
+def test_payment_lists_are_isolated_by_tenant(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Payment List Tenant A",
+        "payment-list-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Payment List Tenant B",
+        "payment-list-tenant-b",
+    )
+
+    customer_a = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "name": "Payment List Customer A",
+            "phone": "555-4501",
+            "email": "payment-list-a@example.com",
+            "address": "4501 Tenant A Street",
+        },
+    ).json()
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Payment List Customer B",
+            "phone": "555-4502",
+            "email": "payment-list-b@example.com",
+            "address": "4502 Tenant B Street",
+        },
+    ).json()
+
+    job_a = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "customer_id": customer_a["id"],
+            "title": "Payment List Job A",
+            "description": "Tenant A",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Payment List Job B",
+            "description": "Tenant B",
+        },
+    ).json()
+
+    invoice_a = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_a["id"],
+            "description": "Invoice A",
+            "amount": "900.00",
+            "status": "draft",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Invoice B",
+            "amount": "1000.00",
+            "status": "draft",
+        },
+    ).json()
+
+    payment_a = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "invoice_id": invoice_a["id"],
+            "amount": "300.00",
+            "method": "card",
+            "reference": "LIST-A-001",
+        },
+    ).json()
+
+    payment_b = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "400.00",
+            "method": "card",
+            "reference": "LIST-B-001",
+        },
+    ).json()
+
+    response_a = client.get(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response_a.status_code == 200
+    assert [item["id"] for item in response_a.json()] == [payment_a["id"]]
+
+    response_b = client.get(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+
+    assert response_b.status_code == 200
+    assert [item["id"] for item in response_b.json()] == [payment_b["id"]]
+
+
+def test_cross_tenant_payment_update_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Payment Update Tenant A",
+        "payment-update-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Payment Update Tenant B",
+        "payment-update-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Payment Update Customer B",
+            "phone": "555-4600",
+            "email": "payment-update-b@example.com",
+            "address": "4600 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Payment Update Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Protected Invoice",
+            "amount": "1200.00",
+            "status": "draft",
+        },
+    ).json()
+
+    payment_b = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "300.00",
+            "method": "card",
+            "reference": "UPDATE-B-001",
+        },
+    ).json()
+
+    response = client.put(
+        f"/api/v1/payments/{payment_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "500.00",
+            "method": "cash",
+            "reference": "HIJACKED",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Payment not found"
+
+    original = client.get(
+        f"/api/v1/payments/{payment_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+
+    assert original.status_code == 200
+    assert original.json()["amount"] == "300.00"
+    assert original.json()["method"] == "card"
+    assert original.json()["reference"] == "UPDATE-B-001"
+
+
+def test_cross_tenant_payment_delete_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Payment Delete Tenant A",
+        "payment-delete-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Payment Delete Tenant B",
+        "payment-delete-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Payment Delete Customer B",
+            "phone": "555-4700",
+            "email": "payment-delete-b@example.com",
+            "address": "4700 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Payment Delete Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    invoice_b = client.post(
+        "/api/v1/invoices/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "description": "Protected Invoice",
+            "amount": "1300.00",
+            "status": "draft",
+        },
+    ).json()
+
+    payment_b = client.post(
+        "/api/v1/payments/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "invoice_id": invoice_b["id"],
+            "amount": "350.00",
+            "method": "card",
+            "reference": "DELETE-B-001",
+        },
+    ).json()
+
+    response = client.delete(
+        f"/api/v1/payments/{payment_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Payment not found"
+
+    original = client.get(
+        f"/api/v1/payments/{payment_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+
+    assert original.status_code == 200
