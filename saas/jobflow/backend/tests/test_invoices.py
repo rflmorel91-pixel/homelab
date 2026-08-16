@@ -386,3 +386,55 @@ def test_cannot_move_invoice_to_different_job(client):
 
     assert invoice_after.status_code == 200
     assert invoice_after.json()["job_id"] == job1["id"]
+
+
+def test_cannot_reduce_invoice_below_existing_payments(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Amount integrity invoice",
+            "amount": "1000.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "600.00",
+            "method": "card",
+            "reference": "AMOUNT-INTEGRITY-001",
+        },
+    )
+
+    assert payment_response.status_code == 201
+
+    update_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Amount integrity invoice",
+            "amount": "500.00",
+            "status": "draft",
+        },
+    )
+
+    assert update_response.status_code == 409
+    assert update_response.json()["detail"] == (
+        "Invoice amount cannot be less than existing payments"
+    )
+
+    invoice_after = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert invoice_after.status_code == 200
+    assert invoice_after.json()["amount"] == "1000.00"

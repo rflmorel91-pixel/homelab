@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -87,6 +87,17 @@ def update_invoice(
         raise HTTPException(
             status_code=409,
             detail="Invoice cannot be moved to a different job",
+        )
+
+    total_paid = db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0))
+        .where(Payment.invoice_id == invoice_id)
+    )
+
+    if invoice.amount < total_paid:
+        raise HTTPException(
+            status_code=409,
+            detail="Invoice amount cannot be less than existing payments",
         )
 
     previous_status = db_invoice.status
