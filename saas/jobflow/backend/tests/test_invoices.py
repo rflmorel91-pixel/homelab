@@ -299,3 +299,48 @@ def test_sending_invoice_automatically_invoices_completed_job(client):
 
     assert job_response.status_code == 200
     assert job_response.json()["status"] == "invoiced"
+
+
+def test_cannot_delete_invoice_with_payments(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Protected invoice",
+            "amount": "500.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "100.00",
+            "method": "card",
+            "reference": "PROTECTED-001",
+        },
+    )
+
+    assert payment_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == (
+        "Cannot delete invoice with existing payments"
+    )
+
+    invoice_after = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert invoice_after.status_code == 200

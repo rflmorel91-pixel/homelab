@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Invoice, Job
+from app.models import Invoice, Job, Payment
 from app.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate
 
 
@@ -138,6 +138,18 @@ def delete_invoice(
         raise HTTPException(
             status_code=404,
             detail="Invoice not found",
+        )
+
+    payment = db.scalar(
+        select(Payment)
+        .where(Payment.invoice_id == invoice_id)
+        .limit(1)
+    )
+
+    if payment is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete invoice with existing payments",
         )
 
     db.delete(db_invoice)
