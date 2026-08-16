@@ -494,3 +494,70 @@ def test_updating_payment_rejects_overpayment(client):
 
     assert unchanged.status_code == 200
     assert unchanged.json()["amount"] == "500.00"
+
+
+def test_moving_payment_between_invoices_resyncs_both(client):
+    job1, invoice1 = create_payable_invoice(client, amount="500.00")
+    job2, invoice2 = create_payable_invoice(client, amount="500.00")
+
+    payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice1["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "MOVE-001",
+        },
+    )
+
+    assert payment_response.status_code == 201
+    payment = payment_response.json()
+
+    assert client.get(
+        f"/api/v1/invoices/{invoice1['id']}"
+    ).json()["status"] == "paid"
+
+    assert client.get(
+        f"/api/v1/jobs/{job1['id']}"
+    ).json()["status"] == "paid"
+
+    move_response = client.put(
+        f"/api/v1/payments/{payment['id']}",
+        json={
+            "invoice_id": invoice2["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "MOVE-002",
+        },
+    )
+
+    assert move_response.status_code == 200
+    assert move_response.json()["invoice_id"] == invoice2["id"]
+
+    old_invoice = client.get(
+        f"/api/v1/invoices/{invoice1['id']}"
+    )
+
+    old_job = client.get(
+        f"/api/v1/jobs/{job1['id']}"
+    )
+
+    new_invoice = client.get(
+        f"/api/v1/invoices/{invoice2['id']}"
+    )
+
+    new_job = client.get(
+        f"/api/v1/jobs/{job2['id']}"
+    )
+
+    assert old_invoice.status_code == 200
+    assert old_invoice.json()["status"] == "sent"
+
+    assert old_job.status_code == 200
+    assert old_job.json()["status"] == "invoiced"
+
+    assert new_invoice.status_code == 200
+    assert new_invoice.json()["status"] == "paid"
+
+    assert new_job.status_code == 200
+    assert new_job.json()["status"] == "paid"
