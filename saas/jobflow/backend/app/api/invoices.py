@@ -92,9 +92,11 @@ def update_invoice(
                 detail="Job not found",
             )
 
-    if invoice.status != db_invoice.status:
+    previous_status = db_invoice.status
+
+    if invoice.status != previous_status:
         allowed_statuses = INVOICE_STATUS_TRANSITIONS.get(
-            db_invoice.status,
+            previous_status,
             set(),
         )
 
@@ -103,12 +105,21 @@ def update_invoice(
                 status_code=400,
                 detail=(
                     f"Invalid invoice status transition: "
-                    f"{db_invoice.status} -> {invoice.status}"
+                    f"{previous_status} -> {invoice.status}"
                 ),
             )
 
     for field, value in invoice.model_dump().items():
         setattr(db_invoice, field, value)
+
+    if (
+        previous_status == "draft"
+        and invoice.status == "sent"
+    ):
+        job = db.get(Job, db_invoice.job_id)
+
+        if job is not None and job.status == "completed":
+            job.status = "invoiced"
 
     db.commit()
     db.refresh(db_invoice)

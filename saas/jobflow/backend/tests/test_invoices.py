@@ -235,3 +235,67 @@ def test_invoice_status_progression(client):
 
     assert paid_response.status_code == 200
     assert paid_response.json()["status"] == "paid"
+
+
+def test_sending_invoice_automatically_invoices_completed_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    statuses = [
+        "quoted",
+        "approved",
+        "scheduled",
+        "in_progress",
+        "completed",
+    ]
+
+    current_job = job
+
+    for status in statuses:
+        response = client.put(
+            f"/api/v1/jobs/{job['id']}",
+            json={
+                "customer_id": customer["id"],
+                "title": current_job["title"],
+                "description": current_job["description"],
+                "status": status,
+            },
+        )
+
+        assert response.status_code == 200
+        current_job = response.json()
+
+    assert current_job["status"] == "completed"
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Automatic invoice test",
+            "amount": "700.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Automatic invoice test",
+            "amount": "700.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+    assert sent_response.json()["status"] == "sent"
+
+    job_response = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_response.status_code == 200
+    assert job_response.json()["status"] == "invoiced"

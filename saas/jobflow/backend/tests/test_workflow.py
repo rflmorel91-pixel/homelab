@@ -157,14 +157,8 @@ def test_complete_jobflow_workflow(client):
     assert sent_invoice_response.status_code == 200
     assert sent_invoice_response.json()["status"] == "sent"
 
-    invoiced_job_response = client.put(
-        f"/api/v1/jobs/{job_id}",
-        json={
-            "customer_id": customer["id"],
-            "title": "Workflow Test Job",
-            "description": "Complete automated JobFlow workflow",
-            "status": "invoiced",
-        },
+    invoiced_job_response = client.get(
+        f"/api/v1/jobs/{job_id}"
     )
 
     assert invoiced_job_response.status_code == 200
