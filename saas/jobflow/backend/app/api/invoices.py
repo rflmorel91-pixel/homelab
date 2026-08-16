@@ -94,6 +94,15 @@ def update_invoice(
         .where(Payment.invoice_id == invoice_id)
     )
 
+    if (
+        db_invoice.status == "paid"
+        and invoice.amount != db_invoice.amount
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Paid invoice amount cannot be changed",
+        )
+
     if invoice.amount < total_paid:
         raise HTTPException(
             status_code=409,

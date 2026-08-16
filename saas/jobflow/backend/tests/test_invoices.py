@@ -438,3 +438,72 @@ def test_cannot_reduce_invoice_below_existing_payments(client):
 
     assert invoice_after.status_code == 200
     assert invoice_after.json()["amount"] == "1000.00"
+
+
+def test_cannot_change_amount_of_paid_invoice(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    invoice_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Paid immutable invoice",
+            "amount": "1000.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice_response.status_code == 201
+    invoice = invoice_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Paid immutable invoice",
+            "amount": "1000.00",
+            "status": "sent",
+        },
+    )
+    assert sent_response.status_code == 200
+
+    payment_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice["id"],
+            "amount": "1000.00",
+            "method": "card",
+            "reference": "PAID-IMMUTABLE-001",
+        },
+    )
+    assert payment_response.status_code == 201
+
+    paid_invoice = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+    assert paid_invoice.status_code == 200
+    assert paid_invoice.json()["status"] == "paid"
+
+    update_response = client.put(
+        f"/api/v1/invoices/{invoice['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Paid immutable invoice",
+            "amount": "1200.00",
+            "status": "paid",
+        },
+    )
+
+    assert update_response.status_code == 409
+    assert update_response.json()["detail"] == (
+        "Paid invoice amount cannot be changed"
+    )
+
+    invoice_after = client.get(
+        f"/api/v1/invoices/{invoice['id']}"
+    )
+
+    assert invoice_after.status_code == 200
+    assert invoice_after.json()["amount"] == "1000.00"
+    assert invoice_after.json()["status"] == "paid"
