@@ -85,13 +85,10 @@ def update_estimate(
         )
 
     if estimate.job_id != db_estimate.job_id:
-        job = db.get(Job, estimate.job_id)
-
-        if job is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Job not found",
-            )
+        raise HTTPException(
+            status_code=409,
+            detail="Estimate cannot be moved to a different job",
+        )
 
     previous_status = db_estimate.status
 

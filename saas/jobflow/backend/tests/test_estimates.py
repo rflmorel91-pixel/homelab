@@ -297,3 +297,45 @@ def test_approving_estimate_automatically_approves_quoted_job(client):
 
     assert job_response.status_code == 200
     assert job_response.json()["status"] == "approved"
+
+
+def test_cannot_move_estimate_to_different_job(client):
+    customer = create_customer(client)
+
+    job1 = create_job(client, customer["id"])
+    job2 = create_job(client, customer["id"])
+
+    estimate_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job1["id"],
+            "description": "Immovable estimate",
+            "amount": "750.00",
+            "status": "draft",
+        },
+    )
+
+    assert estimate_response.status_code == 201
+    estimate = estimate_response.json()
+
+    move_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job2["id"],
+            "description": "Immovable estimate",
+            "amount": "750.00",
+            "status": "draft",
+        },
+    )
+
+    assert move_response.status_code == 409
+    assert move_response.json()["detail"] == (
+        "Estimate cannot be moved to a different job"
+    )
+
+    estimate_after = client.get(
+        f"/api/v1/estimates/{estimate['id']}"
+    )
+
+    assert estimate_after.status_code == 200
+    assert estimate_after.json()["job_id"] == job1["id"]
