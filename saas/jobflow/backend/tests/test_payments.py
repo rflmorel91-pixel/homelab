@@ -561,3 +561,82 @@ def test_moving_payment_between_invoices_resyncs_both(client):
 
     assert new_job.status_code == 200
     assert new_job.json()["status"] == "paid"
+
+
+def test_job_waits_for_all_invoices_before_becoming_paid(client):
+    job, invoice1 = create_payable_invoice(client, amount="500.00")
+
+    invoice2_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Second invoice",
+            "amount": "300.00",
+            "status": "draft",
+        },
+    )
+
+    assert invoice2_response.status_code == 201
+    invoice2 = invoice2_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice2['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Second invoice",
+            "amount": "300.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    first_payment = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice1["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "MULTI-001",
+        },
+    )
+
+    assert first_payment.status_code == 201
+
+    first_invoice = client.get(
+        f"/api/v1/invoices/{invoice1['id']}"
+    )
+    job_after_first = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert first_invoice.status_code == 200
+    assert first_invoice.json()["status"] == "paid"
+
+    assert job_after_first.status_code == 200
+    assert job_after_first.json()["status"] == "invoiced"
+
+    second_payment = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice2["id"],
+            "amount": "300.00",
+            "method": "card",
+            "reference": "MULTI-002",
+        },
+    )
+
+    assert second_payment.status_code == 201
+
+    second_invoice = client.get(
+        f"/api/v1/invoices/{invoice2['id']}"
+    )
+    final_job = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert second_invoice.status_code == 200
+    assert second_invoice.json()["status"] == "paid"
+
+    assert final_job.status_code == 200
+    assert final_job.json()["status"] == "paid"

@@ -14,6 +14,28 @@ router = APIRouter(
 
 
 
+def sync_job_payment_status(
+    job: Job,
+    db: Session,
+) -> None:
+    db.flush()
+
+    invoices = db.execute(
+        select(Invoice).where(Invoice.job_id == job.id)
+    ).scalars().all()
+
+    all_invoices_paid = (
+        bool(invoices)
+        and all(invoice.status == "paid" for invoice in invoices)
+    )
+
+    if all_invoices_paid and job.status == "invoiced":
+        job.status = "paid"
+
+    elif not all_invoices_paid and job.status == "paid":
+        job.status = "invoiced"
+
+
 def sync_invoice_payment_status(
     invoice: Invoice,
     db: Session,
@@ -23,28 +45,18 @@ def sync_invoice_payment_status(
         .where(Payment.invoice_id == invoice.id)
     )
 
-    job = db.get(Job, invoice.job_id)
-
     if total_paid == invoice.amount:
         if invoice.status == "sent":
             invoice.status = "paid"
-
-        if (
-            invoice.status == "paid"
-            and job is not None
-            and job.status == "invoiced"
-        ):
-            job.status = "paid"
 
     elif total_paid < invoice.amount:
         if invoice.status == "paid":
             invoice.status = "sent"
 
-        if (
-            job is not None
-            and job.status == "paid"
-        ):
-            job.status = "invoiced"
+    job = db.get(Job, invoice.job_id)
+
+    if job is not None:
+        sync_job_payment_status(job, db)
 
 
 @router.post("/", response_model=PaymentRead, status_code=201)
