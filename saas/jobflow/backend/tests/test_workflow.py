@@ -98,14 +98,8 @@ def test_complete_jobflow_workflow(client):
 
     assert schedule_response.status_code == 201
 
-    scheduled_job_response = client.put(
-        f"/api/v1/jobs/{job_id}",
-        json={
-            "customer_id": customer["id"],
-            "title": "Workflow Test Job",
-            "description": "Complete automated JobFlow workflow",
-            "status": "scheduled",
-        },
+    scheduled_job_response = client.get(
+        f"/api/v1/jobs/{job_id}"
     )
 
     assert scheduled_job_response.status_code == 200

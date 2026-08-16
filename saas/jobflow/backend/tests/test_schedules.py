@@ -147,3 +147,52 @@ def test_schedule_rejects_end_before_start(client):
     )
 
     assert response.status_code == 422
+
+
+def test_creating_schedule_automatically_schedules_approved_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    quoted_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "quoted",
+        },
+    )
+
+    assert quoted_response.status_code == 200
+
+    approved_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "approved",
+        },
+    )
+
+    assert approved_response.status_code == 200
+    assert approved_response.json()["status"] == "approved"
+
+    schedule_response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-25T09:00:00",
+            "scheduled_end": "2026-08-25T11:00:00",
+            "notes": "Automatic scheduling test",
+        },
+    )
+
+    assert schedule_response.status_code == 201
+
+    job_response = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_response.status_code == 200
+    assert job_response.json()["status"] == "scheduled"

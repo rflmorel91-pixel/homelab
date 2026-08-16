@@ -29,6 +29,10 @@ def create_schedule(
     db_schedule = Schedule(**schedule.model_dump())
 
     db.add(db_schedule)
+
+    if job.status == "approved":
+        job.status = "scheduled"
+
     db.commit()
     db.refresh(db_schedule)
 
