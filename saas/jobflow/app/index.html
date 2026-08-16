@@ -447,6 +447,26 @@
       const customer =
         customers.find(customer => customer.id === job.customer_id);
 
+      const nextStatus = {
+        customer_requested: ["quoted", "Mark Quoted"],
+        quoted: ["approved", "Approve Job"],
+        approved: ["scheduled", "Schedule Job"],
+        scheduled: ["in_progress", "Start Job"],
+        in_progress: ["completed", "Complete Job"],
+        completed: ["invoiced", "Mark Invoiced"],
+        invoiced: ["paid", "Mark Paid"]
+      }[job.status];
+
+      const actions = nextStatus
+        ? `
+          <button
+            onclick="updateJobStatus(${job.id}, '${nextStatus[0]}')"
+          >
+            ${nextStatus[1]}
+          </button>
+        `
+        : "";
+
       return `
         <div class="card">
           <strong>${escapeHtml(job.title)}</strong>
@@ -465,11 +485,42 @@
           <span class="status">
             ${escapeHtml(job.status)}
           </span>
+          ${
+            actions
+              ? `<div class="actions">${actions}</div>`
+              : ""
+          }
         </div>
       `;
     }).join("");
   }
+  async function updateJobStatus(jobId, newStatus) {
+    const job =
+      jobs.find(item => item.id === jobId);
 
+    if (!job) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/jobs/${jobId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          customer_id: job.customer_id,
+          title: job.title,
+          description: job.description,
+          status: newStatus
+        })
+      });
+
+      await loadData();
+
+      showSuccess(`Job ${newStatus}.`);
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
 
   function renderEstimates() {
     if (estimates.length === 0) {
