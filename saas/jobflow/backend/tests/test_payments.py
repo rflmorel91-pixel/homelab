@@ -640,3 +640,89 @@ def test_job_waits_for_all_invoices_before_becoming_paid(client):
 
     assert final_job.status_code == 200
     assert final_job.json()["status"] == "paid"
+
+
+def test_multi_invoice_job_reopens_when_payment_is_reduced(client):
+    job, invoice1 = create_payable_invoice(client, amount="500.00")
+
+    invoice2_response = client.post(
+        "/api/v1/invoices/",
+        json={
+            "job_id": job["id"],
+            "description": "Second reopening invoice",
+            "amount": "300.00",
+            "status": "draft",
+        },
+    )
+    assert invoice2_response.status_code == 201
+    invoice2 = invoice2_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/invoices/{invoice2['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Second reopening invoice",
+            "amount": "300.00",
+            "status": "sent",
+        },
+    )
+    assert sent_response.status_code == 200
+
+    payment1_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice1["id"],
+            "amount": "500.00",
+            "method": "card",
+            "reference": "REOPEN-MULTI-001",
+        },
+    )
+    assert payment1_response.status_code == 201
+
+    payment2_response = client.post(
+        "/api/v1/payments/",
+        json={
+            "invoice_id": invoice2["id"],
+            "amount": "300.00",
+            "method": "card",
+            "reference": "REOPEN-MULTI-002",
+        },
+    )
+    assert payment2_response.status_code == 201
+    payment2 = payment2_response.json()
+
+    paid_job = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+    assert paid_job.status_code == 200
+    assert paid_job.json()["status"] == "paid"
+
+    reduce_response = client.put(
+        f"/api/v1/payments/{payment2['id']}",
+        json={
+            "invoice_id": invoice2["id"],
+            "amount": "200.00",
+            "method": "card",
+            "reference": "REOPEN-MULTI-003",
+        },
+    )
+    assert reduce_response.status_code == 200
+
+    invoice1_after = client.get(
+        f"/api/v1/invoices/{invoice1['id']}"
+    )
+    invoice2_after = client.get(
+        f"/api/v1/invoices/{invoice2['id']}"
+    )
+    job_after = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert invoice1_after.status_code == 200
+    assert invoice1_after.json()["status"] == "paid"
+
+    assert invoice2_after.status_code == 200
+    assert invoice2_after.json()["status"] == "sent"
+
+    assert job_after.status_code == 200
+    assert job_after.json()["status"] == "invoiced"
