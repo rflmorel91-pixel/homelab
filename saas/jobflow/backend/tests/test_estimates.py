@@ -156,3 +156,37 @@ def test_create_estimate_rejects_invalid_status(client):
     )
 
     assert response.status_code == 422
+
+
+def test_estimate_rejects_invalid_status_transition(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    create_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Transition test estimate",
+            "amount": "500.00",
+            "status": "draft",
+        },
+    )
+
+    assert create_response.status_code == 201
+    estimate = create_response.json()
+
+    response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Transition test estimate",
+            "amount": "500.00",
+            "status": "approved",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Invalid estimate status transition: "
+        "draft -> approved"
+    )

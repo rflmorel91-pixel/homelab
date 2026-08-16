@@ -137,3 +137,46 @@ def test_create_job_rejects_invalid_status(client):
     )
 
     assert response.status_code == 422
+
+
+def test_job_rejects_invalid_status_transition(client):
+    customer_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Transition Test Customer",
+            "phone": "555-0500",
+            "email": "transition@example.com",
+            "address": "400 Transition Street",
+        },
+    )
+
+    assert customer_response.status_code == 201
+    customer = customer_response.json()
+
+    create_response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer["id"],
+            "title": "Transition Test Job",
+            "description": "Job transition testing",
+        },
+    )
+
+    assert create_response.status_code == 201
+    job = create_response.json()
+
+    response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": "Transition Test Job",
+            "description": "Job transition testing",
+            "status": "scheduled",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Invalid job status transition: "
+        "customer_requested -> scheduled"
+    )
