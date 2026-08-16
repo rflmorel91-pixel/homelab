@@ -233,3 +233,67 @@ def test_estimate_status_declined_progression(client):
 
     assert decline_response.status_code == 200
     assert decline_response.json()["status"] == "declined"
+
+
+def test_approving_estimate_automatically_approves_quoted_job(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    quoted_job_response = client.put(
+        f"/api/v1/jobs/{job['id']}",
+        json={
+            "customer_id": customer["id"],
+            "title": job["title"],
+            "description": job["description"],
+            "status": "quoted",
+        },
+    )
+
+    assert quoted_job_response.status_code == 200
+    assert quoted_job_response.json()["status"] == "quoted"
+
+    create_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Auto approval estimate",
+            "amount": "600.00",
+            "status": "draft",
+        },
+    )
+
+    assert create_response.status_code == 201
+    estimate = create_response.json()
+
+    sent_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Auto approval estimate",
+            "amount": "600.00",
+            "status": "sent",
+        },
+    )
+
+    assert sent_response.status_code == 200
+    assert sent_response.json()["status"] == "sent"
+
+    approved_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Auto approval estimate",
+            "amount": "600.00",
+            "status": "approved",
+        },
+    )
+
+    assert approved_response.status_code == 200
+    assert approved_response.json()["status"] == "approved"
+
+    job_response = client.get(
+        f"/api/v1/jobs/{job['id']}"
+    )
+
+    assert job_response.status_code == 200
+    assert job_response.json()["status"] == "approved"

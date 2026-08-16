@@ -93,9 +93,11 @@ def update_estimate(
                 detail="Job not found",
             )
 
-    if estimate.status != db_estimate.status:
+    previous_status = db_estimate.status
+
+    if estimate.status != previous_status:
         allowed_statuses = ESTIMATE_STATUS_TRANSITIONS.get(
-            db_estimate.status,
+            previous_status,
             set(),
         )
 
@@ -104,12 +106,21 @@ def update_estimate(
                 status_code=400,
                 detail=(
                     f"Invalid estimate status transition: "
-                    f"{db_estimate.status} -> {estimate.status}"
+                    f"{previous_status} -> {estimate.status}"
                 ),
             )
 
     for field, value in estimate.model_dump().items():
         setattr(db_estimate, field, value)
+
+    if (
+        previous_status == "sent"
+        and estimate.status == "approved"
+    ):
+        job = db.get(Job, db_estimate.job_id)
+
+        if job is not None and job.status == "quoted":
+            job.status = "approved"
 
     db.commit()
     db.refresh(db_estimate)

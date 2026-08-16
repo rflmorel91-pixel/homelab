@@ -79,14 +79,8 @@ def test_complete_jobflow_workflow(client):
     assert approved_estimate_response.status_code == 200
     assert approved_estimate_response.json()["status"] == "approved"
 
-    approved_job_response = client.put(
-        f"/api/v1/jobs/{job_id}",
-        json={
-            "customer_id": customer["id"],
-            "title": "Workflow Test Job",
-            "description": "Complete automated JobFlow workflow",
-            "status": "approved",
-        },
+    approved_job_response = client.get(
+        f"/api/v1/jobs/{job_id}"
     )
 
     assert approved_job_response.status_code == 200
