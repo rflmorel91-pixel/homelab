@@ -180,3 +180,54 @@ def test_job_rejects_invalid_status_transition(client):
         "Invalid job status transition: "
         "customer_requested -> scheduled"
     )
+
+
+def test_job_status_progression(client):
+    customer_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Status Progression Customer",
+            "phone": "555-0600",
+            "email": "progression@example.com",
+            "address": "500 Progression Street",
+        },
+    )
+
+    assert customer_response.status_code == 201
+    customer = customer_response.json()
+
+    create_response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer["id"],
+            "title": "Status Progression Job",
+            "description": "Testing the complete job lifecycle.",
+        },
+    )
+
+    assert create_response.status_code == 201
+    job = create_response.json()
+
+    statuses = [
+        "quoted",
+        "approved",
+        "scheduled",
+        "in_progress",
+        "completed",
+        "invoiced",
+        "paid",
+    ]
+
+    for status in statuses:
+        response = client.put(
+            f"/api/v1/jobs/{job['id']}",
+            json={
+                "customer_id": customer["id"],
+                "title": "Status Progression Job",
+                "description": "Testing the complete job lifecycle.",
+                "status": status,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == status
