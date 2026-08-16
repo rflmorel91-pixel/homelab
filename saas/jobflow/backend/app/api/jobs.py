@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer, Estimate, Invoice, Job, Schedule
+from app.models import Customer, Estimate, Invoice, Job, Schedule, Tenant
 from app.schemas import JobCreate, JobRead, JobUpdate
+from app.tenant_context import get_current_tenant
 
 
 JOB_STATUS_TRANSITIONS = {
@@ -29,8 +30,14 @@ router = APIRouter(
 def create_job(
     job: JobCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    customer = db.get(Customer, job.customer_id)
+    customer = db.scalar(
+        select(Customer).where(
+            Customer.id == job.customer_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if customer is None:
         raise HTTPException(
@@ -50,9 +57,13 @@ def create_job(
 @router.get("/", response_model=list[JobRead])
 def list_jobs(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Job).order_by(Job.id)
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Job.id)
     )
 
     return result.scalars().all()
@@ -62,8 +73,16 @@ def list_jobs(
 def get_job(
     job_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    job = db.get(Job, job_id)
+    job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if job is None:
         raise HTTPException(
@@ -79,8 +98,16 @@ def update_job(
     job_id: int,
     job: JobUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_job = db.get(Job, job_id)
+    db_job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_job is None:
         raise HTTPException(
@@ -122,8 +149,16 @@ def update_job(
 def delete_job(
     job_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_job = db.get(Job, job_id)
+    db_job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_job is None:
         raise HTTPException(
