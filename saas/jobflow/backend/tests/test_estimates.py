@@ -190,3 +190,46 @@ def test_estimate_rejects_invalid_status_transition(client):
         "Invalid estimate status transition: "
         "draft -> approved"
     )
+
+
+def test_estimate_status_declined_progression(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    create_response = client.post(
+        "/api/v1/estimates/",
+        json={
+            "job_id": job["id"],
+            "description": "Declined estimate",
+            "amount": "750.00",
+        },
+    )
+
+    assert create_response.status_code == 201
+    estimate = create_response.json()
+
+    send_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Declined estimate",
+            "amount": "750.00",
+            "status": "sent",
+        },
+    )
+
+    assert send_response.status_code == 200
+    assert send_response.json()["status"] == "sent"
+
+    decline_response = client.put(
+        f"/api/v1/estimates/{estimate['id']}",
+        json={
+            "job_id": job["id"],
+            "description": "Declined estimate",
+            "amount": "750.00",
+            "status": "declined",
+        },
+    )
+
+    assert decline_response.status_code == 200
+    assert decline_response.json()["status"] == "declined"
