@@ -1,4 +1,4 @@
-from app.models import Tenant
+from app.models import Tenant, TenantMembership, User
 
 
 def create_tenant(db_session, name, slug):
@@ -12,6 +12,47 @@ def create_tenant(db_session, name, slug):
     return tenant
 
 
+def create_user(
+    db_session,
+    email,
+    display_name,
+    is_active=True,
+):
+    user = User(
+        email=email,
+        display_name=display_name,
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+def add_membership(
+    db_session,
+    tenant,
+    user,
+    role="member",
+):
+    membership = TenantMembership(
+        tenant_id=tenant.id,
+        user_id=user.id,
+        role=role,
+    )
+    db_session.add(membership)
+    db_session.commit()
+    db_session.refresh(membership)
+    return membership
+
+
+def auth_headers(user, tenant):
+    return {
+        "X-User-ID": str(user.id),
+        "X-Tenant-ID": str(tenant.id),
+    }
+
+
 def test_customer_api_requires_tenant_context(
     raw_client,
 ):
@@ -21,14 +62,16 @@ def test_customer_api_requires_tenant_context(
 
     assert response.status_code == 401
     assert response.json()["detail"] == (
-        "Tenant context required"
+        "Authentication required"
     )
 
 
 def test_customers_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Tenant A",
@@ -42,9 +85,7 @@ def test_customers_are_isolated_by_tenant(
 
     create_a = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Tenant A Customer",
             "phone": "555-2001",
@@ -58,9 +99,7 @@ def test_customers_are_isolated_by_tenant(
 
     create_b = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Tenant B Customer",
             "phone": "555-2002",
@@ -74,9 +113,7 @@ def test_customers_are_isolated_by_tenant(
 
     list_a = client.get(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
     )
 
     assert list_a.status_code == 200
@@ -87,9 +124,7 @@ def test_customers_are_isolated_by_tenant(
 
     list_b = client.get(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
     )
 
     assert list_b.status_code == 200
@@ -100,9 +135,7 @@ def test_customers_are_isolated_by_tenant(
 
     cross_tenant_get = client.get(
         f"/api/v1/customers/{customer_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
     )
 
     assert cross_tenant_get.status_code == 404
@@ -112,9 +145,11 @@ def test_customers_are_isolated_by_tenant(
 
 
 def test_cross_tenant_customer_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Update Tenant A",
@@ -128,9 +163,7 @@ def test_cross_tenant_customer_update_is_hidden(
 
     create_b = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Protected Tenant B Customer",
             "phone": "555-2100",
@@ -144,9 +177,7 @@ def test_cross_tenant_customer_update_is_hidden(
 
     update_response = client.put(
         f"/api/v1/customers/{customer_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Illegitimate Update",
             "phone": "555-9999",
@@ -162,9 +193,7 @@ def test_cross_tenant_customer_update_is_hidden(
 
     original = client.get(
         f"/api/v1/customers/{customer_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
@@ -174,9 +203,11 @@ def test_cross_tenant_customer_update_is_hidden(
 
 
 def test_cross_tenant_customer_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Delete Tenant A",
@@ -190,9 +221,7 @@ def test_cross_tenant_customer_delete_is_hidden(
 
     create_b = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Undeletable Tenant B Customer",
             "phone": "555-2200",
@@ -206,9 +235,7 @@ def test_cross_tenant_customer_delete_is_hidden(
 
     delete_response = client.delete(
         f"/api/v1/customers/{customer_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
     )
 
     assert delete_response.status_code == 404
@@ -218,18 +245,18 @@ def test_cross_tenant_customer_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/customers/{customer_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
 
 
 def test_cannot_create_job_for_another_tenants_customer(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Job Tenant A",
@@ -243,9 +270,7 @@ def test_cannot_create_job_for_another_tenants_customer(
 
     customer_b_response = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Tenant B Job Customer",
             "phone": "555-2300",
@@ -259,9 +284,7 @@ def test_cannot_create_job_for_another_tenants_customer(
 
     create_job_response = client.post(
         "/api/v1/jobs/",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_b["id"],
             "title": "Cross Tenant Job",
@@ -276,9 +299,11 @@ def test_cannot_create_job_for_another_tenants_customer(
 
 
 def test_cross_tenant_job_read_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Job Read Tenant A",
@@ -292,9 +317,7 @@ def test_cross_tenant_job_read_is_hidden(
 
     customer_b_response = client.post(
         "/api/v1/customers/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Tenant B Read Customer",
             "phone": "555-2400",
@@ -308,9 +331,7 @@ def test_cross_tenant_job_read_is_hidden(
 
     job_b_response = client.post(
         "/api/v1/jobs/",
-        headers={
-            "X-Tenant-ID": str(tenant_b.id),
-        },
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Tenant B Private Job",
@@ -323,9 +344,7 @@ def test_cross_tenant_job_read_is_hidden(
 
     cross_tenant_get = client.get(
         f"/api/v1/jobs/{job_b['id']}",
-        headers={
-            "X-Tenant-ID": str(tenant_a.id),
-        },
+        headers=client.auth_headers(tenant_a),
     )
 
     assert cross_tenant_get.status_code == 404
@@ -335,9 +354,11 @@ def test_cross_tenant_job_read_is_hidden(
 
 
 def test_job_lists_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Job List Tenant A",
@@ -351,7 +372,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     customer_a = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Job List Customer A",
             "phone": "555-2501",
@@ -362,7 +383,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Job List Customer B",
             "phone": "555-2502",
@@ -373,7 +394,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     job_a = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_a["id"],
             "title": "Tenant A Job",
@@ -383,7 +404,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Tenant B Job",
@@ -393,7 +414,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     list_a = client.get(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert list_a.status_code == 200
@@ -401,7 +422,7 @@ def test_job_lists_are_isolated_by_tenant(
 
     list_b = client.get(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert list_b.status_code == 200
@@ -409,9 +430,11 @@ def test_job_lists_are_isolated_by_tenant(
 
 
 def test_cross_tenant_job_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Job Update Tenant A",
@@ -425,7 +448,7 @@ def test_cross_tenant_job_update_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Job Update Customer B",
             "phone": "555-2600",
@@ -436,7 +459,7 @@ def test_cross_tenant_job_update_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Protected Tenant B Job",
@@ -446,7 +469,7 @@ def test_cross_tenant_job_update_is_hidden(
 
     response = client.put(
         f"/api/v1/jobs/{job_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_b["id"],
             "title": "Hijacked Job",
@@ -460,7 +483,7 @@ def test_cross_tenant_job_update_is_hidden(
 
     original = client.get(
         f"/api/v1/jobs/{job_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
@@ -469,9 +492,11 @@ def test_cross_tenant_job_update_is_hidden(
 
 
 def test_cross_tenant_job_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Job Delete Tenant A",
@@ -485,7 +510,7 @@ def test_cross_tenant_job_delete_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Job Delete Customer B",
             "phone": "555-2700",
@@ -496,7 +521,7 @@ def test_cross_tenant_job_delete_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Undeletable Tenant B Job",
@@ -506,7 +531,7 @@ def test_cross_tenant_job_delete_is_hidden(
 
     response = client.delete(
         f"/api/v1/jobs/{job_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -514,16 +539,18 @@ def test_cross_tenant_job_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/jobs/{job_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
 
 
 def test_cannot_create_estimate_for_another_tenants_job(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Estimate Tenant A",
@@ -537,7 +564,7 @@ def test_cannot_create_estimate_for_another_tenants_job(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Estimate Customer B",
             "phone": "555-2800",
@@ -548,7 +575,7 @@ def test_cannot_create_estimate_for_another_tenants_job(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Estimate Tenant B Job",
@@ -558,7 +585,7 @@ def test_cannot_create_estimate_for_another_tenants_job(
 
     response = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "description": "Cross Tenant Estimate",
@@ -572,9 +599,11 @@ def test_cannot_create_estimate_for_another_tenants_job(
 
 
 def test_cross_tenant_estimate_read_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Estimate Read Tenant A",
@@ -588,7 +617,7 @@ def test_cross_tenant_estimate_read_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Estimate Read Customer B",
             "phone": "555-2900",
@@ -599,7 +628,7 @@ def test_cross_tenant_estimate_read_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Private Estimate Job",
@@ -609,7 +638,7 @@ def test_cross_tenant_estimate_read_is_hidden(
 
     estimate_b = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Tenant B Private Estimate",
@@ -620,7 +649,7 @@ def test_cross_tenant_estimate_read_is_hidden(
 
     response = client.get(
         f"/api/v1/estimates/{estimate_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -628,9 +657,11 @@ def test_cross_tenant_estimate_read_is_hidden(
 
 
 def test_estimate_lists_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Estimate List Tenant A",
@@ -644,7 +675,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     customer_a = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Estimate List Customer A",
             "phone": "555-3001",
@@ -655,7 +686,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Estimate List Customer B",
             "phone": "555-3002",
@@ -666,7 +697,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     job_a = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_a["id"],
             "title": "Estimate List Job A",
@@ -676,7 +707,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Estimate List Job B",
@@ -686,7 +717,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     estimate_a = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_a["id"],
             "description": "Estimate A",
@@ -697,7 +728,7 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     estimate_b = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Estimate B",
@@ -708,23 +739,25 @@ def test_estimate_lists_are_isolated_by_tenant(
 
     list_a = client.get(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
     assert list_a.status_code == 200
     assert [item["id"] for item in list_a.json()] == [estimate_a["id"]]
 
     list_b = client.get(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert list_b.status_code == 200
     assert [item["id"] for item in list_b.json()] == [estimate_b["id"]]
 
 
 def test_cross_tenant_estimate_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Estimate Update Tenant A",
@@ -738,7 +771,7 @@ def test_cross_tenant_estimate_update_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Estimate Update Customer B",
             "phone": "555-3100",
@@ -749,7 +782,7 @@ def test_cross_tenant_estimate_update_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Estimate Update Job B",
@@ -759,7 +792,7 @@ def test_cross_tenant_estimate_update_is_hidden(
 
     estimate_b = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Protected Estimate",
@@ -770,7 +803,7 @@ def test_cross_tenant_estimate_update_is_hidden(
 
     response = client.put(
         f"/api/v1/estimates/{estimate_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "description": "Hijacked Estimate",
@@ -784,7 +817,7 @@ def test_cross_tenant_estimate_update_is_hidden(
 
     original = client.get(
         f"/api/v1/estimates/{estimate_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert original.status_code == 200
     assert original.json()["description"] == "Protected Estimate"
@@ -793,9 +826,11 @@ def test_cross_tenant_estimate_update_is_hidden(
 
 
 def test_cross_tenant_estimate_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Estimate Delete Tenant A",
@@ -809,7 +844,7 @@ def test_cross_tenant_estimate_delete_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Estimate Delete Customer B",
             "phone": "555-3200",
@@ -820,7 +855,7 @@ def test_cross_tenant_estimate_delete_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Estimate Delete Job B",
@@ -830,7 +865,7 @@ def test_cross_tenant_estimate_delete_is_hidden(
 
     estimate_b = client.post(
         "/api/v1/estimates/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Undeletable Estimate",
@@ -841,7 +876,7 @@ def test_cross_tenant_estimate_delete_is_hidden(
 
     response = client.delete(
         f"/api/v1/estimates/{estimate_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -849,15 +884,17 @@ def test_cross_tenant_estimate_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/estimates/{estimate_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert original.status_code == 200
 
 
 def test_cannot_create_schedule_for_another_tenants_job(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Schedule Tenant A",
@@ -871,7 +908,7 @@ def test_cannot_create_schedule_for_another_tenants_job(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Schedule Customer B",
             "phone": "555-3300",
@@ -882,7 +919,7 @@ def test_cannot_create_schedule_for_another_tenants_job(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Schedule Tenant B Job",
@@ -892,7 +929,7 @@ def test_cannot_create_schedule_for_another_tenants_job(
 
     response = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-01T09:00:00",
@@ -906,9 +943,11 @@ def test_cannot_create_schedule_for_another_tenants_job(
 
 
 def test_cross_tenant_schedule_read_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Schedule Read Tenant A",
@@ -922,7 +961,7 @@ def test_cross_tenant_schedule_read_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Schedule Read Customer B",
             "phone": "555-3400",
@@ -933,7 +972,7 @@ def test_cross_tenant_schedule_read_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Private Schedule Job",
@@ -943,7 +982,7 @@ def test_cross_tenant_schedule_read_is_hidden(
 
     schedule_b = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-02T09:00:00",
@@ -954,7 +993,7 @@ def test_cross_tenant_schedule_read_is_hidden(
 
     response = client.get(
         f"/api/v1/schedules/{schedule_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -962,9 +1001,11 @@ def test_cross_tenant_schedule_read_is_hidden(
 
 
 def test_schedule_lists_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Schedule List Tenant A",
@@ -978,7 +1019,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     customer_a = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Schedule List Customer A",
             "phone": "555-3501",
@@ -989,7 +1030,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Schedule List Customer B",
             "phone": "555-3502",
@@ -1000,7 +1041,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     job_a = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_a["id"],
             "title": "Schedule List Job A",
@@ -1010,7 +1051,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Schedule List Job B",
@@ -1020,7 +1061,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     schedule_a = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_a["id"],
             "scheduled_start": "2026-09-03T09:00:00",
@@ -1031,7 +1072,7 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     schedule_b = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-04T09:00:00",
@@ -1042,23 +1083,25 @@ def test_schedule_lists_are_isolated_by_tenant(
 
     list_a = client.get(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
     assert list_a.status_code == 200
     assert [item["id"] for item in list_a.json()] == [schedule_a["id"]]
 
     list_b = client.get(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert list_b.status_code == 200
     assert [item["id"] for item in list_b.json()] == [schedule_b["id"]]
 
 
 def test_cross_tenant_schedule_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Schedule Update Tenant A",
@@ -1072,7 +1115,7 @@ def test_cross_tenant_schedule_update_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Schedule Update Customer B",
             "phone": "555-3600",
@@ -1083,7 +1126,7 @@ def test_cross_tenant_schedule_update_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Schedule Update Job B",
@@ -1093,7 +1136,7 @@ def test_cross_tenant_schedule_update_is_hidden(
 
     schedule_b = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-05T09:00:00",
@@ -1104,7 +1147,7 @@ def test_cross_tenant_schedule_update_is_hidden(
 
     response = client.put(
         f"/api/v1/schedules/{schedule_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-05T13:00:00",
@@ -1118,16 +1161,18 @@ def test_cross_tenant_schedule_update_is_hidden(
 
     original = client.get(
         f"/api/v1/schedules/{schedule_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert original.status_code == 200
     assert original.json()["notes"] == "Protected Schedule"
 
 
 def test_cross_tenant_schedule_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Schedule Delete Tenant A",
@@ -1141,7 +1186,7 @@ def test_cross_tenant_schedule_delete_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Schedule Delete Customer B",
             "phone": "555-3700",
@@ -1152,7 +1197,7 @@ def test_cross_tenant_schedule_delete_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Schedule Delete Job B",
@@ -1162,7 +1207,7 @@ def test_cross_tenant_schedule_delete_is_hidden(
 
     schedule_b = client.post(
         "/api/v1/schedules/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "scheduled_start": "2026-09-06T09:00:00",
@@ -1173,7 +1218,7 @@ def test_cross_tenant_schedule_delete_is_hidden(
 
     response = client.delete(
         f"/api/v1/schedules/{schedule_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -1181,15 +1226,17 @@ def test_cross_tenant_schedule_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/schedules/{schedule_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert original.status_code == 200
 
 
 def test_cannot_create_invoice_for_another_tenants_job(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Invoice Tenant A",
@@ -1203,7 +1250,7 @@ def test_cannot_create_invoice_for_another_tenants_job(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Invoice Customer B",
             "phone": "555-3800",
@@ -1214,7 +1261,7 @@ def test_cannot_create_invoice_for_another_tenants_job(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Invoice Tenant B Job",
@@ -1224,7 +1271,7 @@ def test_cannot_create_invoice_for_another_tenants_job(
 
     response = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "description": "Cross Tenant Invoice",
@@ -1238,9 +1285,11 @@ def test_cannot_create_invoice_for_another_tenants_job(
 
 
 def test_cross_tenant_invoice_read_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Invoice Read Tenant A",
@@ -1254,7 +1303,7 @@ def test_cross_tenant_invoice_read_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Invoice Read Customer B",
             "phone": "555-3900",
@@ -1265,7 +1314,7 @@ def test_cross_tenant_invoice_read_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Private Invoice Job",
@@ -1275,7 +1324,7 @@ def test_cross_tenant_invoice_read_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Tenant B Private Invoice",
@@ -1286,7 +1335,7 @@ def test_cross_tenant_invoice_read_is_hidden(
 
     response = client.get(
         f"/api/v1/invoices/{invoice_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -1294,9 +1343,11 @@ def test_cross_tenant_invoice_read_is_hidden(
 
 
 def test_invoice_lists_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Invoice List Tenant A",
@@ -1310,7 +1361,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     customer_a = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Invoice List Customer A",
             "phone": "555-4001",
@@ -1321,7 +1372,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Invoice List Customer B",
             "phone": "555-4002",
@@ -1332,7 +1383,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     job_a = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_a["id"],
             "title": "Invoice List Job A",
@@ -1342,7 +1393,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Invoice List Job B",
@@ -1352,7 +1403,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     invoice_a = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_a["id"],
             "description": "Invoice A",
@@ -1363,7 +1414,7 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Invoice B",
@@ -1374,23 +1425,25 @@ def test_invoice_lists_are_isolated_by_tenant(
 
     list_a = client.get(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
     assert list_a.status_code == 200
     assert [item["id"] for item in list_a.json()] == [invoice_a["id"]]
 
     list_b = client.get(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
     assert list_b.status_code == 200
     assert [item["id"] for item in list_b.json()] == [invoice_b["id"]]
 
 
 def test_cross_tenant_invoice_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Invoice Update Tenant A",
@@ -1404,7 +1457,7 @@ def test_cross_tenant_invoice_update_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Invoice Update Customer B",
             "phone": "555-4100",
@@ -1415,7 +1468,7 @@ def test_cross_tenant_invoice_update_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Invoice Update Job B",
@@ -1425,7 +1478,7 @@ def test_cross_tenant_invoice_update_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Protected Invoice",
@@ -1436,7 +1489,7 @@ def test_cross_tenant_invoice_update_is_hidden(
 
     response = client.put(
         f"/api/v1/invoices/{invoice_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_b["id"],
             "description": "Hijacked Invoice",
@@ -1450,7 +1503,7 @@ def test_cross_tenant_invoice_update_is_hidden(
 
     original = client.get(
         f"/api/v1/invoices/{invoice_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
@@ -1460,9 +1513,11 @@ def test_cross_tenant_invoice_update_is_hidden(
 
 
 def test_cross_tenant_invoice_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Invoice Delete Tenant A",
@@ -1476,7 +1531,7 @@ def test_cross_tenant_invoice_delete_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Invoice Delete Customer B",
             "phone": "555-4200",
@@ -1487,7 +1542,7 @@ def test_cross_tenant_invoice_delete_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Invoice Delete Job B",
@@ -1497,7 +1552,7 @@ def test_cross_tenant_invoice_delete_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Undeletable Invoice",
@@ -1508,7 +1563,7 @@ def test_cross_tenant_invoice_delete_is_hidden(
 
     response = client.delete(
         f"/api/v1/invoices/{invoice_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -1516,16 +1571,18 @@ def test_cross_tenant_invoice_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/invoices/{invoice_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
 
 
 def test_cannot_create_payment_for_another_tenants_invoice(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Payment Tenant A",
@@ -1539,7 +1596,7 @@ def test_cannot_create_payment_for_another_tenants_invoice(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Payment Customer B",
             "phone": "555-4300",
@@ -1550,7 +1607,7 @@ def test_cannot_create_payment_for_another_tenants_invoice(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Payment Tenant B Job",
@@ -1560,7 +1617,7 @@ def test_cannot_create_payment_for_another_tenants_invoice(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Private Tenant B Invoice",
@@ -1571,7 +1628,7 @@ def test_cannot_create_payment_for_another_tenants_invoice(
 
     response = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "500.00",
@@ -1585,9 +1642,11 @@ def test_cannot_create_payment_for_another_tenants_invoice(
 
 
 def test_cross_tenant_payment_read_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Payment Read Tenant A",
@@ -1601,7 +1660,7 @@ def test_cross_tenant_payment_read_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Payment Read Customer B",
             "phone": "555-4400",
@@ -1612,7 +1671,7 @@ def test_cross_tenant_payment_read_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Payment Read Job B",
@@ -1622,7 +1681,7 @@ def test_cross_tenant_payment_read_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Payment Read Invoice",
@@ -1633,7 +1692,7 @@ def test_cross_tenant_payment_read_is_hidden(
 
     payment_b = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "400.00",
@@ -1644,7 +1703,7 @@ def test_cross_tenant_payment_read_is_hidden(
 
     response = client.get(
         f"/api/v1/payments/{payment_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -1652,9 +1711,11 @@ def test_cross_tenant_payment_read_is_hidden(
 
 
 def test_payment_lists_are_isolated_by_tenant(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Payment List Tenant A",
@@ -1668,7 +1729,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     customer_a = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "name": "Payment List Customer A",
             "phone": "555-4501",
@@ -1679,7 +1740,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Payment List Customer B",
             "phone": "555-4502",
@@ -1690,7 +1751,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     job_a = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "customer_id": customer_a["id"],
             "title": "Payment List Job A",
@@ -1700,7 +1761,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Payment List Job B",
@@ -1710,7 +1771,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     invoice_a = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "job_id": job_a["id"],
             "description": "Invoice A",
@@ -1721,7 +1782,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Invoice B",
@@ -1732,7 +1793,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     payment_a = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "invoice_id": invoice_a["id"],
             "amount": "300.00",
@@ -1743,7 +1804,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     payment_b = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "400.00",
@@ -1754,7 +1815,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     response_a = client.get(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response_a.status_code == 200
@@ -1762,7 +1823,7 @@ def test_payment_lists_are_isolated_by_tenant(
 
     response_b = client.get(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert response_b.status_code == 200
@@ -1770,9 +1831,11 @@ def test_payment_lists_are_isolated_by_tenant(
 
 
 def test_cross_tenant_payment_update_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Payment Update Tenant A",
@@ -1786,7 +1849,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Payment Update Customer B",
             "phone": "555-4600",
@@ -1797,7 +1860,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Payment Update Job B",
@@ -1807,7 +1870,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Protected Invoice",
@@ -1818,7 +1881,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     payment_b = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "300.00",
@@ -1829,7 +1892,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     response = client.put(
         f"/api/v1/payments/{payment_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "500.00",
@@ -1843,7 +1906,7 @@ def test_cross_tenant_payment_update_is_hidden(
 
     original = client.get(
         f"/api/v1/payments/{payment_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
@@ -1853,9 +1916,11 @@ def test_cross_tenant_payment_update_is_hidden(
 
 
 def test_cross_tenant_payment_delete_is_hidden(
-    client,
+    authenticated_client,
     db_session,
 ):
+    client = authenticated_client
+
     tenant_a = create_tenant(
         db_session,
         "Payment Delete Tenant A",
@@ -1869,7 +1934,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     customer_b = client.post(
         "/api/v1/customers/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "name": "Payment Delete Customer B",
             "phone": "555-4700",
@@ -1880,7 +1945,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     job_b = client.post(
         "/api/v1/jobs/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "customer_id": customer_b["id"],
             "title": "Payment Delete Job B",
@@ -1890,7 +1955,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     invoice_b = client.post(
         "/api/v1/invoices/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "job_id": job_b["id"],
             "description": "Protected Invoice",
@@ -1901,7 +1966,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     payment_b = client.post(
         "/api/v1/payments/",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
         json={
             "invoice_id": invoice_b["id"],
             "amount": "350.00",
@@ -1912,7 +1977,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     response = client.delete(
         f"/api/v1/payments/{payment_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_a.id)},
+        headers=client.auth_headers(tenant_a),
     )
 
     assert response.status_code == 404
@@ -1920,7 +1985,38 @@ def test_cross_tenant_payment_delete_is_hidden(
 
     original = client.get(
         f"/api/v1/payments/{payment_b['id']}",
-        headers={"X-Tenant-ID": str(tenant_b.id)},
+        headers=client.auth_headers(tenant_b),
     )
 
     assert original.status_code == 200
+
+
+def test_tenant_header_alone_does_not_prove_membership(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Authorization Tenant A",
+        "authorization-tenant-a",
+    )
+
+    tenant_b = create_tenant(
+        db_session,
+        "Authorization Tenant B",
+        "authorization-tenant-b",
+    )
+
+    response = client.get(
+        "/api/v1/customers/",
+        headers={
+            "X-Tenant-ID": str(tenant_b.id),
+        },
+    )
+
+    # A tenant header is not sufficient. The caller must have
+    # an authenticated membership in the selected tenant.
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "User is not a member of this tenant"
+    )

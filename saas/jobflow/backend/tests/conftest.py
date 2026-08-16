@@ -1,13 +1,13 @@
 from collections.abc import Generator
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import Tenant
+from app.models import Tenant, TenantMembership, User
 
 
 TEST_DATABASE_URL = (
@@ -33,8 +33,8 @@ def clean_test_database():
         connection.execute(
             text(
                 "TRUNCATE TABLE "
-                "tenant_memberships, users, tenants, "
-                "jobs, customers "
+                "payments, invoices, schedules, estimates, jobs, "
+                "customers, tenant_memberships, users, tenants "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -65,6 +65,15 @@ def client() -> Generator[TestClient, None, None]:
     db = TestingSessionLocal()
 
     try:
+        user = User(
+            email="default-test-user@example.com",
+            display_name="Default Test User",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
         tenant = Tenant(
             name="Default Test Tenant",
             slug="default-test-tenant",
@@ -72,6 +81,16 @@ def client() -> Generator[TestClient, None, None]:
         db.add(tenant)
         db.commit()
         db.refresh(tenant)
+
+        membership = TenantMembership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role="member",
+        )
+        db.add(membership)
+        db.commit()
+
+        user_id = user.id
         tenant_id = tenant.id
     finally:
         db.close()
@@ -79,6 +98,7 @@ def client() -> Generator[TestClient, None, None]:
     with TestClient(
         app,
         headers={
+            "X-User-ID": str(user_id),
             "X-Tenant-ID": str(tenant_id),
         },
     ) as test_client:
@@ -103,3 +123,44 @@ def raw_client() -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def authenticated_client(client, db_session):
+    from app.models import Tenant, TenantMembership, User
+
+    user = User(
+        email="test-user@example.com",
+        display_name="Test User",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    def headers(tenant):
+        existing = db_session.scalar(
+            select(TenantMembership).where(
+                TenantMembership.tenant_id == tenant.id,
+                TenantMembership.user_id == user.id,
+            )
+        )
+
+        if existing is None:
+            membership = TenantMembership(
+                tenant_id=tenant.id,
+                user_id=user.id,
+                role="member",
+            )
+            db_session.add(membership)
+            db_session.commit()
+
+        return {
+            "X-User-ID": str(user.id),
+            "X-Tenant-ID": str(tenant.id),
+        }
+
+    client.auth_user = user
+    client.auth_headers = headers
+
+    return client
