@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Estimate, Job
+from app.models import Customer, Estimate, Job, Tenant
 from app.schemas import EstimateCreate, EstimateRead, EstimateUpdate
+from app.tenant_context import get_current_tenant
 
 
 ESTIMATE_STATUS_TRANSITIONS = {
@@ -25,8 +26,16 @@ router = APIRouter(
 def create_estimate(
     estimate: EstimateCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    job = db.get(Job, estimate.job_id)
+    job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == estimate.job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if job is None:
         raise HTTPException(
@@ -46,9 +55,14 @@ def create_estimate(
 @router.get("/", response_model=list[EstimateRead])
 def list_estimates(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Estimate).order_by(Estimate.id)
+        select(Estimate)
+        .join(Job, Job.id == Estimate.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Estimate.id)
     )
 
     return result.scalars().all()
@@ -58,8 +72,17 @@ def list_estimates(
 def get_estimate(
     estimate_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    estimate = db.get(Estimate, estimate_id)
+    estimate = db.scalar(
+        select(Estimate)
+        .join(Job, Job.id == Estimate.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Estimate.id == estimate_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if estimate is None:
         raise HTTPException(
@@ -75,8 +98,17 @@ def update_estimate(
     estimate_id: int,
     estimate: EstimateUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_estimate = db.get(Estimate, estimate_id)
+    db_estimate = db.scalar(
+        select(Estimate)
+        .join(Job, Job.id == Estimate.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Estimate.id == estimate_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_estimate is None:
         raise HTTPException(
@@ -114,7 +146,14 @@ def update_estimate(
         previous_status == "sent"
         and estimate.status == "approved"
     ):
-        job = db.get(Job, db_estimate.job_id)
+        job = db.scalar(
+            select(Job)
+            .join(Customer, Customer.id == Job.customer_id)
+            .where(
+                Job.id == db_estimate.job_id,
+                Customer.tenant_id == tenant.id,
+            )
+        )
 
         if job is not None and job.status == "quoted":
             job.status = "approved"
@@ -129,8 +168,17 @@ def update_estimate(
 def delete_estimate(
     estimate_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_estimate = db.get(Estimate, estimate_id)
+    db_estimate = db.scalar(
+        select(Estimate)
+        .join(Job, Job.id == Estimate.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Estimate.id == estimate_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_estimate is None:
         raise HTTPException(
