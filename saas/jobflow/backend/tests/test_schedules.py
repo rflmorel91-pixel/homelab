@@ -1,0 +1,149 @@
+def create_customer(client):
+    response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Schedule Test Customer",
+            "phone": "555-0600",
+            "email": "schedule@example.com",
+            "address": "600 Schedule Street",
+        },
+    )
+
+    assert response.status_code == 201
+    return response.json()
+
+
+def create_job(client, customer_id):
+    response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer_id,
+            "title": "Schedule Test Job",
+            "description": "Job for schedule testing",
+            "status": "customer_requested",
+        },
+    )
+
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_create_schedule(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-20T09:00:00",
+            "scheduled_end": "2026-08-20T11:00:00",
+            "notes": "Morning appointment",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["job_id"] == job["id"]
+    assert data["scheduled_start"] == "2026-08-20T09:00:00"
+    assert data["scheduled_end"] == "2026-08-20T11:00:00"
+    assert data["notes"] == "Morning appointment"
+    assert "id" in data
+    assert "created_at" in data
+
+
+def test_schedule_crud(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    create_response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-21T10:00:00",
+            "scheduled_end": "2026-08-21T12:00:00",
+            "notes": "Initial schedule",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    schedule_id = create_response.json()["id"]
+
+    get_response = client.get(
+        f"/api/v1/schedules/{schedule_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    update_response = client.put(
+        f"/api/v1/schedules/{schedule_id}",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-21T13:00:00",
+            "scheduled_end": "2026-08-21T15:00:00",
+            "notes": "Updated schedule",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    updated = update_response.json()
+
+    assert updated["scheduled_start"] == "2026-08-21T13:00:00"
+    assert updated["scheduled_end"] == "2026-08-21T15:00:00"
+    assert updated["notes"] == "Updated schedule"
+
+    list_response = client.get("/api/v1/schedules/")
+
+    assert list_response.status_code == 200
+    assert any(
+        schedule["id"] == schedule_id
+        for schedule in list_response.json()
+    )
+
+    delete_response = client.delete(
+        f"/api/v1/schedules/{schedule_id}"
+    )
+
+    assert delete_response.status_code == 204
+
+    get_deleted_response = client.get(
+        f"/api/v1/schedules/{schedule_id}"
+    )
+
+    assert get_deleted_response.status_code == 404
+
+
+def test_create_schedule_requires_existing_job(client):
+    response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": 999999,
+            "scheduled_start": "2026-08-22T09:00:00",
+            "scheduled_end": "2026-08-22T10:00:00",
+            "notes": "Invalid job",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
+
+
+def test_schedule_rejects_end_before_start(client):
+    customer = create_customer(client)
+    job = create_job(client, customer["id"])
+
+    response = client.post(
+        "/api/v1/schedules/",
+        json={
+            "job_id": job["id"],
+            "scheduled_start": "2026-08-23T15:00:00",
+            "scheduled_end": "2026-08-23T14:00:00",
+            "notes": "Invalid time range",
+        },
+    )
+
+    assert response.status_code == 422

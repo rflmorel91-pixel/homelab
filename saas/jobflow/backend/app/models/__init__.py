@@ -3,6 +3,7 @@ from app.models.job import Job
 from app.models.estimate import Estimate
 from app.models.invoice import Invoice
 from app.models.payment import Payment
+from app.models.schedule import Schedule
 
 __all__ = [
     "Customer",
@@ -10,4 +11,5 @@ __all__ = [
     "Estimate",
     "Invoice",
     "Payment",
+    "Schedule",
 ]

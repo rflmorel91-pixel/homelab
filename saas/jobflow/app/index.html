@@ -227,6 +227,34 @@
     </section>
 
     <section class="panel">
+      <h2>Create Schedule</h2>
+
+      <form id="scheduleForm">
+        <select id="scheduleJob" required>
+          <option value="">Select job</option>
+        </select>
+
+        <input
+          id="scheduleStart"
+          type="datetime-local"
+          required
+        >
+
+        <input
+          id="scheduleEnd"
+          type="datetime-local"
+        >
+
+        <textarea
+          id="scheduleNotes"
+          placeholder="Schedule notes"
+        ></textarea>
+
+        <button type="submit">Create Schedule</button>
+      </form>
+    </section>
+
+    <section class="panel">
       <h2>Create Estimate</h2>
 
       <form id="estimateForm">
@@ -334,6 +362,13 @@
   </section>
 
   <section class="panel">
+    <h2>Schedules</h2>
+    <div id="scheduleList">
+      <p class="empty">Loading schedules...</p>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Estimates</h2>
     <div id="estimateList">
       <p class="empty">Loading estimates...</p>
@@ -363,23 +398,27 @@
   let estimates = [];
   let invoices = [];
   let payments = [];
+  let schedules = [];
 
   const customerForm = document.getElementById("customerForm");
   const jobForm = document.getElementById("jobForm");
   const estimateForm = document.getElementById("estimateForm");
   const invoiceForm = document.getElementById("invoiceForm");
   const paymentForm = document.getElementById("paymentForm");
+  const scheduleForm = document.getElementById("scheduleForm");
 
   const customerList = document.getElementById("customerList");
   const jobList = document.getElementById("jobList");
   const estimateList = document.getElementById("estimateList");
   const invoiceList = document.getElementById("invoiceList");
   const paymentList = document.getElementById("paymentList");
+  const scheduleList = document.getElementById("scheduleList");
 
   const jobCustomer = document.getElementById("jobCustomer");
   const estimateJob = document.getElementById("estimateJob");
   const invoiceJob = document.getElementById("invoiceJob");
   const paymentInvoice = document.getElementById("paymentInvoice");
+  const scheduleJob = document.getElementById("scheduleJob");
 
   const errorMessage = document.getElementById("errorMessage");
   const successMessage = document.getElementById("successMessage");
@@ -450,20 +489,23 @@
 
   async function loadData() {
     try {
-      [customers, jobs, estimates, invoices, payments] = await Promise.all([
+      [customers, jobs, estimates, invoices, payments, schedules] = await Promise.all([
         apiRequest("/customers/"),
         apiRequest("/jobs/"),
         apiRequest("/estimates/"),
         apiRequest("/invoices/"),
-        apiRequest("/payments/")
+        apiRequest("/payments/"),
+        apiRequest("/schedules/")
       ]);
 
       renderCustomers();
       renderJobs();
+      renderSchedules();
       renderEstimates();
       renderInvoices();
       renderPayments();
       updateJobCustomerOptions();
+      updateScheduleJobOptions();
       updateEstimateJobOptions();
       updateInvoiceJobOptions();
       updatePaymentInvoiceOptions();
@@ -515,6 +557,23 @@
     }
 
     invoiceJob.innerHTML =
+      '<option value="">Select job</option>' +
+      jobs.map(job => `
+        <option value="${job.id}">
+          ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
+
+
+  function updateScheduleJobOptions() {
+    if (jobs.length === 0) {
+      scheduleJob.innerHTML =
+        '<option value="">No jobs available</option>';
+      return;
+    }
+
+    scheduleJob.innerHTML =
       '<option value="">Select job</option>' +
       jobs.map(job => `
         <option value="${job.id}">
@@ -617,6 +676,54 @@
       `;
     }).join("");
   }
+
+  function renderSchedules() {
+    if (schedules.length === 0) {
+      scheduleList.innerHTML =
+        '<p class="empty">No schedules yet.</p>';
+      return;
+    }
+
+    scheduleList.innerHTML = schedules.map(schedule => {
+      const job =
+        jobs.find(job => job.id === schedule.job_id);
+
+      const start =
+        new Date(schedule.scheduled_start).toLocaleString();
+
+      const end =
+        schedule.scheduled_end
+          ? new Date(schedule.scheduled_end).toLocaleString()
+          : "";
+
+      return `
+        <div class="card">
+          <strong>
+            ${job
+              ? escapeHtml(job.title)
+              : `Job #${escapeHtml(schedule.job_id)}`}
+          </strong>
+
+          <div>
+            Start: ${escapeHtml(start)}
+          </div>
+
+          ${
+            end
+              ? `<div>End: ${escapeHtml(end)}</div>`
+              : ""
+          }
+
+          ${
+            schedule.notes
+              ? `<div>${escapeHtml(schedule.notes)}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
   async function updateJobStatus(jobId, newStatus) {
     const job =
       jobs.find(item => item.id === jobId);
@@ -954,6 +1061,37 @@
       await loadData();
 
       showSuccess("Job created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  scheduleForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const scheduledEnd =
+      document.getElementById("scheduleEnd").value;
+
+    try {
+      await apiRequest("/schedules/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: Number(scheduleJob.value),
+          scheduled_start:
+            document.getElementById("scheduleStart").value,
+          scheduled_end:
+            scheduledEnd || null,
+          notes:
+            document.getElementById("scheduleNotes").value || null
+        })
+      });
+
+      scheduleForm.reset();
+      await loadData();
+
+      showSuccess("Schedule created.");
 
     } catch (error) {
       showError(error.message);

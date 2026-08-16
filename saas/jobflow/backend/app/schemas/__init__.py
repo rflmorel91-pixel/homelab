@@ -23,6 +23,11 @@ from app.schemas.payment import (
     PaymentRead,
     PaymentUpdate,
 )
+from app.schemas.schedule import (
+    ScheduleCreate,
+    ScheduleRead,
+    ScheduleUpdate,
+)
 __all__ = [
     "CustomerCreate",
     "CustomerRead",
@@ -39,4 +44,7 @@ __all__ = [
     "PaymentCreate",
     "PaymentRead",
     "PaymentUpdate",
+    "ScheduleCreate",
+    "ScheduleRead",
+    "ScheduleUpdate",
 ]
