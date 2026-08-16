@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Job, Schedule
+from app.models import Customer, Job, Schedule, Tenant
 from app.schemas import ScheduleCreate, ScheduleRead, ScheduleUpdate
+from app.tenant_context import get_current_tenant
 
 
 router = APIRouter(
@@ -17,8 +18,16 @@ router = APIRouter(
 def create_schedule(
     schedule: ScheduleCreate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    job = db.get(Job, schedule.job_id)
+    job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == schedule.job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if job is None:
         raise HTTPException(
@@ -42,9 +51,14 @@ def create_schedule(
 @router.get("/", response_model=list[ScheduleRead])
 def list_schedules(
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
     result = db.execute(
-        select(Schedule).order_by(Schedule.id)
+        select(Schedule)
+        .join(Job, Job.id == Schedule.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(Customer.tenant_id == tenant.id)
+        .order_by(Schedule.id)
     )
 
     return result.scalars().all()
@@ -54,8 +68,17 @@ def list_schedules(
 def get_schedule(
     schedule_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    schedule = db.get(Schedule, schedule_id)
+    schedule = db.scalar(
+        select(Schedule)
+        .join(Job, Job.id == Schedule.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Schedule.id == schedule_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if schedule is None:
         raise HTTPException(
@@ -71,8 +94,17 @@ def update_schedule(
     schedule_id: int,
     schedule: ScheduleUpdate,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_schedule = db.get(Schedule, schedule_id)
+    db_schedule = db.scalar(
+        select(Schedule)
+        .join(Job, Job.id == Schedule.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Schedule.id == schedule_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_schedule is None:
         raise HTTPException(
@@ -99,8 +131,17 @@ def update_schedule(
 def delete_schedule(
     schedule_id: int,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
 ):
-    db_schedule = db.get(Schedule, schedule_id)
+    db_schedule = db.scalar(
+        select(Schedule)
+        .join(Job, Job.id == Schedule.job_id)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Schedule.id == schedule_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     if db_schedule is None:
         raise HTTPException(
@@ -108,7 +149,14 @@ def delete_schedule(
             detail="Schedule not found",
         )
 
-    job = db.get(Job, db_schedule.job_id)
+    job = db.scalar(
+        select(Job)
+        .join(Customer, Customer.id == Job.customer_id)
+        .where(
+            Job.id == db_schedule.job_id,
+            Customer.tenant_id == tenant.id,
+        )
+    )
 
     db.delete(db_schedule)
     db.flush()

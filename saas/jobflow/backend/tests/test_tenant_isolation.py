@@ -852,3 +852,335 @@ def test_cross_tenant_estimate_delete_is_hidden(
         headers={"X-Tenant-ID": str(tenant_b.id)},
     )
     assert original.status_code == 200
+
+
+def test_cannot_create_schedule_for_another_tenants_job(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Schedule Tenant A",
+        "schedule-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Schedule Tenant B",
+        "schedule-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Schedule Customer B",
+            "phone": "555-3300",
+            "email": "schedule-b@example.com",
+            "address": "3300 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Schedule Tenant B Job",
+            "description": "Private Tenant B job",
+        },
+    ).json()
+
+    response = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-01T09:00:00",
+            "scheduled_end": "2026-09-01T11:00:00",
+            "notes": "Cross tenant schedule",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
+
+
+def test_cross_tenant_schedule_read_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Schedule Read Tenant A",
+        "schedule-read-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Schedule Read Tenant B",
+        "schedule-read-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Schedule Read Customer B",
+            "phone": "555-3400",
+            "email": "schedule-read-b@example.com",
+            "address": "3400 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Private Schedule Job",
+            "description": "Private to Tenant B",
+        },
+    ).json()
+
+    schedule_b = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-02T09:00:00",
+            "scheduled_end": "2026-09-02T11:00:00",
+            "notes": "Tenant B Private Schedule",
+        },
+    ).json()
+
+    response = client.get(
+        f"/api/v1/schedules/{schedule_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Schedule not found"
+
+
+def test_schedule_lists_are_isolated_by_tenant(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Schedule List Tenant A",
+        "schedule-list-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Schedule List Tenant B",
+        "schedule-list-tenant-b",
+    )
+
+    customer_a = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "name": "Schedule List Customer A",
+            "phone": "555-3501",
+            "email": "schedule-list-a@example.com",
+            "address": "3501 Tenant A Street",
+        },
+    ).json()
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Schedule List Customer B",
+            "phone": "555-3502",
+            "email": "schedule-list-b@example.com",
+            "address": "3502 Tenant B Street",
+        },
+    ).json()
+
+    job_a = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "customer_id": customer_a["id"],
+            "title": "Schedule List Job A",
+            "description": "Tenant A",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Schedule List Job B",
+            "description": "Tenant B",
+        },
+    ).json()
+
+    schedule_a = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_a["id"],
+            "scheduled_start": "2026-09-03T09:00:00",
+            "scheduled_end": "2026-09-03T11:00:00",
+            "notes": "Schedule A",
+        },
+    ).json()
+
+    schedule_b = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-04T09:00:00",
+            "scheduled_end": "2026-09-04T11:00:00",
+            "notes": "Schedule B",
+        },
+    ).json()
+
+    list_a = client.get(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+    assert list_a.status_code == 200
+    assert [item["id"] for item in list_a.json()] == [schedule_a["id"]]
+
+    list_b = client.get(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+    assert list_b.status_code == 200
+    assert [item["id"] for item in list_b.json()] == [schedule_b["id"]]
+
+
+def test_cross_tenant_schedule_update_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Schedule Update Tenant A",
+        "schedule-update-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Schedule Update Tenant B",
+        "schedule-update-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Schedule Update Customer B",
+            "phone": "555-3600",
+            "email": "schedule-update-b@example.com",
+            "address": "3600 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Schedule Update Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    schedule_b = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-05T09:00:00",
+            "scheduled_end": "2026-09-05T11:00:00",
+            "notes": "Protected Schedule",
+        },
+    ).json()
+
+    response = client.put(
+        f"/api/v1/schedules/{schedule_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-05T13:00:00",
+            "scheduled_end": "2026-09-05T15:00:00",
+            "notes": "Hijacked Schedule",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Schedule not found"
+
+    original = client.get(
+        f"/api/v1/schedules/{schedule_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+    assert original.status_code == 200
+    assert original.json()["notes"] == "Protected Schedule"
+
+
+def test_cross_tenant_schedule_delete_is_hidden(
+    client,
+    db_session,
+):
+    tenant_a = create_tenant(
+        db_session,
+        "Schedule Delete Tenant A",
+        "schedule-delete-tenant-a",
+    )
+    tenant_b = create_tenant(
+        db_session,
+        "Schedule Delete Tenant B",
+        "schedule-delete-tenant-b",
+    )
+
+    customer_b = client.post(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "name": "Schedule Delete Customer B",
+            "phone": "555-3700",
+            "email": "schedule-delete-b@example.com",
+            "address": "3700 Tenant B Street",
+        },
+    ).json()
+
+    job_b = client.post(
+        "/api/v1/jobs/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "customer_id": customer_b["id"],
+            "title": "Schedule Delete Job B",
+            "description": "Protected",
+        },
+    ).json()
+
+    schedule_b = client.post(
+        "/api/v1/schedules/",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+        json={
+            "job_id": job_b["id"],
+            "scheduled_start": "2026-09-06T09:00:00",
+            "scheduled_end": "2026-09-06T11:00:00",
+            "notes": "Undeletable Schedule",
+        },
+    ).json()
+
+    response = client.delete(
+        f"/api/v1/schedules/{schedule_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_a.id)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Schedule not found"
+
+    original = client.get(
+        f"/api/v1/schedules/{schedule_b['id']}",
+        headers={"X-Tenant-ID": str(tenant_b.id)},
+    )
+    assert original.status_code == 200
