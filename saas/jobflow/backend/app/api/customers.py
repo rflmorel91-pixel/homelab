@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer
+from app.models import Customer, Job
 from app.schemas import CustomerCreate, CustomerRead, CustomerUpdate
 
 
@@ -88,6 +88,18 @@ def delete_customer(
         raise HTTPException(
             status_code=404,
             detail="Customer not found",
+        )
+
+    existing_job = db.execute(
+        select(Job.id).where(
+            Job.customer_id == customer_id
+        ).limit(1)
+    ).scalar_one_or_none()
+
+    if existing_job is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete customer with existing jobs",
         )
 
     db.delete(db_customer)

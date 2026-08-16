@@ -84,3 +84,44 @@ def test_customer_crud(client):
     assert missing_response.json() == {
         "detail": "Customer not found"
     }
+
+
+def test_cannot_delete_customer_with_jobs(client):
+    customer_response = client.post(
+        "/api/v1/customers/",
+        json={
+            "name": "Protected Customer",
+            "phone": "555-1000",
+            "email": "protected-customer@example.com",
+            "address": "1000 Protected Avenue",
+        },
+    )
+
+    assert customer_response.status_code == 201
+    customer = customer_response.json()
+
+    job_response = client.post(
+        "/api/v1/jobs/",
+        json={
+            "customer_id": customer["id"],
+            "title": "Protected Customer Job",
+            "description": "Customer deletion protection test",
+        },
+    )
+
+    assert job_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/api/v1/customers/{customer['id']}"
+    )
+
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == (
+        "Cannot delete customer with existing jobs"
+    )
+
+    customer_after = client.get(
+        f"/api/v1/customers/{customer['id']}"
+    )
+
+    assert customer_after.status_code == 200
