@@ -95,10 +95,12 @@ def client() -> Generator[TestClient, None, None]:
     finally:
         db.close()
 
+    from app.security import create_access_token
+
     with TestClient(
         app,
         headers={
-            "X-User-ID": str(user_id),
+            "Authorization": f"Bearer {create_access_token(user_id)}",
             "X-Tenant-ID": str(tenant_id),
         },
     ) as test_client:
@@ -155,8 +157,10 @@ def authenticated_client(client, db_session):
             db_session.add(membership)
             db_session.commit()
 
+        from app.security import create_access_token
+
         return {
-            "X-User-ID": str(user.id),
+            "Authorization": f"Bearer {create_access_token(user.id)}",
             "X-Tenant-ID": str(tenant.id),
         }
 

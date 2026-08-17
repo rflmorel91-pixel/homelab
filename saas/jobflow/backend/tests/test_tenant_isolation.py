@@ -1992,7 +1992,7 @@ def test_cross_tenant_payment_delete_is_hidden(
 
 
 def test_tenant_header_alone_does_not_prove_membership(
-    client,
+    raw_client,
     db_session,
 ):
     tenant_a = create_tenant(
@@ -2007,16 +2007,14 @@ def test_tenant_header_alone_does_not_prove_membership(
         "authorization-tenant-b",
     )
 
-    response = client.get(
+    response = raw_client.get(
         "/api/v1/customers/",
         headers={
             "X-Tenant-ID": str(tenant_b.id),
         },
     )
 
-    # A tenant header is not sufficient. The caller must have
-    # an authenticated membership in the selected tenant.
-    assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "User is not a member of this tenant"
-    )
+    # A tenant header alone does not authenticate the caller.
+    # Authentication is required before tenant membership can be checked.
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
