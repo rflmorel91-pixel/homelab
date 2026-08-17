@@ -41,3 +41,33 @@ Docker Compose
     +-- jobflow-db
           PostgreSQL 16
           Host port 5433
+
+---
+
+# Block 4 — PostgreSQL Backup and Restore Validation
+
+## Backup Validation
+
+A PostgreSQL custom-format backup was created from the live JobFlow database using `pg_dump`.
+
+The backup archive was verified with `pg_restore --list`.
+
+The archive contained the expected JobFlow database objects, including:
+
+- alembic_version
+- customers
+- jobs
+- estimates
+- schedules
+- invoices
+- payments
+- users
+- tenants
+- tenant_memberships
+
+## Restore Validation
+
+The backup was restored into a separate validation database:
+
+```text
+jobflow_restore_test
