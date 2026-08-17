@@ -22,3 +22,22 @@ JobFlow API Container
         |
         |
 PostgreSQL Container
+
+---
+
+# Block 3 — Docker Compose Deployment Validation
+
+## Unified Application Stack
+
+JobFlow was validated using the root Docker Compose configuration with both application services managed as one stack:
+
+```text
+Docker Compose
+    |
+    +-- jobflow-api
+    |     FastAPI / Uvicorn
+    |     Host port 8001
+    |
+    +-- jobflow-db
+          PostgreSQL 16
+          Host port 5433
