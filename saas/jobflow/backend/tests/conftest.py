@@ -1,19 +1,23 @@
 from collections.abc import Generator
+import os
 
 import pytest
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from fastapi.testclient import TestClient
 
-from app.database import Base, get_db
-from app.main import app
-from app.models import Tenant, TenantMembership, User
 
 
 TEST_DATABASE_URL = (
     "postgresql+psycopg://jobflow:jobflow_dev_password"
     "@127.0.0.1:5433/jobflow_test"
 )
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["JWT_SECRET"] = "jobflow-test-jwt-secret-at-least-32-bytes"
+
+from app.database import Base, get_db
+from app.main import app
+from app.models import Tenant, TenantMembership, User
 
 test_engine = create_engine(
     TEST_DATABASE_URL,

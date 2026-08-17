@@ -45,11 +45,24 @@ def test_decode_access_token_rejects_invalid_token():
 
 def test_decode_access_token_rejects_tampered_token():
     token = create_access_token(42)
-    tampered = token[:-1] + ("a" if token[-1] != "a" else "b")
+
+    header, payload, signature = token.split(".")
+
+    tampered_signature = (
+        ("a" if signature[0] != "a" else "b")
+        + signature[1:]
+    )
+
+    tampered = ".".join(
+        (
+            header,
+            payload,
+            tampered_signature,
+        )
+    )
 
     with pytest.raises(jwt.InvalidTokenError):
         decode_access_token(tampered)
-
 
 def test_access_token_contains_expected_subject():
     token = create_access_token(42)

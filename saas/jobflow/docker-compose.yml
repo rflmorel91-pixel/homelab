@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8001:8001"
     depends_on:
