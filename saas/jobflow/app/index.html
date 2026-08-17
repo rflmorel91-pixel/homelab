@@ -192,6 +192,41 @@
   <div id="errorMessage" class="error"></div>
   <div id="successMessage" class="success-message"></div>
 
+  <section class="panel" id="authPanel">
+    <h2>Sign In</h2>
+
+    <form id="loginForm">
+      <input
+        id="loginEmail"
+        type="email"
+        placeholder="Email"
+        autocomplete="username"
+        required
+      >
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+      >
+
+      <input
+        id="loginTenantId"
+        type="number"
+        min="1"
+        placeholder="Tenant ID"
+        required
+      >
+
+      <button type="submit">Sign In</button>
+      <button type="button" id="logoutButton" class="secondary">
+        Sign Out
+      </button>
+    </form>
+  </section>
+
   <div class="grid">
 
     <section class="panel">
@@ -393,12 +428,21 @@
 <script>
   const API_BASE = "http://192.168.1.92:8001/api/v1";
 
+  let accessToken = localStorage.getItem("jobflow_access_token");
+  let tenantId = localStorage.getItem("jobflow_tenant_id");
+
   let customers = [];
   let jobs = [];
   let estimates = [];
   let invoices = [];
   let payments = [];
   let schedules = [];
+
+  const loginForm = document.getElementById("loginForm");
+  const loginEmail = document.getElementById("loginEmail");
+  const loginPassword = document.getElementById("loginPassword");
+  const loginTenantId = document.getElementById("loginTenantId");
+  const logoutButton = document.getElementById("logoutButton");
 
   const customerForm = document.getElementById("customerForm");
   const jobForm = document.getElementById("jobForm");
@@ -447,6 +491,12 @@
     const response = await fetch(`${API_BASE}${path}`, {
       headers: {
         "Content-Type": "application/json",
+        ...(accessToken
+          ? { "Authorization": `Bearer ${accessToken}` }
+          : {}),
+        ...(tenantId
+          ? { "X-Tenant-ID": tenantId }
+          : {}),
         ...(options.headers || {})
       },
       ...options
@@ -1177,6 +1227,59 @@
   });
 
 
+  loginForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      const response = await apiRequest("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: loginEmail.value,
+          password: loginPassword.value
+        })
+      });
+
+      accessToken = response.access_token;
+      tenantId = loginTenantId.value;
+
+      localStorage.setItem(
+        "jobflow_access_token",
+        accessToken
+      );
+      localStorage.setItem(
+        "jobflow_tenant_id",
+        tenantId
+      );
+
+      loginForm.reset();
+      await loadData();
+
+      showSuccess("Signed in.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  logoutButton.addEventListener("click", () => {
+    accessToken = null;
+    tenantId = null;
+
+    localStorage.removeItem("jobflow_access_token");
+    localStorage.removeItem("jobflow_tenant_id");
+
+    customers = [];
+    jobs = [];
+    estimates = [];
+    invoices = [];
+    payments = [];
+    schedules = [];
+
+    location.reload();
+  });
+
+
   function escapeHtml(value) {
     return String(value)
       .replaceAll("&", "&amp;")
@@ -1188,7 +1291,10 @@
 
 
   checkHealth();
-  loadData();
+
+  if (accessToken && tenantId) {
+    loadData();
+  }
 </script>
 
 </body>
