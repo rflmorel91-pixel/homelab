@@ -1,0 +1,31 @@
+name: jobflow
+
+services:
+
+  jobflow-api:
+    build:
+      context: ./backend
+    container_name: jobflow-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
+    ports:
+      - "8001:8001"
+    depends_on:
+      - jobflow-db
+
+  jobflow-db:
+    image: postgres:16
+    container_name: jobflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jobflow
+      POSTGRES_USER: jobflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - jobflow_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+volumes:
+  jobflow_postgres_data:
