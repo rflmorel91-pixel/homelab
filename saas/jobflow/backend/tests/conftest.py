@@ -8,8 +8,15 @@ from fastapi.testclient import TestClient
 
 
 
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
+if not POSTGRES_PASSWORD:
+    raise RuntimeError(
+        "POSTGRES_PASSWORD environment variable is required for tests"
+    )
+
 TEST_DATABASE_URL = (
-    "postgresql+psycopg://jobflow:jobflow_dev_password"
+    f"postgresql+psycopg://jobflow:{POSTGRES_PASSWORD}"
     "@127.0.0.1:5433/jobflow_test"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
