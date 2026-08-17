@@ -13,7 +13,8 @@ services:
     ports:
       - "8001:8001"
     depends_on:
-      - jobflow-db
+      jobflow-db:
+        condition: service_healthy
 
   jobflow-db:
     image: postgres:16
@@ -27,6 +28,16 @@ services:
       - jobflow_postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U jobflow -d jobflow"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   jobflow_postgres_data:
