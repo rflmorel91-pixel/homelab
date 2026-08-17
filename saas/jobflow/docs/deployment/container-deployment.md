@@ -22,6 +22,7 @@ JobFlow API Container
         |
         |
 PostgreSQL Container
+```
 
 ---
 
@@ -40,7 +41,8 @@ Docker Compose
     |
     +-- jobflow-db
           PostgreSQL 16
-          Host port 5433
+          Localhost port 127.0.0.1:5433
+```
 
 ---
 
@@ -71,3 +73,95 @@ The backup was restored into a separate validation database:
 
 ```text
 jobflow_restore_test
+```
+
+---
+
+# Block 5 — Public HTTPS Validation
+
+## Public Hostname
+
+JobFlow was published through the existing Cloudflare Tunnel using:
+
+```text
+jobflow.fieldlookers.com
+```
+
+## Tunnel Routing
+
+The Cloudflare Tunnel route forwards the public hostname to the internal JobFlow API:
+
+```text
+https://jobflow.fieldlookers.com
+        |
+        v
+Cloudflare Tunnel
+        |
+        v
+http://192.168.1.92:8001
+        |
+        v
+jobflow-api
+```
+
+## DNS and HTTPS Validation
+
+Public DNS resolution for `jobflow.fieldlookers.com` was verified through Cloudflare.
+
+The public health endpoint was successfully tested:
+
+```text
+https://jobflow.fieldlookers.com/api/v1/health
+```
+
+Verified response:
+
+```text
+HTTP/2 200
+```
+
+```json
+{
+  "status": "healthy",
+  "service": "jobflow-api"
+}
+```
+
+The response identified Cloudflare as the public edge server.
+
+## Authenticated Application Validation
+
+JWT authentication was successfully performed through the public HTTPS hostname.
+
+Tenant-scoped API access was then verified using a bearer token and the `X-Tenant-ID` header.
+
+The public API successfully returned existing PostgreSQL-backed customer records.
+
+## Validated Request Path
+
+```text
+Internet Client
+    |
+    v
+HTTPS
+    |
+    v
+jobflow.fieldlookers.com
+    |
+    v
+Cloudflare Tunnel
+    |
+    v
+JobFlow API
+    |
+    v
+JWT Authentication
+    |
+    v
+Tenant Authorization
+    |
+    v
+PostgreSQL
+```
+
+Cloudflare Tunnel provides the public HTTPS termination and routing path for the JobFlow API.
