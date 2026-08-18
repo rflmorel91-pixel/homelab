@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -30,6 +30,7 @@ class LoginResponse(BaseModel):
 )
 def login(
     credentials: LoginRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     user = db.scalar(
@@ -52,6 +53,18 @@ def login(
             detail="Invalid email or password",
         )
 
+    token = create_access_token(user.id)
+
+    response.set_cookie(
+        key="jobflow_access_token",
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=30 * 60,
+        path="/",
+    )
+
     return LoginResponse(
-        access_token=create_access_token(user.id),
+        access_token=token,
     )
