@@ -98,7 +98,7 @@ https://jobflow.fieldlookers.com
 Cloudflare Tunnel
         |
         v
-http://192.168.1.92:8001
+http://jobflow-api:8001
         |
         v
 jobflow-api
@@ -164,4 +164,4 @@ Tenant Authorization
 PostgreSQL
 ```
 
-Cloudflare Tunnel provides the public HTTPS termination and routing path for the JobFlow API.
+Cloudflare Tunnel provides the public HTTPS termination and routes directly to the JobFlow API over the internal Docker network.
