@@ -14,3 +14,6 @@ logs/
 crash.log
 crash.*.log
 *.tfvars
+
+# JobFlow database backups
+saas/jobflow/backups/
