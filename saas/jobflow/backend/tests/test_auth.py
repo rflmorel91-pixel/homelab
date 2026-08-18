@@ -253,3 +253,38 @@ def test_cookie_authenticates_protected_tenant_resource(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_logout_clears_authentication_cookie(raw_client, db_session):
+    user = create_login_user(
+        db_session,
+        email="logout@example.com",
+        password="logout-password",
+    )
+
+    login_response = raw_client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "logout-password",
+        },
+    )
+
+    assert login_response.status_code == 200
+    assert "jobflow_access_token" in raw_client.cookies
+
+    logout_response = raw_client.post(
+        "/api/v1/auth/logout",
+    )
+
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {
+        "status": "signed_out",
+    }
+
+    assert "jobflow_access_token" not in raw_client.cookies
+
+    set_cookie = logout_response.headers["set-cookie"]
+
+    assert "jobflow_access_token=" in set_cookie
+    assert "Max-Age=0" in set_cookie

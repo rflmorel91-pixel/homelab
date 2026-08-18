@@ -68,3 +68,15 @@ def login(
     return LoginResponse(
         access_token=token,
     )
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(
+        key="jobflow_access_token",
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="strict",
+    )
+
+    return {"status": "signed_out"}
