@@ -1,5 +1,14 @@
+from datetime import datetime, timedelta, timezone
+
+import jwt
+
 from app.models import User
-from app.security import decode_access_token, hash_password
+from app.security import (
+    JWT_ALGORITHM,
+    JWT_SECRET,
+    decode_access_token,
+    hash_password,
+)
 
 
 def create_login_user(
@@ -138,3 +147,33 @@ def test_login_token_accesses_protected_tenant_resource(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_expired_access_token_returns_401(raw_client, db_session):
+    user = create_login_user(
+        db_session,
+        email="expired-token@example.com",
+    )
+
+    now = datetime.now(timezone.utc)
+
+    token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "iat": now - timedelta(minutes=31),
+            "exp": now - timedelta(minutes=1),
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
+
+    response = raw_client.get(
+        "/api/v1/customers/",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-Tenant-ID": "1",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
