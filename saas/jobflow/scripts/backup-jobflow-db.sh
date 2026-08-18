@@ -29,5 +29,8 @@ find "$BACKUP_DIR" \
   -delete
 
 date --iso-8601=seconds > "$STATUS_FILE"
+if [[ -n "${UPTIME_KUMA_PUSH_URL:-}" ]]; then
+  curl -fsS --retry 3 --max-time 10 "$UPTIME_KUMA_PUSH_URL" > /dev/null
+fi
 
 echo "Backup created and verified: $BACKUP_FILE"

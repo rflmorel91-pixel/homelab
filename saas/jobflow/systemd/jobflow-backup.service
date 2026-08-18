@@ -6,5 +6,6 @@ After=docker.service
 [Service]
 Type=oneshot
 User=rflmorel
+EnvironmentFile=/etc/jobflow-backup.env
 WorkingDirectory=/home/rflmorel/homelab/saas/jobflow
 ExecStart=/home/rflmorel/homelab/saas/jobflow/scripts/backup-jobflow-db.sh
