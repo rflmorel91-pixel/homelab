@@ -1,0 +1,28 @@
+name: cloudflared
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - npm
+      - nginx-proxy-manager_default
+      - authentik_default
+      - jobflow_default
+
+networks:
+  npm:
+    external: true
+  nginx-proxy-manager_default:
+    external: true
+  authentik_default:
+    external: true
+  jobflow_default:
+    external: true
