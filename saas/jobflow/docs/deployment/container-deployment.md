@@ -30,14 +30,24 @@ PostgreSQL Container
 
 ## Unified Application Stack
 
-JobFlow was validated using the root Docker Compose configuration with both application services managed as one stack:
+JobFlow was validated using the root Docker Compose configuration with the application services managed as one stack:
 
 ```text
 Docker Compose
     |
+    +-- jobflow-web
+    |     Nginx
+    |     Internal port 80
+    |     No host port publication
+    |
     +-- jobflow-api
     |     FastAPI / Uvicorn
-    |     Host port 8001
+    |     Internal port 8001
+    |     No host port publication
+    |
+    +-- jobflow-migrate
+    |     Alembic migration service
+    |     One-shot execution
     |
     +-- jobflow-db
           PostgreSQL 16
@@ -89,7 +99,7 @@ jobflow.fieldlookers.com
 
 ## Tunnel Routing
 
-The Cloudflare Tunnel route forwards the public hostname to the internal JobFlow API:
+The Cloudflare Tunnel route forwards the public hostname to the internal JobFlow web container:
 
 ```text
 https://jobflow.fieldlookers.com
@@ -98,10 +108,14 @@ https://jobflow.fieldlookers.com
 Cloudflare Tunnel
         |
         v
-http://jobflow-api:8001
+http://jobflow-web:80
         |
         v
-jobflow-api
+jobflow-web
+        |
+        +-- / -> frontend
+        |
+        +-- /api/* -> jobflow-api:8001
 ```
 
 ## DNS and HTTPS Validation
@@ -164,4 +178,192 @@ Tenant Authorization
 PostgreSQL
 ```
 
-Cloudflare Tunnel provides the public HTTPS termination and routes directly to the JobFlow API over the internal Docker network.
+Cloudflare Tunnel provides the public HTTPS termination and routes to the JobFlow web container over the internal Docker network. Nginx serves the frontend and proxies API requests internally to the JobFlow API.
+
+---
+
+# Block 6 — Frontend and Restart Resilience Validation
+
+## Production Web Architecture
+
+JobFlow now serves the browser frontend through a dedicated Nginx container.
+
+The frontend uses the same-origin API path:
+
+```text
+/api/v1
+```
+
+Nginx proxies API requests internally to:
+
+```text
+http://jobflow-api:8001
+```
+
+The JobFlow API does not publish port 8001 directly to the host.
+
+The validated public request path is:
+
+```text
+Internet Client
+    |
+    v
+HTTPS
+    |
+    v
+jobflow.fieldlookers.com
+    |
+    v
+Cloudflare Tunnel
+    |
+    v
+jobflow-web:80
+    |
+    +-- / -> JobFlow static frontend
+    |
+    +-- /api/* -> jobflow-api:8001
+                       |
+                       v
+                  PostgreSQL
+```
+
+## Container Services
+
+The validated JobFlow Compose stack contains:
+
+```text
+jobflow-db
+    PostgreSQL 16
+    Host exposure: 127.0.0.1:5433
+
+jobflow-migrate
+    One-shot Alembic migration service
+    Successful completion: Exited (0)
+
+jobflow-api
+    FastAPI / Uvicorn
+    Internal container port: 8001
+    No host port publication
+    Docker healthcheck enabled
+
+jobflow-web
+    Nginx
+    Internal container port: 80
+    No host port publication
+    Docker healthcheck enabled
+```
+
+## Frontend Health Validation
+
+The Nginx frontend container includes a Docker healthcheck that verifies the local web server is responding.
+
+Validated steady state:
+
+```text
+jobflow-db       healthy
+jobflow-migrate  Exited (0)
+jobflow-api      healthy
+jobflow-web      healthy
+```
+
+## Controlled Restart Validation
+
+A complete Docker Compose restart was performed.
+
+After restart:
+
+* PostgreSQL returned to healthy state.
+* Alembic migrations completed successfully.
+* The FastAPI container returned to healthy state.
+* The Nginx frontend returned to healthy state.
+* Public frontend access remained functional.
+* Public API access remained functional.
+
+Public frontend validation returned:
+
+```text
+https://jobflow.fieldlookers.com/
+HTTP/2 200
+Content-Type: text/html
+```
+
+Public API validation returned:
+
+```text
+https://jobflow.fieldlookers.com/api/v1/health
+HTTP/2 200
+```
+
+with:
+
+```json
+{
+  "status": "healthy",
+  "service": "jobflow-api"
+}
+```
+
+## Ubuntu Server Reboot Validation
+
+The Ubuntu Server VM hosting JobFlow was rebooted to validate deployment persistence.
+
+After the VM returned:
+
+* Docker started successfully.
+* `jobflow-db` restarted and became healthy.
+* `jobflow-api` restarted and became healthy.
+* `jobflow-web` restarted and became healthy.
+* `cloudflared` restarted automatically.
+* The public frontend returned HTTP 200.
+* The public API health endpoint returned HTTP 200.
+
+The long-running JobFlow containers and `cloudflared` use the following restart policy:
+
+```text
+unless-stopped
+```
+
+## Proxmox Startup Validation
+
+The Ubuntu Server VM is configured to start automatically when the Proxmox host boots.
+
+Verified Proxmox configuration:
+
+```text
+onboot: 1
+```
+
+This provides the validated recovery chain:
+
+```text
+Proxmox Host
+    |
+    v
+Ubuntu Server VM
+    |
+    v
+Docker
+    |
+    +-- jobflow-db
+    +-- jobflow-api
+    +-- jobflow-web
+    +-- cloudflared
+    |
+    v
+Public HTTPS JobFlow Service
+```
+
+## Validation Result
+
+JobFlow has now been validated for:
+
+* Internal Docker service-to-service routing
+* Public HTTPS access through Cloudflare Tunnel
+* Static frontend delivery through Nginx
+* Same-origin API proxying
+* JWT-authenticated application access
+* PostgreSQL persistence
+* Container health monitoring
+* Controlled Docker Compose restart recovery
+* Ubuntu Server reboot recovery
+* Proxmox VM automatic startup
