@@ -17,3 +17,6 @@ crash.*.log
 
 # JobFlow database backups
 saas/jobflow/backups/
+
+# JobFlow runtime state
+saas/jobflow/runtime/
