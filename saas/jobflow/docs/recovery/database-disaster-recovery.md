@@ -204,3 +204,86 @@ Production recovery is complete only when:
 * Authentication succeeds.
 * Representative application data is present.
 * Monitoring has returned to normal.
+
+---
+# OpenMediaVault Off-Host Backup Recovery
+
+## Backup Architecture
+
+JobFlow database backups are stored in two locations:
+
+```text
+PostgreSQL
+    |
+    v
+Local JobFlow backup
+/home/rflmorel/homelab/saas/jobflow/backups
+    |
+    v
+OpenMediaVault off-host copy
+/srv/dev-disk-by-uuid-b3f81412-c245-4670-9fc1-1d0c80c74fe5/Data/jobflow-backups
+```
+
+The OpenMediaVault copy is transferred using a dedicated SSH key:
+
+```text
+~/.ssh/jobflow_omv_backup
+```
+
+The backup process uses key-only SSH authentication with password fallback disabled.
+
+Both local and OpenMediaVault backups use a 7-day retention policy.
+
+## Recover a Backup from OpenMediaVault
+
+If the local JobFlow backup directory is unavailable, identify the available backups on OpenMediaVault:
+
+```bash
+ssh -i ~/.ssh/jobflow_omv_backup \
+  -o IdentitiesOnly=yes \
+  -o BatchMode=yes \
+  Rafael@192.168.1.137 \
+  'ls -1lht /srv/dev-disk-by-uuid-b3f81412-c245-4670-9fc1-1d0c80c74fe5/Data/jobflow-backups/'
+```
+
+Select the backup to recover and copy it back to the JobFlow server:
+
+```bash
+scp \
+  -i ~/.ssh/jobflow_omv_backup \
+  -o IdentitiesOnly=yes \
+  -o BatchMode=yes \
+  Rafael@192.168.1.137:/srv/dev-disk-by-uuid-b3f81412-c245-4670-9fc1-1d0c80c74fe5/Data/jobflow-backups/jobflow-YYYYMMDD-HHMMSS.dump \
+  ~/homelab/saas/jobflow/backups/
+```
+
+Verify that the recovered file exists locally:
+
+```bash
+ls -lh ~/homelab/saas/jobflow/backups/
+```
+
+Before restoring the recovered backup, validate the archive:
+
+```bash
+docker exec -i jobflow-db pg_restore \
+  --list \
+  < ~/homelab/saas/jobflow/backups/jobflow-YYYYMMDD-HHMMSS.dump \
+  > /dev/null
+```
+
+The recovered backup can then be used with the normal JobFlow restore-validation or production disaster-recovery procedure.
+
+## Backup Integrity Validation
+
+A local JobFlow backup and its corresponding OpenMediaVault copy were compared using SHA-256.
+
+The checksums matched exactly, confirming that the off-host transfer preserved the backup file byte-for-byte.
+
+## Recovery Principle
+
+OpenMediaVault provides a second copy of JobFlow database backups outside the Ubuntu Server VM.
+
+This protects against loss of the local JobFlow backup directory or failure of the Ubuntu VM storage.
+
+OpenMediaVault is still part of the same physical homelab environment, so it should be treated as off-host backup protection rather than full geographic off-site disaster recovery.
