@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>JobFlow Administration</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 24px;
+    }
+
+    .header-inner,
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .button {
+      display: inline-block;
+      border-radius: 7px;
+      padding: 10px 16px;
+      background: white;
+      color: #111827;
+      font-weight: bold;
+    }
+
+    main {
+      padding: 36px 24px 80px;
+    }
+
+    .page-heading {
+      margin-bottom: 28px;
+    }
+
+    .page-heading h1 {
+      margin: 0 0 8px;
+    }
+
+    .page-heading p,
+    .meta {
+      color: #6b7280;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(
+        auto-fit,
+        minmax(180px, 1fr)
+      );
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card,
+    .panel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 22px;
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 30px;
+    }
+
+    .panel {
+      margin-bottom: 24px;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+    }
+
+    .record {
+      border-top: 1px solid #e5e7eb;
+      padding: 14px 0;
+    }
+
+    .record:first-child {
+      border-top: 0;
+    }
+
+    .status {
+      display: inline-block;
+      border-radius: 999px;
+      background: #f3f4f6;
+      padding: 4px 9px;
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #991b1b;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="brand">JobFlow Administration</div>
+      <div class="meta">Platform administration</div>
+    </div>
+
+    <div class="header-actions">
+      <a class="button" href="/commercialization">
+        Commercialization
+      </a>
+
+      <a class="button" href="/app">
+        Tenant Workspace
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="page-heading">
+    <h1>Platform Overview</h1>
+    <p>
+      Users, tenants, memberships, and platform access.
+    </p>
+  </div>
+
+  <div id="adminStatus" class="meta">
+    Checking administrator access...
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <span class="meta">Users</span>
+      <strong id="userCount">-</strong>
+    </div>
+
+    <div class="summary-card">
+      <span class="meta">Tenants</span>
+      <strong id="tenantCount">-</strong>
+    </div>
+
+    <div class="summary-card">
+      <span class="meta">Memberships</span>
+      <strong id="membershipCount">-</strong>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h2>Users</h2>
+    <div id="userList"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Tenants</h2>
+    <div id="tenantList"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Memberships</h2>
+    <div id="membershipList"></div>
+  </section>
+</main>
+
+<script>
+  const API_BASE = "/api/v1";
+
+  const tenantId =
+    localStorage.getItem("jobflow_tenant_id");
+
+  const adminStatus =
+    document.getElementById("adminStatus");
+
+  const userCount =
+    document.getElementById("userCount");
+
+  const tenantCount =
+    document.getElementById("tenantCount");
+
+  const membershipCount =
+    document.getElementById("membershipCount");
+
+  const userList =
+    document.getElementById("userList");
+
+  const tenantList =
+    document.getElementById("tenantList");
+
+  const membershipList =
+    document.getElementById("membershipList");
+
+
+  async function apiRequest(path) {
+    const headers = {};
+
+    if (tenantId) {
+      headers["X-Tenant-ID"] = tenantId;
+    }
+
+    const response = await fetch(
+      `${API_BASE}${path}`,
+      {
+        credentials: "same-origin",
+        headers
+      }
+    );
+
+    if (!response.ok) {
+      let detail =
+        `Request failed (${response.status})`;
+
+      try {
+        const data = await response.json();
+
+        if (data.detail) {
+          detail = data.detail;
+        }
+      } catch {
+        // Keep default error.
+      }
+
+      throw new Error(detail);
+    }
+
+    return response.json();
+  }
+
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  function renderOverview(data) {
+    userCount.textContent =
+      data.counts.users;
+
+    tenantCount.textContent =
+      data.counts.tenants;
+
+    membershipCount.textContent =
+      data.counts.memberships;
+
+    userList.innerHTML = data.users.map(user => `
+      <div class="record">
+        <strong>${escapeHtml(user.display_name)}</strong>
+        <div>${escapeHtml(user.email)}</div>
+        <div class="meta">User #${user.id}</div>
+        <span class="status">
+          ${user.is_active ? "Active" : "Inactive"}
+        </span>
+        ${
+          user.is_platform_admin
+            ? '<span class="status">Platform Admin</span>'
+            : ""
+        }
+      </div>
+    `).join("");
+
+    tenantList.innerHTML = data.tenants.map(
+      tenant => `
+        <div class="record">
+          <strong>${escapeHtml(tenant.name)}</strong>
+          <div>Slug: ${escapeHtml(tenant.slug)}</div>
+          <div class="meta">Tenant #${tenant.id}</div>
+        </div>
+      `
+    ).join("");
+
+    membershipList.innerHTML =
+      data.memberships.map(membership => `
+        <div class="record">
+          <strong>
+            ${escapeHtml(membership.user_email)}
+          </strong>
+
+          <div>
+            Tenant:
+            ${escapeHtml(membership.tenant_name)}
+          </div>
+
+          <div>
+            Role: ${escapeHtml(membership.role)}
+          </div>
+
+          <div class="meta">
+            Membership #${membership.id}
+          </div>
+        </div>
+      `).join("");
+  }
+
+
+  async function loadAdmin() {
+    try {
+      const data =
+        await apiRequest("/admin/overview");
+
+      adminStatus.textContent =
+        "Platform administrator access verified.";
+
+      renderOverview(data);
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
+  }
+
+
+  loadAdmin();
+</script>
+
+</body>
+</html>
