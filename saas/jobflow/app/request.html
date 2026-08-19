@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Request Service | JobFlow</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 24px;
+    }
+
+    header div {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #d1d5db;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .panel {
+      background: white;
+      padding: 28px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    .intro {
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input,
+    textarea,
+    button {
+      width: 100%;
+      padding: 11px;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    input,
+    textarea {
+      border: 1px solid #d1d5db;
+      font-family: inherit;
+      font-weight: normal;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    button {
+      border: none;
+      background: #111827;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    button:hover {
+      background: #374151;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+
+    .error,
+    .success {
+      display: none;
+      padding: 14px;
+      border-radius: 7px;
+      margin-bottom: 20px;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .privacy {
+      margin-top: 18px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>Request Service</h1>
+    <p>Tell us about your project.</p>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Project Request</h2>
+
+    <p class="intro">
+      Provide your contact information and a description of the work
+      you need. The service provider will review your request and
+      respond with next steps.
+    </p>
+
+    <div id="errorMessage" class="error"></div>
+    <div id="successMessage" class="success"></div>
+
+    <form id="requestForm">
+      <label>
+        Name
+        <input id="customerName" type="text" required maxlength="200">
+      </label>
+
+      <label>
+        Phone
+        <input id="customerPhone" type="tel" maxlength="50">
+      </label>
+
+      <label>
+        Email
+        <input id="customerEmail" type="email" maxlength="255">
+      </label>
+
+      <label>
+        Service Address
+        <input id="customerAddress" type="text">
+      </label>
+
+      <label>
+        Project
+        <input id="projectTitle" type="text" required maxlength="200">
+      </label>
+
+      <label>
+        Describe the work
+        <textarea id="projectDescription"></textarea>
+      </label>
+
+      <button id="submitButton" type="submit">
+        Submit Request
+      </button>
+    </form>
+
+    <p class="privacy">
+      Your information is submitted to the service provider associated
+      with this request page.
+    </p>
+  </section>
+</main>
+
+<script>
+  const requestForm = document.getElementById("requestForm");
+  const submitButton = document.getElementById("submitButton");
+  const errorMessage = document.getElementById("errorMessage");
+  const successMessage = document.getElementById("successMessage");
+
+  const pathParts = window.location.pathname
+    .split("/")
+    .filter(Boolean);
+
+  const tenantSlug =
+    pathParts[0] === "request" && pathParts[1]
+      ? pathParts[1]
+      : null;
+
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = "block";
+    successMessage.style.display = "none";
+  }
+
+  function showSuccess(message) {
+    successMessage.textContent = message;
+    successMessage.style.display = "block";
+    errorMessage.style.display = "none";
+  }
+
+  if (!tenantSlug) {
+    requestForm.style.display = "none";
+    showError("This request page is not available.");
+  }
+
+  requestForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    if (!tenantSlug) {
+      return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = "Submitting...";
+
+    try {
+      const response = await fetch(
+        `/api/v1/public/tenants/${encodeURIComponent(tenantSlug)}/requests`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: document.getElementById("customerName").value,
+            phone:
+              document.getElementById("customerPhone").value || null,
+            email:
+              document.getElementById("customerEmail").value || null,
+            address:
+              document.getElementById("customerAddress").value || null,
+            project_title:
+              document.getElementById("projectTitle").value,
+            project_description:
+              document.getElementById("projectDescription").value || null
+          })
+        }
+      );
+
+      let body = {};
+
+      try {
+        body = await response.json();
+      } catch {
+        // Keep fallback error handling below.
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          body.detail || `Request failed (${response.status})`
+        );
+      }
+
+      requestForm.reset();
+
+      showSuccess(
+        `Request #${body.request_id} received. ` +
+        "The service provider can now review your project."
+      );
+
+    } catch (error) {
+      showError(error.message);
+
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Submit Request";
+    }
+  });
+</script>
+
+</body>
+</html>
