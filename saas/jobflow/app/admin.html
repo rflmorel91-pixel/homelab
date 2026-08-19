@@ -614,6 +614,41 @@
         }
       `;
 
+      detailContent
+        .querySelectorAll(
+          'button[data-action="add-membership"]'
+        )
+        .forEach(button => {
+          button.onclick = () =>
+            addTenantMembership(
+              Number(button.dataset.tenantId)
+            );
+        });
+
+      detailContent
+        .querySelectorAll(
+          'button[data-action="update-membership"]'
+        )
+        .forEach(button => {
+          button.onclick = () =>
+            updateMembershipRole(
+              Number(button.dataset.tenantId),
+              Number(button.dataset.membershipId)
+            );
+        });
+
+      detailContent
+        .querySelectorAll(
+          'button[data-action="remove-membership"]'
+        )
+        .forEach(button => {
+          button.onclick = () =>
+            removeMembership(
+              Number(button.dataset.tenantId),
+              Number(button.dataset.membershipId)
+            );
+        });
+
       detailPanel.style.display = "";
 
       detailPanel.scrollIntoView({
@@ -733,54 +768,6 @@
       adminStatus.className = "error";
     }
   }
-
-
-  detailContent.addEventListener(
-    "click",
-    async event => {
-      const button = event.target.closest(
-        "button[data-action]"
-      );
-
-      if (!button) {
-        return;
-      }
-
-      const tenantId = Number(
-        button.dataset.tenantId
-      );
-
-      const membershipId = Number(
-        button.dataset.membershipId
-      );
-
-      if (button.dataset.action === "add-membership") {
-        await addTenantMembership(tenantId);
-        return;
-      }
-
-      if (
-        button.dataset.action
-        === "update-membership"
-      ) {
-        await updateMembershipRole(
-          tenantId,
-          membershipId
-        );
-        return;
-      }
-
-      if (
-        button.dataset.action
-        === "remove-membership"
-      ) {
-        await removeMembership(
-          tenantId,
-          membershipId
-        );
-      }
-    }
-  );
 
 
   async function loadAdmin() {
