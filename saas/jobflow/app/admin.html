@@ -122,6 +122,37 @@
       border-top: 0;
     }
 
+    .record-button {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .record-button:hover strong {
+      text-decoration: underline;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(
+        auto-fit,
+        minmax(160px, 1fr)
+      );
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .detail-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
     .status {
       display: inline-block;
       border-radius: 999px;
@@ -203,6 +234,16 @@
     <h2>Memberships</h2>
     <div id="membershipList"></div>
   </section>
+
+  <section
+    class="panel"
+    id="detailPanel"
+    style="display: none;"
+  >
+    <h2 id="detailTitle">Details</h2>
+    <div id="detailContent"></div>
+  </section>
+
 </main>
 
 <script>
@@ -231,6 +272,16 @@
 
   const membershipList =
     document.getElementById("membershipList");
+
+
+  const detailPanel =
+    document.getElementById("detailPanel");
+
+  const detailTitle =
+    document.getElementById("detailTitle");
+
+  const detailContent =
+    document.getElementById("detailContent");
 
 
   async function apiRequest(path) {
@@ -291,26 +342,36 @@
 
     userList.innerHTML = data.users.map(user => `
       <div class="record">
-        <strong>${escapeHtml(user.display_name)}</strong>
-        <div>${escapeHtml(user.email)}</div>
-        <div class="meta">User #${user.id}</div>
-        <span class="status">
-          ${user.is_active ? "Active" : "Inactive"}
-        </span>
-        ${
-          user.is_platform_admin
-            ? '<span class="status">Platform Admin</span>'
-            : ""
-        }
+        <button
+          class="record-button"
+          onclick="loadUserDetail(${user.id})"
+        >
+          <strong>${escapeHtml(user.display_name)}</strong>
+          <div>${escapeHtml(user.email)}</div>
+          <div class="meta">User #${user.id}</div>
+          <span class="status">
+            ${user.is_active ? "Active" : "Inactive"}
+          </span>
+          ${
+            user.is_platform_admin
+              ? '<span class="status">Platform Admin</span>'
+              : ""
+          }
+        </button>
       </div>
     `).join("");
 
     tenantList.innerHTML = data.tenants.map(
       tenant => `
         <div class="record">
-          <strong>${escapeHtml(tenant.name)}</strong>
-          <div>Slug: ${escapeHtml(tenant.slug)}</div>
-          <div class="meta">Tenant #${tenant.id}</div>
+          <button
+            class="record-button"
+            onclick="loadTenantDetail(${tenant.id})"
+          >
+            <strong>${escapeHtml(tenant.name)}</strong>
+            <div>Slug: ${escapeHtml(tenant.slug)}</div>
+            <div class="meta">Tenant #${tenant.id}</div>
+          </button>
         </div>
       `
     ).join("");
@@ -336,6 +397,169 @@
           </div>
         </div>
       `).join("");
+  }
+
+
+  async function loadUserDetail(userId) {
+    try {
+      const data =
+        await apiRequest(`/admin/users/${userId}`);
+
+      const user = data.user;
+
+      detailTitle.textContent =
+        `User: ${user.display_name}`;
+
+      detailContent.innerHTML = `
+        <div>
+          <strong>${escapeHtml(user.email)}</strong>
+        </div>
+
+        <div class="meta">
+          User #${user.id}
+        </div>
+
+        <div>
+          Status:
+          ${user.is_active ? "Active" : "Inactive"}
+        </div>
+
+        <div>
+          Platform Admin:
+          ${user.is_platform_admin ? "Yes" : "No"}
+        </div>
+
+        <h3>Memberships</h3>
+
+        ${
+          data.memberships.length
+            ? data.memberships.map(membership => `
+                <div class="record">
+                  <strong>
+                    ${escapeHtml(membership.tenant_name)}
+                  </strong>
+
+                  <div>
+                    Slug:
+                    ${escapeHtml(membership.tenant_slug)}
+                  </div>
+
+                  <div>
+                    Role:
+                    ${escapeHtml(membership.role)}
+                  </div>
+                </div>
+              `).join("")
+            : '<p class="meta">No memberships.</p>'
+        }
+      `;
+
+      detailPanel.style.display = "";
+
+      detailPanel.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
+  }
+
+
+  async function loadTenantDetail(tenantId) {
+    try {
+      const data =
+        await apiRequest(`/admin/tenants/${tenantId}`);
+
+      const tenant = data.tenant;
+      const counts = data.counts;
+
+      detailTitle.textContent =
+        `Tenant: ${tenant.name}`;
+
+      detailContent.innerHTML = `
+        <div>
+          Slug: ${escapeHtml(tenant.slug)}
+        </div>
+
+        <div class="meta">
+          Tenant #${tenant.id}
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>${counts.memberships}</strong>
+            <div class="meta">Memberships</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.customers}</strong>
+            <div class="meta">Customers</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.jobs}</strong>
+            <div class="meta">Jobs</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.estimates}</strong>
+            <div class="meta">Estimates</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.schedules}</strong>
+            <div class="meta">Schedules</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.invoices}</strong>
+            <div class="meta">Invoices</div>
+          </div>
+
+          <div class="detail-card">
+            <strong>${counts.payments}</strong>
+            <div class="meta">Payments</div>
+          </div>
+        </div>
+
+        <h3>Memberships</h3>
+
+        ${
+          data.memberships.length
+            ? data.memberships.map(membership => `
+                <div class="record">
+                  <strong>
+                    ${escapeHtml(membership.display_name)}
+                  </strong>
+
+                  <div>
+                    ${escapeHtml(membership.user_email)}
+                  </div>
+
+                  <div>
+                    Role:
+                    ${escapeHtml(membership.role)}
+                  </div>
+                </div>
+              `).join("")
+            : '<p class="meta">No memberships.</p>'
+        }
+      `;
+
+      detailPanel.style.display = "";
+
+      detailPanel.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
   }
 
 
