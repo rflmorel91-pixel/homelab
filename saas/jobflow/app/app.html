@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobFlow</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 24px 30px;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #d1d5db;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .health {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .panel {
+      background: white;
+      padding: 24px;
+      margin-bottom: 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    input,
+    textarea,
+    select,
+    button {
+      width: 100%;
+      padding: 10px;
+      font-size: 15px;
+      border-radius: 6px;
+    }
+
+    input,
+    textarea,
+    select {
+      border: 1px solid #d1d5db;
+      background: white;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      cursor: pointer;
+      background: #111827;
+      color: white;
+      border: none;
+    }
+
+    button:hover {
+      background: #374151;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button.success {
+      background: #166534;
+    }
+
+    button.danger {
+      background: #991b1b;
+    }
+
+    .card {
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-top: 12px;
+      background: #fafafa;
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .status {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 9px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .actions button {
+      width: auto;
+    }
+
+    .empty {
+      color: #6b7280;
+    }
+
+    .error {
+      display: none;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .success-message {
+      display: none;
+      background: #dcfce7;
+      color: #166534;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .amount {
+      font-weight: bold;
+    }
+
+    .job-workspace {
+      display: grid;
+      gap: 14px;
+    }
+
+    .job-workspace-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .job-workspace-item {
+      padding: 10px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+
+    .job-workspace-item strong {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>JobFlow</h1>
+  <p>Customer, job, and estimate management</p>
+</header>
+
+<main>
+
+  <div class="toolbar">
+    <strong>JobFlow MVP Demo</strong>
+    <span id="healthStatus" class="health">Checking API...</span>
+  </div>
+
+  <div id="errorMessage" class="error"></div>
+  <div id="successMessage" class="success-message"></div>
+
+  <section class="panel" id="authPanel">
+    <h2>Sign In</h2>
+
+    <form id="loginForm">
+      <input
+        id="loginEmail"
+        type="email"
+        placeholder="Email"
+        autocomplete="username"
+        required
+      >
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+      >
+
+      <input
+        id="loginTenantId"
+        type="number"
+        min="1"
+        placeholder="Tenant ID"
+        required
+      >
+
+      <button type="submit">Sign In</button>
+      <button type="button" id="logoutButton" class="secondary">
+        Sign Out
+      </button>
+    </form>
+  </section>
+
+  <div class="grid">
+
+    <section class="panel">
+      <h2>Add Customer</h2>
+
+      <form id="customerForm">
+        <input id="customerName" type="text" placeholder="Customer name" required>
+        <input id="customerPhone" type="tel" placeholder="Phone">
+        <input id="customerEmail" type="email" placeholder="Email">
+        <input id="customerAddress" type="text" placeholder="Address">
+
+        <button type="submit">Add Customer</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Create Job</h2>
+
+      <form id="jobForm">
+        <select id="jobCustomer" required>
+          <option value="">Select customer</option>
+        </select>
+
+        <input id="jobTitle" type="text" placeholder="Job title" required>
+
+        <textarea
+          id="jobDescription"
+          placeholder="Job description"
+        ></textarea>
+
+        <button type="submit">Create Job</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Create Schedule</h2>
+
+      <form id="scheduleForm">
+        <select id="scheduleJob" required>
+          <option value="">Select job</option>
+        </select>
+
+        <input
+          id="scheduleStart"
+          type="datetime-local"
+          required
+        >
+
+        <input
+          id="scheduleEnd"
+          type="datetime-local"
+        >
+
+        <textarea
+          id="scheduleNotes"
+          placeholder="Schedule notes"
+        ></textarea>
+
+        <button type="submit">Create Schedule</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Create Estimate</h2>
+
+      <form id="estimateForm">
+        <select id="estimateJob" required>
+          <option value="">Select job</option>
+        </select>
+
+        <input
+          id="estimateDescription"
+          type="text"
+          placeholder="Estimate description"
+          required
+        >
+
+        <input
+          id="estimateAmount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Amount"
+          required
+        >
+
+        <button type="submit">Create Estimate</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Create Invoice</h2>
+
+      <form id="invoiceForm">
+        <select id="invoiceJob" required>
+          <option value="">Select job</option>
+        </select>
+
+        <input
+          id="invoiceDescription"
+          type="text"
+          placeholder="Invoice description"
+          required
+        >
+
+        <input
+          id="invoiceAmount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Amount"
+          required
+        >
+
+        <button type="submit">Create Invoice</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Create Payment</h2>
+
+      <form id="paymentForm">
+        <select id="paymentInvoice" required>
+          <option value="">Select invoice</option>
+        </select>
+
+        <input
+          id="paymentAmount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Amount"
+          required
+        >
+
+        <select id="paymentMethod" required>
+          <option value="">Select payment method</option>
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="card">Card</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="other">Other</option>
+        </select>
+
+        <input
+          id="paymentReference"
+          type="text"
+          placeholder="Reference"
+        >
+
+        <button type="submit">Record Payment</button>
+      </form>
+    </section>
+
+  </div>
+
+  <section class="panel">
+    <h2>Customers</h2>
+    <div id="customerList">
+      <p class="empty">Loading customers...</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Jobs</h2>
+    <div id="jobList">
+      <p class="empty">Loading jobs...</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Schedules</h2>
+    <div id="scheduleList">
+      <p class="empty">Loading schedules...</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Estimates</h2>
+    <div id="estimateList">
+      <p class="empty">Loading estimates...</p>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Invoices</h2>
+    <div id="invoiceList">
+      <p class="empty">Loading invoices...</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Payments</h2>
+    <div id="paymentList">
+      <p class="empty">Loading payments...</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const API_BASE = "/api/v1";
+
+  let tenantId = localStorage.getItem("jobflow_tenant_id");
+
+  let customers = [];
+  let jobs = [];
+  let estimates = [];
+  let invoices = [];
+  let payments = [];
+  let schedules = [];
+
+  const loginForm = document.getElementById("loginForm");
+  const loginEmail = document.getElementById("loginEmail");
+  const loginPassword = document.getElementById("loginPassword");
+  const loginTenantId = document.getElementById("loginTenantId");
+  const logoutButton = document.getElementById("logoutButton");
+
+  const customerForm = document.getElementById("customerForm");
+  const jobForm = document.getElementById("jobForm");
+  const estimateForm = document.getElementById("estimateForm");
+  const invoiceForm = document.getElementById("invoiceForm");
+  const paymentForm = document.getElementById("paymentForm");
+  const scheduleForm = document.getElementById("scheduleForm");
+
+  const customerList = document.getElementById("customerList");
+  const jobList = document.getElementById("jobList");
+  const estimateList = document.getElementById("estimateList");
+  const invoiceList = document.getElementById("invoiceList");
+  const paymentList = document.getElementById("paymentList");
+  const scheduleList = document.getElementById("scheduleList");
+
+  const jobCustomer = document.getElementById("jobCustomer");
+  const estimateJob = document.getElementById("estimateJob");
+  const invoiceJob = document.getElementById("invoiceJob");
+  const paymentInvoice = document.getElementById("paymentInvoice");
+  const scheduleJob = document.getElementById("scheduleJob");
+
+  const errorMessage = document.getElementById("errorMessage");
+  const successMessage = document.getElementById("successMessage");
+  const healthStatus = document.getElementById("healthStatus");
+
+
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = "block";
+    successMessage.style.display = "none";
+  }
+
+
+  function showSuccess(message) {
+    successMessage.textContent = message;
+    successMessage.style.display = "block";
+    errorMessage.style.display = "none";
+
+    setTimeout(() => {
+      successMessage.style.display = "none";
+    }, 3000);
+  }
+
+
+  async function apiRequest(path, options = {}) {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? { "X-Tenant-ID": tenantId }
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    if (!response.ok) {
+      let detail = `Request failed (${response.status})`;
+
+      try {
+        const body = await response.json();
+        if (body.detail) {
+          detail = body.detail;
+        }
+      } catch {
+        // Keep the default error message.
+      }
+
+      throw new Error(detail);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+
+  async function checkHealth() {
+    try {
+      const data = await apiRequest("/health");
+      healthStatus.textContent = `API: ${data.status}`;
+      healthStatus.style.color = "#166534";
+    } catch (error) {
+      healthStatus.textContent = "API unavailable";
+      healthStatus.style.color = "#991b1b";
+    }
+  }
+
+
+  async function loadData() {
+    try {
+      [customers, jobs, estimates, invoices, payments, schedules] = await Promise.all([
+        apiRequest("/customers/"),
+        apiRequest("/jobs/"),
+        apiRequest("/estimates/"),
+        apiRequest("/invoices/"),
+        apiRequest("/payments/"),
+        apiRequest("/schedules/")
+      ]);
+
+      renderCustomers();
+      renderJobs();
+      renderSchedules();
+      renderEstimates();
+      renderInvoices();
+      renderPayments();
+      updateJobCustomerOptions();
+      updateScheduleJobOptions();
+      updateEstimateJobOptions();
+      updateInvoiceJobOptions();
+      updatePaymentInvoiceOptions();
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+
+  function updateJobCustomerOptions() {
+    if (customers.length === 0) {
+      jobCustomer.innerHTML =
+        '<option value="">No customers available</option>';
+      return;
+    }
+
+    jobCustomer.innerHTML =
+      '<option value="">Select customer</option>' +
+      customers.map(customer => `
+        <option value="${customer.id}">
+          ${escapeHtml(customer.name)}
+        </option>
+      `).join("");
+  }
+
+
+  function updateEstimateJobOptions() {
+    if (jobs.length === 0) {
+      estimateJob.innerHTML =
+        '<option value="">No jobs available</option>';
+      return;
+    }
+
+    estimateJob.innerHTML =
+      '<option value="">Select job</option>' +
+      jobs.map(job => `
+        <option value="${job.id}">
+          ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
+
+  function updateInvoiceJobOptions() {
+    if (jobs.length === 0) {
+      invoiceJob.innerHTML =
+        '<option value="">No jobs available</option>';
+      return;
+    }
+
+    invoiceJob.innerHTML =
+      '<option value="">Select job</option>' +
+      jobs.map(job => `
+        <option value="${job.id}">
+          ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
+
+
+  function updateScheduleJobOptions() {
+    if (jobs.length === 0) {
+      scheduleJob.innerHTML =
+        '<option value="">No jobs available</option>';
+      return;
+    }
+
+    scheduleJob.innerHTML =
+      '<option value="">Select job</option>' +
+      jobs.map(job => `
+        <option value="${job.id}">
+          ${escapeHtml(job.title)}
+        </option>
+      `).join("");
+  }
+
+
+  function updatePaymentInvoiceOptions() {
+    if (invoices.length === 0) {
+      paymentInvoice.innerHTML =
+        '<option value="">No invoices available</option>';
+      return;
+    }
+
+    paymentInvoice.innerHTML =
+      '<option value="">Select invoice</option>' +
+      invoices.map(invoice => `
+        <option value="${invoice.id}">
+          ${escapeHtml(invoice.description || `Invoice ${invoice.id}`)}
+          - $${escapeHtml(invoice.amount)}
+        </option>
+      `).join("");
+  }
+
+  function renderCustomers() {
+    if (customers.length === 0) {
+      customerList.innerHTML =
+        '<p class="empty">No customers yet.</p>';
+      return;
+    }
+
+    customerList.innerHTML = customers.map(customer => `
+      <div class="card">
+        <strong>${escapeHtml(customer.name)}</strong>
+        <div>${escapeHtml(customer.phone || "")}</div>
+        <div>${escapeHtml(customer.email || "")}</div>
+        <div>${escapeHtml(customer.address || "")}</div>
+      </div>
+    `).join("");
+  }
+
+
+  function renderJobs() {
+    if (jobs.length === 0) {
+      jobList.innerHTML =
+        '<p class="empty">No jobs yet.</p>';
+      return;
+    }
+
+    jobList.innerHTML = jobs.map(job => {
+      const customer =
+        customers.find(customer => customer.id === job.customer_id);
+
+      const jobEstimates =
+        estimates.filter(estimate => estimate.job_id === job.id);
+
+      const jobSchedules =
+        schedules.filter(schedule => schedule.job_id === job.id);
+
+      const jobInvoices =
+        invoices.filter(invoice => invoice.job_id === job.id);
+
+      const jobPayments =
+        payments.filter(payment =>
+          jobInvoices.some(invoice => invoice.id === payment.invoice_id)
+        );
+
+      const latestEstimate =
+        jobEstimates.find(estimate => estimate.status === "approved") ||
+        jobEstimates.find(estimate => estimate.status === "sent") ||
+        jobEstimates.find(estimate => estimate.status === "draft") ||
+        jobEstimates[jobEstimates.length - 1];
+
+      const latestSchedule =
+        jobSchedules[jobSchedules.length - 1];
+
+      const latestInvoice =
+        jobInvoices[jobInvoices.length - 1];
+
+      const totalPayments =
+        jobPayments.reduce(
+          (total, payment) => total + Number(payment.amount),
+          0
+        );
+
+      const nextStatus = {
+        customer_requested: ["quoted", "Mark Quoted"],
+        scheduled: ["in_progress", "Start Job"],
+        in_progress: ["completed", "Complete Job"]
+      }[job.status];
+
+      let actions = nextStatus
+        ? `
+          <button
+            onclick="updateJobStatus(${job.id}, '${nextStatus[0]}')"
+          >
+            ${nextStatus[1]}
+          </button>
+        `
+        : "";
+
+      if (job.status === "approved" && jobSchedules.length === 0) {
+        actions = `
+          <button onclick="prepareSchedule(${job.id})">
+            Create Schedule
+          </button>
+        `;
+      }
+
+      const scheduleText = latestSchedule
+        ? new Date(latestSchedule.scheduled_start).toLocaleString()
+        : "Not scheduled";
+
+      return `
+        <div class="card job-workspace">
+          <div>
+            <strong>${escapeHtml(job.title)}</strong>
+
+            <div>
+              Customer:
+              ${customer
+                ? escapeHtml(customer.name)
+                : "Unknown customer"}
+            </div>
+
+            <div>
+              ${escapeHtml(job.description || "")}
+            </div>
+
+            <span class="status">
+              ${escapeHtml(job.status)}
+            </span>
+          </div>
+
+          <div class="job-workspace-details">
+
+            <div class="job-workspace-item">
+              <strong>Estimate</strong>
+              ${
+                latestEstimate
+                  ? `$${escapeHtml(latestEstimate.amount)}
+                     · ${escapeHtml(latestEstimate.status)}`
+                  : "Not created"
+              }
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Schedule</strong>
+              ${escapeHtml(scheduleText)}
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Invoice</strong>
+              ${
+                latestInvoice
+                  ? `$${escapeHtml(latestInvoice.amount)}
+                     · ${escapeHtml(latestInvoice.status)}`
+                  : "Not created"
+              }
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Payments</strong>
+              ${
+                jobPayments.length
+                  ? `$${escapeHtml(totalPayments.toFixed(2))}`
+                  : "None recorded"
+              }
+            </div>
+
+          </div>
+
+          ${
+            actions
+              ? `<div class="actions">${actions}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderSchedules() {
+    if (schedules.length === 0) {
+      scheduleList.innerHTML =
+        '<p class="empty">No schedules yet.</p>';
+      return;
+    }
+
+    scheduleList.innerHTML = schedules.map(schedule => {
+      const job =
+        jobs.find(job => job.id === schedule.job_id);
+
+      const start =
+        new Date(schedule.scheduled_start).toLocaleString();
+
+      const end =
+        schedule.scheduled_end
+          ? new Date(schedule.scheduled_end).toLocaleString()
+          : "";
+
+      return `
+        <div class="card">
+          <strong>
+            ${job
+              ? escapeHtml(job.title)
+              : `Job #${escapeHtml(schedule.job_id)}`}
+          </strong>
+
+          <div>
+            Start: ${escapeHtml(start)}
+          </div>
+
+          ${
+            end
+              ? `<div>End: ${escapeHtml(end)}</div>`
+              : ""
+          }
+
+          ${
+            schedule.notes
+              ? `<div>${escapeHtml(schedule.notes)}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+  function prepareSchedule(jobId) {
+    scheduleJob.value = String(jobId);
+
+    scheduleForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+
+    document.getElementById("scheduleStart").focus();
+  }
+
+  async function updateJobStatus(jobId, newStatus) {
+    const job =
+      jobs.find(item => item.id === jobId);
+
+    if (!job) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/jobs/${jobId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          customer_id: job.customer_id,
+          title: job.title,
+          description: job.description,
+          status: newStatus
+        })
+      });
+
+      await loadData();
+
+      showSuccess(`Job ${newStatus}.`);
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+  function renderEstimates() {
+    if (estimates.length === 0) {
+      estimateList.innerHTML =
+        '<p class="empty">No estimates yet.</p>';
+      return;
+    }
+
+    estimateList.innerHTML = estimates.map(estimate => {
+      const job =
+        jobs.find(job => job.id === estimate.job_id);
+
+      const customer =
+        job
+          ? customers.find(
+              customer => customer.id === job.customer_id
+            )
+          : null;
+
+      let actions = "";
+
+      if (estimate.status === "draft") {
+        actions = `
+          <button
+            onclick="updateEstimateStatus(${estimate.id}, 'sent')"
+          >
+            Send Estimate
+          </button>
+        `;
+      }
+
+      if (estimate.status === "sent") {
+        actions = `
+          <button
+            class="success"
+            onclick="updateEstimateStatus(${estimate.id}, 'approved')"
+          >
+            Approve
+          </button>
+
+          <button
+            class="danger"
+            onclick="updateEstimateStatus(${estimate.id}, 'declined')"
+          >
+            Decline
+          </button>
+        `;
+      }
+
+      return `
+        <div class="card">
+          <strong>
+            ${escapeHtml(estimate.description || "Estimate")}
+          </strong>
+
+          <div>
+            Customer:
+            ${customer
+              ? escapeHtml(customer.name)
+              : "Unknown customer"}
+          </div>
+
+          <div>
+            Job:
+            ${job
+              ? escapeHtml(job.title)
+              : "Unknown job"}
+          </div>
+
+          <div class="amount">
+            Amount: $${escapeHtml(estimate.amount)}
+          </div>
+
+          <span class="status">
+            ${escapeHtml(estimate.status)}
+          </span>
+
+          ${
+            actions
+              ? `<div class="actions">${actions}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+
+  async function updateEstimateStatus(estimateId, newStatus) {
+    const estimate =
+      estimates.find(item => item.id === estimateId);
+
+    if (!estimate) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/estimates/${estimateId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          job_id: estimate.job_id,
+          description: estimate.description,
+          amount: estimate.amount,
+          status: newStatus
+        })
+      });
+
+      await loadData();
+
+      showSuccess(`Estimate ${newStatus}.`);
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+  function renderInvoices() {
+    if (invoices.length === 0) {
+      invoiceList.innerHTML =
+        '<p class="empty">No invoices yet.</p>';
+      return;
+    }
+
+    invoiceList.innerHTML = invoices.map(invoice => {
+      const job =
+        jobs.find(job => job.id === invoice.job_id);
+
+      const customer =
+        job
+          ? customers.find(
+              customer => customer.id === job.customer_id
+            )
+          : null;
+
+      let actions = "";
+
+      if (invoice.status === "draft") {
+        actions = `
+          <button
+            onclick="updateInvoiceStatus(${invoice.id}, 'sent')"
+          >
+            Send Invoice
+          </button>
+        `;
+      }
+
+      if (invoice.status === "sent") {
+        actions = `
+          <button
+            class="success"
+            onclick="updateInvoiceStatus(${invoice.id}, 'paid')"
+          >
+            Mark Paid
+          </button>
+        `;
+      }
+
+      return `
+        <div class="card">
+          <strong>
+            ${escapeHtml(invoice.description || "Invoice")}
+          </strong>
+
+          <div>
+            Customer:
+            ${customer
+              ? escapeHtml(customer.name)
+              : "Unknown customer"}
+          </div>
+
+          <div>
+            Job:
+            ${job
+              ? escapeHtml(job.title)
+              : "Unknown job"}
+          </div>
+
+          <div class="amount">
+            Amount: $${escapeHtml(invoice.amount)}
+          </div>
+
+          <span class="status">
+            ${escapeHtml(invoice.status)}
+          </span>
+
+          ${
+            actions
+              ? `<div class="actions">${actions}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+  async function updateInvoiceStatus(invoiceId, newStatus) {
+    const invoice =
+      invoices.find(item => item.id === invoiceId);
+
+    if (!invoice) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/invoices/${invoiceId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          job_id: invoice.job_id,
+          description: invoice.description,
+          amount: invoice.amount,
+          status: newStatus
+        })
+      });
+
+      await loadData();
+
+      showSuccess(`Invoice ${newStatus}.`);
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+
+  function renderPayments() {
+    if (payments.length === 0) {
+      paymentList.innerHTML =
+        '<p class="empty">No payments yet.</p>';
+      return;
+    }
+
+    paymentList.innerHTML = payments.map(payment => {
+      const invoice =
+        invoices.find(
+          invoice => invoice.id === payment.invoice_id
+        );
+
+      return `
+        <div class="card">
+          <strong>
+            Payment #${escapeHtml(payment.id)}
+          </strong>
+
+          <div>
+            Invoice:
+            ${invoice
+              ? escapeHtml(
+                  invoice.description || `Invoice ${invoice.id}`
+                )
+              : "Unknown invoice"}
+          </div>
+
+          <div class="amount">
+            Amount: $${escapeHtml(payment.amount)}
+          </div>
+
+          <div>
+            Method: ${escapeHtml(payment.method)}
+          </div>
+
+          <div>
+            Reference:
+            ${escapeHtml(payment.reference || "")}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+  customerForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/customers/", {
+        method: "POST",
+        body: JSON.stringify({
+          name: document.getElementById("customerName").value,
+          phone: document.getElementById("customerPhone").value || null,
+          email: document.getElementById("customerEmail").value || null,
+          address: document.getElementById("customerAddress").value || null
+        })
+      });
+
+      customerForm.reset();
+      await loadData();
+
+      showSuccess("Customer created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  jobForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/jobs/", {
+        method: "POST",
+        body: JSON.stringify({
+          customer_id: Number(jobCustomer.value),
+          title: document.getElementById("jobTitle").value,
+          description:
+            document.getElementById("jobDescription").value || null
+        })
+      });
+
+      jobForm.reset();
+      await loadData();
+
+      showSuccess("Job created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  scheduleForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const scheduledEnd =
+      document.getElementById("scheduleEnd").value;
+
+    try {
+      await apiRequest("/schedules/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: Number(scheduleJob.value),
+          scheduled_start:
+            document.getElementById("scheduleStart").value,
+          scheduled_end:
+            scheduledEnd || null,
+          notes:
+            document.getElementById("scheduleNotes").value || null
+        })
+      });
+
+      scheduleForm.reset();
+      await loadData();
+
+      showSuccess("Schedule created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+  invoiceForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/invoices/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: Number(invoiceJob.value),
+          description:
+            document.getElementById("invoiceDescription").value,
+          amount:
+            document.getElementById("invoiceAmount").value
+        })
+      });
+
+      invoiceForm.reset();
+      await loadData();
+
+      showSuccess("Invoice created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  paymentForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/payments/", {
+        method: "POST",
+        body: JSON.stringify({
+          invoice_id: Number(paymentInvoice.value),
+          amount:
+            document.getElementById("paymentAmount").value,
+          method:
+            document.getElementById("paymentMethod").value,
+          reference:
+            document.getElementById("paymentReference").value || null
+        })
+      });
+
+      paymentForm.reset();
+      await loadData();
+
+      showSuccess("Payment recorded.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+  estimateForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest("/estimates/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: Number(estimateJob.value),
+          description:
+            document.getElementById("estimateDescription").value,
+          amount:
+            document.getElementById("estimateAmount").value
+        })
+      });
+
+      estimateForm.reset();
+      await loadData();
+
+      showSuccess("Estimate created.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  loginForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    try {
+      const response = await apiRequest("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: loginEmail.value,
+          password: loginPassword.value
+        })
+      });
+
+      tenantId = loginTenantId.value;
+
+      localStorage.setItem(
+        "jobflow_tenant_id",
+        tenantId
+      );
+
+      loginForm.reset();
+      await loadData();
+
+      showSuccess("Signed in.");
+
+    } catch (error) {
+      showError(error.message);
+    }
+  });
+
+
+  logoutButton.addEventListener("click", async () => {
+    try {
+        await apiRequest("/auth/logout", {
+            method: "POST"
+        });
+    } catch {
+        // Continue local sign-out even if the request fails.
+    }
+
+    tenantId = null;
+
+    localStorage.removeItem("jobflow_tenant_id");
+
+    customers = [];
+    jobs = [];
+    estimates = [];
+    invoices = [];
+    payments = [];
+    schedules = [];
+
+    location.reload();
+  });
+
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  checkHealth();
+
+  if (tenantId) {
+    loadData();
+  }
+
+</script>
+
+</body>
+</html>
