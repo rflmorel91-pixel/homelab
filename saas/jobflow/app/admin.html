@@ -120,6 +120,24 @@
       font-weight: bold;
     }
 
+    .lead-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .lead-actions button {
+      border: 0;
+      border-radius: 7px;
+      padding: 9px 13px;
+      background: #111827;
+      color: white;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
     .empty {
       color: #6b7280;
     }
@@ -255,6 +273,32 @@
       const submitted =
         new Date(lead.created_at).toLocaleString();
 
+      const actions = {
+        new: [
+          ["contacted", "Mark Contacted"]
+        ],
+        contacted: [
+          ["qualified", "Mark Qualified"],
+          ["closed", "Close Lead"]
+        ],
+        qualified: [
+          ["converted", "Mark Converted"],
+          ["closed", "Close Lead"]
+        ],
+        converted: [],
+        closed: []
+      }[lead.status] || [];
+
+      const actionButtons = actions.map(
+        ([status, label]) => `
+          <button
+            onclick="updateLeadStatus(${lead.id}, '${status}')"
+          >
+            ${label}
+          </button>
+        `
+      ).join("");
+
       return `
         <div class="card">
           <strong>${escapeHtml(lead.business_name)}</strong>
@@ -290,9 +334,39 @@
           <span class="status">
             ${escapeHtml(formatStatus(lead.status))}
           </span>
+
+          ${
+            actionButtons
+              ? `<div class="lead-actions">${actionButtons}</div>`
+              : ""
+          }
         </div>
       `;
     }).join("");
+  }
+
+
+  async function updateLeadStatus(
+    leadId,
+    newStatus
+  ) {
+    try {
+      await apiRequest(`/leads/${leadId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      await loadOperatorLeads();
+
+    } catch (error) {
+      operatorStatus.textContent = error.message;
+      operatorStatus.className = "error";
+    }
   }
 
 

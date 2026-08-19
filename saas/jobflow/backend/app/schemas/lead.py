@@ -33,6 +33,12 @@ class PublicLeadRead(BaseModel):
     status: str
 
 
+class LeadUpdate(BaseModel):
+    status: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class LeadRead(BaseModel):
     id: int
     business_name: str
