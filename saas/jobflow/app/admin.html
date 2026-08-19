@@ -552,6 +552,14 @@
       >
         Users
       </button>
+
+      <button
+        class="nav-button"
+        type="button"
+        data-view="activity"
+      >
+        Activity
+      </button>
     </nav>
 
     <div class="sidebar-links">
@@ -741,6 +749,48 @@
 
       </section>
 
+      <section id="activityView" class="hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>Activity</h1>
+            <p>
+              Immutable history of privileged platform changes.
+            </p>
+          </div>
+
+          <button
+            id="refreshActivityButton"
+            class="btn"
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Administrative Audit Log</h2>
+              <p>
+                Most recent privileged actions, newest first.
+              </p>
+            </div>
+
+            <div class="row-secondary">
+              <span id="auditCount">-</span>
+              total events
+            </div>
+          </div>
+
+          <div
+            id="activityList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+      </section>
+
     </main>
 
   </div>
@@ -844,6 +894,8 @@
         document.getElementById("tenantsView"),
       users:
         document.getElementById("usersView"),
+      activity:
+        document.getElementById("activityView"),
     };
 
     Object.entries(views).forEach(
@@ -1554,7 +1606,15 @@
         event.target.closest("[data-view]");
 
       if (navButton) {
-        showView(navButton.dataset.view);
+        const viewName =
+          navButton.dataset.view;
+
+        showView(viewName);
+
+        if (viewName === "activity") {
+          await loadActivity();
+        }
+
         return;
       }
 
@@ -1575,6 +1635,16 @@
         await openUser(
           Number(userButton.dataset.openUser)
         );
+        return;
+      }
+
+      const refreshActivityButton =
+        event.target.closest(
+          "#refreshActivityButton"
+        );
+
+      if (refreshActivityButton) {
+        await loadActivity();
         return;
       }
 
@@ -1811,6 +1881,145 @@
     "input",
     renderUserDirectory
   );
+
+
+  function auditActionLabel(action) {
+    const labels = {
+      "membership.created":
+        "Membership added",
+      "membership.role_changed":
+        "Membership role changed",
+      "membership.removed":
+        "Membership removed",
+      "user.activated":
+        "User activated",
+      "user.deactivated":
+        "User deactivated",
+      "user.platform_admin_granted":
+        "Platform admin granted",
+      "user.platform_admin_revoked":
+        "Platform admin revoked",
+    };
+
+    return labels[action] || action;
+  }
+
+
+  function auditDetails(event) {
+    if (
+      event.before_data
+      && event.after_data
+    ) {
+      return `
+        ${escapeHtml(
+          JSON.stringify(event.before_data)
+        )}
+        →
+        ${escapeHtml(
+          JSON.stringify(event.after_data)
+        )}
+      `;
+    }
+
+    if (event.after_data) {
+      return escapeHtml(
+        JSON.stringify(event.after_data)
+      );
+    }
+
+    if (event.before_data) {
+      return escapeHtml(
+        JSON.stringify(event.before_data)
+      );
+    }
+
+    return "No additional details";
+  }
+
+
+  function renderActivity(data) {
+    document.getElementById(
+      "auditCount"
+    ).textContent = data.count;
+
+    const list =
+      document.getElementById("activityList");
+
+    if (!data.events.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No administrative activity recorded yet.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = data.events.map(event => `
+      <div class="list-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(
+              auditActionLabel(event.action)
+            )}
+          </strong>
+
+          <span>
+            By
+            ${escapeHtml(
+              event.operator_display_name
+            )}
+            (${escapeHtml(event.operator_email)})
+          </span>
+        </div>
+
+        <div class="row-secondary">
+          <div>
+            ${escapeHtml(event.target_type)}
+            #${event.target_id}
+            ${
+              event.tenant_id
+                ? ` · Tenant #${event.tenant_id}`
+                : ""
+            }
+          </div>
+
+          <div style="margin-top: 4px;">
+            ${auditDetails(event)}
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <span class="badge">
+            ${escapeHtml(
+              new Date(
+                event.created_at
+              ).toLocaleString()
+            )}
+          </span>
+        </div>
+      </div>
+    `).join("");
+  }
+
+
+  async function loadActivity() {
+    try {
+      setStatus("Loading administrative activity...");
+
+      const data =
+        await apiRequest("/admin/audit-log");
+
+      renderActivity(data);
+
+      setStatus(
+        "Administrative activity loaded.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
 
 
   async function initializeAdmin() {

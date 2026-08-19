@@ -44,9 +44,9 @@ def clean_test_database():
         connection.execute(
             text(
                 "TRUNCATE TABLE "
-                "payments, invoices, schedules, estimates, jobs, "
-                "customers, tenant_memberships, users, tenants "
-                "RESTART IDENTITY CASCADE"
+                "admin_audit_logs, payments, invoices, schedules, "
+                "estimates, jobs, customers, tenant_memberships, "
+                "users, tenants RESTART IDENTITY CASCADE"
             )
         )
 

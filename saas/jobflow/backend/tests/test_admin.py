@@ -589,3 +589,158 @@ def test_admin_user_update_returns_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found"
+
+
+def test_user_admin_change_creates_audit_log(
+    client,
+    db_session,
+):
+    from app.models import AdminAuditLog, User
+
+    operator = make_platform_admin(db_session)
+
+    user = User(
+        email="audit-user@example.com",
+        display_name="Audit User",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+
+    db_session.expire_all()
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "user.deactivated"
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.target_type == "user"
+    assert audit.target_id == user.id
+    assert audit.before_data == {
+        "is_active": True,
+    }
+    assert audit.after_data == {
+        "is_active": False,
+    }
+
+
+def test_membership_role_change_creates_audit_log(
+    client,
+    db_session,
+):
+    from app.models import AdminAuditLog, TenantMembership
+
+    operator = make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    membership.role = "member"
+    db_session.commit()
+
+    response = client.put(
+        f"/api/v1/admin/memberships/{membership.id}",
+        json={"role": "owner"},
+    )
+
+    assert response.status_code == 200
+
+    db_session.expire_all()
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "membership.role_changed"
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.target_type == "membership"
+    assert audit.target_id == membership.id
+    assert audit.tenant_id == membership.tenant_id
+    assert audit.before_data == {"role": "member"}
+    assert audit.after_data == {"role": "owner"}
+
+
+def test_platform_admin_can_view_audit_log(
+    client,
+    db_session,
+):
+    from app.models import AdminAuditLog, User
+
+    operator = make_platform_admin(db_session)
+
+    target = User(
+        email="audit-log-target@example.com",
+        display_name="Audit Log Target",
+        is_active=True,
+    )
+    db_session.add(target)
+    db_session.commit()
+    db_session.refresh(target)
+
+    response = client.put(
+        f"/api/v1/admin/users/{target.id}",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+
+    response = client.get(
+        "/api/v1/admin/audit-log"
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["count"] >= 1
+    assert len(payload["events"]) >= 1
+
+    event = payload["events"][0]
+
+    assert event["operator_user_id"] == operator.id
+    assert event["action"] == "user.deactivated"
+    assert event["target_type"] == "user"
+    assert event["target_id"] == target.id
+    assert event["before_data"] == {
+        "is_active": True,
+    }
+    assert event["after_data"] == {
+        "is_active": False,
+    }
+
+
+def test_non_platform_admin_cannot_view_audit_log(
+    client,
+):
+    response = client.get(
+        "/api/v1/admin/audit-log"
+    )
+
+    assert response.status_code == 403
+
+
+def test_unauthenticated_user_cannot_view_audit_log(
+    raw_client,
+):
+    response = raw_client.get(
+        "/api/v1/admin/audit-log"
+    )
+
+    assert response.status_code == 401

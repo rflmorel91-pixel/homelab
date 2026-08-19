@@ -3,14 +3,93 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Tenant, TenantMembership, User
+from app.models import (
+    AdminAuditLog,
+    Tenant,
+    TenantMembership,
+    User,
+)
 from app.operator_context import get_current_operator
+
+
+def add_admin_audit(
+    db: Session,
+    *,
+    operator_user_id: int,
+    action: str,
+    target_type: str,
+    target_id: int,
+    tenant_id: int | None = None,
+    before_data: dict | None = None,
+    after_data: dict | None = None,
+) -> None:
+    db.add(
+        AdminAuditLog(
+            operator_user_id=operator_user_id,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            tenant_id=tenant_id,
+            before_data=before_data,
+            after_data=after_data,
+        )
+    )
 
 
 router = APIRouter(
     prefix="/admin",
     tags=["Administration"],
 )
+
+
+@router.get("/audit-log")
+def admin_audit_log(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    events = db.execute(
+        select(
+            AdminAuditLog,
+            User.email,
+            User.display_name,
+        )
+        .join(
+            User,
+            User.id
+            == AdminAuditLog.operator_user_id,
+        )
+        .order_by(
+            AdminAuditLog.created_at.desc(),
+            AdminAuditLog.id.desc(),
+        )
+        .limit(100)
+    ).all()
+
+    return {
+        "count": db.scalar(
+            select(func.count())
+            .select_from(AdminAuditLog)
+        ),
+        "events": [
+            {
+                "id": event.id,
+                "operator_user_id":
+                    event.operator_user_id,
+                "operator_email": email,
+                "operator_display_name":
+                    display_name,
+                "action": event.action,
+                "target_type": event.target_type,
+                "target_id": event.target_id,
+                "tenant_id": event.tenant_id,
+                "before_data": event.before_data,
+                "after_data": event.after_data,
+                "created_at": event.created_at,
+            }
+            for event, email, display_name
+            in events
+        ],
+    }
 
 
 @router.get("/overview")
@@ -99,7 +178,7 @@ def admin_overview(
 def admin_tenant_detail(
     tenant_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_operator),
+    operator: User = Depends(get_current_operator),
 ):
     tenant = db.get(Tenant, tenant_id)
 
@@ -325,12 +404,58 @@ def admin_update_user(
                 ),
             )
 
+    before_active = user.is_active
+    before_platform_admin = user.is_platform_admin
+
     if payload.is_active is not None:
         user.is_active = payload.is_active
 
     if payload.is_platform_admin is not None:
         user.is_platform_admin = (
             payload.is_platform_admin
+        )
+
+    if before_active != user.is_active:
+        add_admin_audit(
+            db,
+            operator_user_id=operator.id,
+            action=(
+                "user.activated"
+                if user.is_active
+                else "user.deactivated"
+            ),
+            target_type="user",
+            target_id=user.id,
+            before_data={
+                "is_active": before_active,
+            },
+            after_data={
+                "is_active": user.is_active,
+            },
+        )
+
+    if (
+        before_platform_admin
+        != user.is_platform_admin
+    ):
+        add_admin_audit(
+            db,
+            operator_user_id=operator.id,
+            action=(
+                "user.platform_admin_granted"
+                if user.is_platform_admin
+                else "user.platform_admin_revoked"
+            ),
+            target_type="user",
+            target_id=user.id,
+            before_data={
+                "is_platform_admin":
+                    before_platform_admin,
+            },
+            after_data={
+                "is_platform_admin":
+                    user.is_platform_admin,
+            },
         )
 
     db.commit()
@@ -353,7 +478,7 @@ def admin_create_membership(
     tenant_id: int,
     payload: MembershipCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_operator),
+    operator: User = Depends(get_current_operator),
 ):
     tenant = db.get(Tenant, tenant_id)
 
@@ -391,6 +516,21 @@ def admin_create_membership(
     )
 
     db.add(membership)
+    db.flush()
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="membership.created",
+        target_type="membership",
+        target_id=membership.id,
+        tenant_id=membership.tenant_id,
+        after_data={
+            "user_id": membership.user_id,
+            "role": membership.role,
+        },
+    )
+
     db.commit()
     db.refresh(membership)
 
@@ -407,7 +547,7 @@ def admin_update_membership(
     membership_id: int,
     payload: MembershipUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_operator),
+    operator: User = Depends(get_current_operator),
 ):
     membership = db.get(
         TenantMembership,
@@ -440,7 +580,25 @@ def admin_update_membership(
                 detail="Tenant must retain at least one owner",
             )
 
+    previous_role = membership.role
     membership.role = payload.role
+
+    if previous_role != membership.role:
+        add_admin_audit(
+            db,
+            operator_user_id=operator.id,
+            action="membership.role_changed",
+            target_type="membership",
+            target_id=membership.id,
+            tenant_id=membership.tenant_id,
+            before_data={
+                "role": previous_role,
+            },
+            after_data={
+                "role": membership.role,
+            },
+        )
+
     db.commit()
     db.refresh(membership)
 
@@ -459,7 +617,7 @@ def admin_update_membership(
 def admin_delete_membership(
     membership_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_operator),
+    operator: User = Depends(get_current_operator),
 ):
     membership = db.get(
         TenantMembership,
@@ -489,7 +647,26 @@ def admin_delete_membership(
                 detail="Tenant must retain at least one owner",
             )
 
+    audit_target_id = membership.id
+    audit_tenant_id = membership.tenant_id
+    audit_user_id = membership.user_id
+    audit_role = membership.role
+
     db.delete(membership)
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="membership.removed",
+        target_type="membership",
+        target_id=audit_target_id,
+        tenant_id=audit_tenant_id,
+        before_data={
+            "user_id": audit_user_id,
+            "role": audit_role,
+        },
+    )
+
     db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
