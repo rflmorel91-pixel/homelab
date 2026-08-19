@@ -738,7 +738,7 @@
         in_progress: ["completed", "Complete Job"]
       }[job.status];
 
-      const actions = nextStatus
+      let actions = nextStatus
         ? `
           <button
             onclick="updateJobStatus(${job.id}, '${nextStatus[0]}')"
@@ -747,6 +747,14 @@
           </button>
         `
         : "";
+
+      if (job.status === "approved" && jobSchedules.length === 0) {
+        actions = `
+          <button onclick="prepareSchedule(${job.id})">
+            Create Schedule
+          </button>
+        `;
+      }
 
       const scheduleText = latestSchedule
         ? new Date(latestSchedule.scheduled_start).toLocaleString()
@@ -866,6 +874,17 @@
         </div>
       `;
     }).join("");
+  }
+
+  function prepareSchedule(jobId) {
+    scheduleJob.value = String(jobId);
+
+    scheduleForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+
+    document.getElementById("scheduleStart").focus();
   }
 
   async function updateJobStatus(jobId, newStatus) {
