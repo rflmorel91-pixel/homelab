@@ -234,6 +234,18 @@
         // Keep default error.
       }
 
+      if (response.status === 401) {
+        const returnTo =
+          encodeURIComponent("/commercialization");
+
+        window.location.href =
+          `/admin?return=${returnTo}`;
+
+        throw new Error(
+          "Session expired. Sign in again to continue."
+        );
+      }
+
       throw new Error(detail);
     }
 
