@@ -253,6 +253,11 @@ from fastapi import HTTPException, Response, status
 from pydantic import BaseModel
 
 
+class UserAdminUpdate(BaseModel):
+    is_active: bool | None = None
+    is_platform_admin: bool | None = None
+
+
 class MembershipCreate(BaseModel):
     user_id: int
     role: Literal["owner", "member"] = "member"
@@ -260,6 +265,84 @@ class MembershipCreate(BaseModel):
 
 class MembershipUpdate(BaseModel):
     role: Literal["owner", "member"]
+
+
+@router.put("/users/{user_id}")
+def admin_update_user(
+    user_id: int,
+    payload: UserAdminUpdate,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    user = db.get(User, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    if (
+        user.id == operator.id
+        and payload.is_active is False
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Current operator cannot "
+                "deactivate themselves"
+            ),
+        )
+
+    if (
+        user.id == operator.id
+        and payload.is_platform_admin is False
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Current operator cannot revoke "
+                "their own platform access"
+            ),
+        )
+
+    if (
+        user.is_platform_admin
+        and payload.is_platform_admin is False
+    ):
+        admin_count = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.is_platform_admin.is_(True))
+        )
+
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Platform must retain at least "
+                    "one administrator"
+                ),
+            )
+
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+
+    if payload.is_platform_admin is not None:
+        user.is_platform_admin = (
+            payload.is_platform_admin
+        )
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "is_active": user.is_active,
+        "is_platform_admin": user.is_platform_admin,
+    }
 
 
 @router.post(

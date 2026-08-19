@@ -819,6 +819,12 @@
         // Keep fallback error.
       }
 
+      if (response.status === 401) {
+        throw new Error(
+          "Session expired. Sign in again before continuing."
+        );
+      }
+
       throw new Error(detail);
     }
 
@@ -1095,6 +1101,99 @@
 
           <div>
             ${userBadges(data.user)}
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>
+              ${data.user.is_active ? "Active" : "Inactive"}
+            </strong>
+            <span>Account Status</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>
+              ${data.user.is_platform_admin ? "Yes" : "No"}
+            </strong>
+            <span>Platform Administrator</span>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom: 24px;">
+          <div class="panel-header">
+            <div>
+              <h2>User Administration</h2>
+              <p>
+                Manage platform access with lockout protection.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="membership-row">
+              <div class="row-primary">
+                <strong>Account status</strong>
+                <span>
+                  Inactive users cannot authenticate or operate JobFlow.
+                </span>
+              </div>
+
+              <select
+                data-user-active="${data.user.id}"
+                data-original-active="${data.user.is_active}"
+              >
+                <option
+                  value="true"
+                  ${data.user.is_active ? "selected" : ""}
+                >
+                  Active
+                </option>
+
+                <option
+                  value="false"
+                  ${!data.user.is_active ? "selected" : ""}
+                >
+                  Inactive
+                </option>
+              </select>
+
+              <div></div>
+            </div>
+
+            <div class="membership-row">
+              <div class="row-primary">
+                <strong>Platform administrator</strong>
+                <span>
+                  Grants access to the JobFlow platform control center.
+                </span>
+              </div>
+
+              <select
+                data-user-platform-admin="${data.user.id}"
+                data-original-platform-admin="${data.user.is_platform_admin}"
+              >
+                <option
+                  value="false"
+                  ${!data.user.is_platform_admin
+                    ? "selected"
+                    : ""}
+                >
+                  No
+                </option>
+
+                <option
+                  value="true"
+                  ${data.user.is_platform_admin
+                    ? "selected"
+                    : ""}
+                >
+                  Yes
+                </option>
+              </select>
+
+              <div></div>
+            </div>
           </div>
         </div>
 
@@ -1496,6 +1595,144 @@
         await removeMembership(
           Number(removeButton.dataset.removeMembership),
           Number(removeButton.dataset.tenantId)
+        );
+      }
+    }
+  );
+
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const activeSelect = event.target.closest(
+        "[data-user-active]"
+      );
+
+      if (!activeSelect) {
+        return;
+      }
+
+      const userId = Number(
+        activeSelect.dataset.userActive
+      );
+
+      const previousValue =
+        activeSelect.dataset.originalActive;
+
+      const nextValue =
+        activeSelect.value === "true";
+
+      if (
+        !nextValue
+        && !window.confirm(
+          "Deactivate this user? They will no longer be able to sign in."
+        )
+      ) {
+        activeSelect.value = previousValue;
+        return;
+      }
+
+      setStatus("Updating user status...");
+
+      try {
+        await apiRequest(
+          `/admin/users/${userId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              is_active: nextValue,
+            }),
+          }
+        );
+
+        await refreshOverview();
+        await openUser(userId);
+
+        setStatus(
+          "User status updated.",
+          "success"
+        );
+
+      } catch (error) {
+        activeSelect.value = previousValue;
+
+        setStatus(
+          error.message,
+          "error"
+        );
+      }
+    }
+  );
+
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const adminSelect = event.target.closest(
+        "[data-user-platform-admin]"
+      );
+
+      if (!adminSelect) {
+        return;
+      }
+
+      const userId = Number(
+        adminSelect.dataset.userPlatformAdmin
+      );
+
+      const previousValue =
+        adminSelect.dataset.originalPlatformAdmin;
+
+      const nextValue =
+        adminSelect.value === "true";
+
+      if (
+        !nextValue
+        && !window.confirm(
+          "Revoke this user's platform administrator access?"
+        )
+      ) {
+        adminSelect.value = previousValue;
+        return;
+      }
+
+      if (
+        nextValue
+        && !window.confirm(
+          "Grant this user platform administrator access?"
+        )
+      ) {
+        adminSelect.value = previousValue;
+        return;
+      }
+
+      setStatus("Updating platform access...");
+
+      try {
+        await apiRequest(
+          `/admin/users/${userId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              is_platform_admin: nextValue,
+            }),
+          }
+        );
+
+        await refreshOverview();
+        await openUser(userId);
+
+        setStatus(
+          "Platform access updated.",
+          "success"
+        );
+
+      } catch (error) {
+        adminSelect.value = previousValue;
+
+        setStatus(
+          error.message,
+          "error"
         );
       }
     }

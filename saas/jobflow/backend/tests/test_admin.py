@@ -448,3 +448,144 @@ def test_admin_overview_includes_operational_user_counts(
     assert counts["active_users"] >= 1
     assert counts["active_users"] < counts["users"]
     assert counts["platform_admins"] >= 1
+
+
+def test_platform_admin_can_deactivate_another_user(
+    client,
+    db_session,
+):
+    from app.models import User
+
+    make_platform_admin(db_session)
+
+    user = User(
+        email="deactivate-user@example.com",
+        display_name="Deactivate User",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["id"] == user.id
+    assert payload["is_active"] is False
+
+    db_session.expire_all()
+
+    updated = db_session.get(User, user.id)
+    assert updated is not None
+    assert updated.is_active is False
+
+
+def test_platform_admin_can_grant_platform_admin(
+    client,
+    db_session,
+):
+    from app.models import User
+
+    make_platform_admin(db_session)
+
+    user = User(
+        email="promote-admin@example.com",
+        display_name="Promote Admin",
+        is_active=True,
+        is_platform_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_platform_admin": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_platform_admin"] is True
+
+
+def test_platform_admin_can_revoke_another_platform_admin(
+    client,
+    db_session,
+):
+    from app.models import User
+
+    make_platform_admin(db_session)
+
+    user = User(
+        email="revoke-admin@example.com",
+        display_name="Revoke Admin",
+        is_active=True,
+        is_platform_admin=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_platform_admin": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_platform_admin"] is False
+
+
+def test_platform_admin_cannot_deactivate_self(
+    client,
+    db_session,
+):
+    user = make_platform_admin(db_session)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Current operator cannot deactivate themselves"
+    )
+
+
+def test_platform_admin_cannot_revoke_self(
+    client,
+    db_session,
+):
+    user = make_platform_admin(db_session)
+
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}",
+        json={"is_platform_admin": False},
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Current operator cannot revoke their own platform access"
+    )
+
+
+def test_admin_user_update_returns_404(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+
+    response = client.put(
+        "/api/v1/admin/users/999999",
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
