@@ -543,8 +543,10 @@
             </select>
 
             <button
+              type="button"
               class="button"
-              onclick="addTenantMembership(${tenant.id})"
+              data-action="add-membership"
+              data-tenant-id="${tenant.id}"
             >
               Add
             </button>
@@ -587,21 +589,21 @@
                     </select>
 
                     <button
+                      type="button"
                       class="button"
-                      onclick="updateMembershipRole(
-                        ${tenant.id},
-                        ${membership.id}
-                      )"
+                      data-action="update-membership"
+                      data-tenant-id="${tenant.id}"
+                      data-membership-id="${membership.id}"
                     >
                       Save Role
                     </button>
 
                     <button
+                      type="button"
                       class="button"
-                      onclick="removeMembership(
-                        ${tenant.id},
-                        ${membership.id}
-                      )"
+                      data-action="remove-membership"
+                      data-tenant-id="${tenant.id}"
+                      data-membership-id="${membership.id}"
                     >
                       Remove
                     </button>
@@ -731,6 +733,54 @@
       adminStatus.className = "error";
     }
   }
+
+
+  detailContent.addEventListener(
+    "click",
+    async event => {
+      const button = event.target.closest(
+        "button[data-action]"
+      );
+
+      if (!button) {
+        return;
+      }
+
+      const tenantId = Number(
+        button.dataset.tenantId
+      );
+
+      const membershipId = Number(
+        button.dataset.membershipId
+      );
+
+      if (button.dataset.action === "add-membership") {
+        await addTenantMembership(tenantId);
+        return;
+      }
+
+      if (
+        button.dataset.action
+        === "update-membership"
+      ) {
+        await updateMembershipRole(
+          tenantId,
+          membershipId
+        );
+        return;
+      }
+
+      if (
+        button.dataset.action
+        === "remove-membership"
+      ) {
+        await removeMembership(
+          tenantId,
+          membershipId
+        );
+      }
+    }
+  );
 
 
   async function loadAdmin() {
