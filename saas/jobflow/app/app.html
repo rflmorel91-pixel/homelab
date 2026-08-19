@@ -811,7 +811,7 @@
             </div>
 
             <span class="status">
-              ${escapeHtml(job.status)}
+              ${escapeHtml(formatStatus(job.status))}
             </span>
           </div>
 
@@ -822,7 +822,7 @@
               ${
                 latestEstimate
                   ? `$${escapeHtml(latestEstimate.amount)}
-                     · ${escapeHtml(latestEstimate.status)}`
+                     · ${escapeHtml(formatStatus(latestEstimate.status))}`
                   : "Not created"
               }
             </div>
@@ -837,7 +837,7 @@
               ${
                 latestInvoice
                   ? `$${escapeHtml(latestInvoice.amount)}
-                     · ${escapeHtml(latestInvoice.status)}`
+                     · ${escapeHtml(formatStatus(latestInvoice.status))}`
                   : "Not created"
               }
             </div>
@@ -1045,7 +1045,7 @@
           </div>
 
           <span class="status">
-            ${escapeHtml(estimate.status)}
+            ${escapeHtml(formatStatus(estimate.status))}
           </span>
 
           ${
@@ -1153,7 +1153,7 @@
           </div>
 
           <span class="status">
-            ${escapeHtml(invoice.status)}
+            ${escapeHtml(formatStatus(invoice.status))}
           </span>
 
           ${
@@ -1451,6 +1451,25 @@
     location.reload();
   });
 
+
+  function formatStatus(status) {
+    const labels = {
+      customer_requested: "Customer Requested",
+      quoted: "Quoted",
+      approved: "Approved",
+      scheduled: "Scheduled",
+      in_progress: "In Progress",
+      completed: "Completed",
+      invoiced: "Invoiced",
+      paid: "Paid",
+      draft: "Draft",
+      sent: "Sent",
+      declined: "Declined",
+      rejected: "Rejected"
+    };
+
+    return labels[status] || status;
+  }
 
   function escapeHtml(value) {
     return String(value)
