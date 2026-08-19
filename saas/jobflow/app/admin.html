@@ -230,11 +230,6 @@
     <div id="tenantList"></div>
   </section>
 
-  <section class="panel">
-    <h2>Memberships</h2>
-    <div id="membershipList"></div>
-  </section>
-
   <section
     class="panel"
     id="detailPanel"
@@ -269,9 +264,6 @@
 
   const tenantList =
     document.getElementById("tenantList");
-
-  const membershipList =
-    document.getElementById("membershipList");
 
 
   const detailPanel =
@@ -376,27 +368,6 @@
       `
     ).join("");
 
-    membershipList.innerHTML =
-      data.memberships.map(membership => `
-        <div class="record">
-          <strong>
-            ${escapeHtml(membership.user_email)}
-          </strong>
-
-          <div>
-            Tenant:
-            ${escapeHtml(membership.tenant_name)}
-          </div>
-
-          <div>
-            Role: ${escapeHtml(membership.role)}
-          </div>
-
-          <div class="meta">
-            Membership #${membership.id}
-          </div>
-        </div>
-      `).join("");
   }
 
 
