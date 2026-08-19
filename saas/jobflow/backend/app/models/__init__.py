@@ -7,6 +7,7 @@ from app.models.estimate import Estimate
 from app.models.invoice import Invoice
 from app.models.payment import Payment
 from app.models.schedule import Schedule
+from app.models.lead import Lead
 
 __all__ = [
     "TenantMembership",
@@ -18,4 +19,5 @@ __all__ = [
     "Invoice",
     "Payment",
     "Schedule",
+    "Lead",
 ]

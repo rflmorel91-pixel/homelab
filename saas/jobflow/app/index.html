@@ -207,6 +207,49 @@
       font-size: 18px;
     }
 
+    .lead-form {
+      max-width: 680px;
+      margin: 32px auto 0;
+      display: grid;
+      gap: 14px;
+      text-align: left;
+    }
+
+    .lead-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .lead-form input,
+    .lead-form textarea,
+    .lead-form select {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      background: white;
+      color: #111827;
+      font: inherit;
+    }
+
+    .lead-form textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .lead-form button {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .lead-message {
+      min-height: 24px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
     footer {
       background: #111827;
       color: #9ca3af;
@@ -236,6 +279,10 @@
 
       .arrow {
         display: none;
+      }
+
+      .lead-form-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -268,8 +315,8 @@
       </p>
 
       <div class="hero-actions">
-        <a class="button button-light" href="/app">
-          Open JobFlow
+        <a class="button button-light" href="#pilot">
+          Request Pilot Access
         </a>
 
         <a class="button" href="#workflow">
@@ -367,18 +414,77 @@
     </div>
   </section>
 
-  <section class="cta">
+  <section id="pilot" class="cta">
     <div class="section-inner">
-      <h2>Keep every job moving.</h2>
+      <h2>Interested in trying JobFlow?</h2>
 
       <p>
-        Sign in to your JobFlow workspace to manage your customers
-        and active work.
+        JobFlow is currently onboarding a small number of
+        home-service businesses for early pilot access.
+        Tell us a little about your business and we will follow up.
       </p>
 
-      <a class="button" href="/app">
-        Sign In to JobFlow
-      </a>
+      <form id="leadForm" class="lead-form">
+
+        <div class="lead-form-grid">
+          <input
+            id="leadBusinessName"
+            type="text"
+            placeholder="Business name"
+            required
+          >
+
+          <input
+            id="leadContactName"
+            type="text"
+            placeholder="Your name"
+            required
+          >
+        </div>
+
+        <div class="lead-form-grid">
+          <input
+            id="leadEmail"
+            type="email"
+            placeholder="Email"
+            required
+          >
+
+          <input
+            id="leadPhone"
+            type="tel"
+            placeholder="Phone (optional)"
+          >
+        </div>
+
+        <select id="leadServiceType" required>
+          <option value="">Type of service business</option>
+          <option value="Handyman">Handyman</option>
+          <option value="Landscaping">Landscaping</option>
+          <option value="Cleaning">Cleaning</option>
+          <option value="HVAC">HVAC</option>
+          <option value="Plumbing">Plumbing</option>
+          <option value="Electrical">Electrical</option>
+          <option value="Painting">Painting</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <textarea
+          id="leadMessage"
+          placeholder="What would you like JobFlow to help you manage? (optional)"
+        ></textarea>
+
+        <button class="button" type="submit">
+          Request Pilot Access
+        </button>
+
+        <div
+          id="leadMessageStatus"
+          class="lead-message"
+          aria-live="polite"
+        ></div>
+
+      </form>
     </div>
   </section>
 
@@ -387,6 +493,59 @@
 <footer>
   JobFlow
 </footer>
+
+
+<script>
+  const leadForm = document.getElementById("leadForm");
+  const leadMessageStatus =
+    document.getElementById("leadMessageStatus");
+
+  leadForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    leadMessageStatus.textContent = "Submitting...";
+
+    try {
+      const response = await fetch("/api/v1/public/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          business_name:
+            document.getElementById("leadBusinessName").value,
+          contact_name:
+            document.getElementById("leadContactName").value,
+          email:
+            document.getElementById("leadEmail").value,
+          phone:
+            document.getElementById("leadPhone").value || null,
+          service_type:
+            document.getElementById("leadServiceType").value,
+          message:
+            document.getElementById("leadMessage").value || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Unable to submit your request."
+        );
+      }
+
+      leadForm.reset();
+
+      leadMessageStatus.textContent =
+        `Thanks! Your pilot request #${data.lead_id} was received.`;
+
+    } catch (error) {
+      leadMessageStatus.textContent =
+        error.message || "Unable to submit your request.";
+    }
+  });
+</script>
 
 </body>
 </html>

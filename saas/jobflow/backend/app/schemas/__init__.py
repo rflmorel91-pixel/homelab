@@ -28,6 +28,11 @@ from app.schemas.schedule import (
     ScheduleRead,
     ScheduleUpdate,
 )
+from app.schemas.lead import (
+    LeadRead,
+    PublicLeadCreate,
+    PublicLeadRead,
+)
 __all__ = [
     "CustomerCreate",
     "CustomerRead",
@@ -47,4 +52,7 @@ __all__ = [
     "ScheduleCreate",
     "ScheduleRead",
     "ScheduleUpdate",
+    "LeadRead",
+    "PublicLeadCreate",
+    "PublicLeadRead",
 ]
