@@ -14,272 +14,776 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --border: #e2e8f0;
+      --text: #172033;
+      --muted: #64748b;
+      --nav: #0f172a;
+      --nav-muted: #94a3b8;
+      --primary: #2563eb;
+      --primary-soft: #eff6ff;
+      --success: #166534;
+      --success-bg: #dcfce7;
+      --danger: #991b1b;
+      --danger-bg: #fee2e2;
+      --warning: #92400e;
+      --warning-bg: #fef3c7;
+    }
+
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f8fafc;
-      color: #1f2937;
-      line-height: 1.5;
+      min-height: 100vh;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
-    header {
-      background: #111827;
-      color: white;
-      padding: 20px 24px;
+    button,
+    input,
+    select {
+      font: inherit;
     }
 
-    .header-inner,
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .header-inner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .brand {
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+    button {
+      cursor: pointer;
     }
 
     a {
+      color: inherit;
       text-decoration: none;
     }
 
-    .button {
-      display: inline-block;
-      border-radius: 7px;
-      padding: 10px 16px;
-      background: white;
-      color: #111827;
-      font-weight: bold;
+    .app-shell {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: var(--nav);
+      color: white;
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .brand {
+      padding: 0 8px;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 21px;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 4px;
+      color: var(--nav-muted);
+      font-size: 13px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav-button {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 12px;
+      background: transparent;
+      color: #cbd5e1;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .nav-button:hover,
+    .nav-button.active {
+      background: #1e293b;
+      color: white;
+    }
+
+    .sidebar-links {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .sidebar-link {
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .sidebar-link:hover {
+      background: #1e293b;
+      color: white;
+    }
+
+    .content {
+      min-width: 0;
+    }
+
+    .topbar {
+      height: 72px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 30px;
+    }
+
+    .topbar-title strong {
+      display: block;
+    }
+
+    .topbar-title span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .operator-status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .health-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #22c55e;
     }
 
     main {
-      padding: 36px 24px 80px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 30px;
     }
 
-    .page-heading {
-      margin-bottom: 28px;
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 24px;
     }
 
-    .page-heading h1 {
-      margin: 0 0 8px;
+    .page-header h1 {
+      margin: 0 0 5px;
+      font-size: 28px;
     }
 
-    .page-heading p,
-    .meta {
-      color: #6b7280;
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .status-banner {
+      margin-bottom: 22px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 9px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-banner.success {
+      border-color: #bbf7d0;
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .status-banner.error {
+      border-color: #fecaca;
+      background: var(--danger-bg);
+      color: var(--danger);
     }
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(
-        auto-fit,
-        minmax(180px, 1fr)
-      );
-      gap: 16px;
+      grid-template-columns:
+        repeat(5, minmax(140px, 1fr));
+      gap: 14px;
       margin-bottom: 24px;
     }
 
-    .summary-card,
-    .panel {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 22px;
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .summary-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
     }
 
     .summary-card strong {
       display: block;
+      margin-top: 6px;
       font-size: 30px;
     }
 
     .panel {
-      margin-bottom: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
     }
 
-    .panel h2 {
-      margin-top: 0;
+    .panel-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
     }
 
-    .record {
-      border-top: 1px solid #e5e7eb;
-      padding: 14px 0;
+    .panel-header h2 {
+      margin: 0;
+      font-size: 18px;
     }
 
-    .record:first-child {
+    .panel-header p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel-body {
+      padding: 20px;
+    }
+
+    .search-input {
+      width: min(320px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      background: white;
+    }
+
+    .list {
+      display: grid;
+    }
+
+    .list-row {
+      display: grid;
+      grid-template-columns:
+        minmax(200px, 2fr)
+        minmax(150px, 1fr)
+        minmax(120px, auto);
+      gap: 18px;
+      align-items: center;
+      padding: 15px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .list-row:first-child {
       border-top: 0;
     }
 
-    .record-button {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      color: inherit;
-      text-align: left;
-      padding: 0;
-      font: inherit;
-      cursor: pointer;
+    .row-primary {
+      min-width: 0;
     }
 
-    .record-button:hover strong {
-      text-decoration: underline;
+    .row-primary strong {
+      display: block;
+    }
+
+    .row-primary span,
+    .row-secondary {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .row-actions {
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f1f5f9;
+      color: #475569;
+      margin-right: 5px;
+    }
+
+    .badge.success {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge.admin {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 11px;
+      background: white;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      background: var(--surface-muted);
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .btn.danger {
+      border-color: #fecaca;
+      color: var(--danger);
+    }
+
+    .detail-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .detail-heading h2 {
+      margin: 0;
+    }
+
+    .detail-heading p {
+      color: var(--muted);
+      margin: 4px 0 0;
     }
 
     .detail-grid {
       display: grid;
-      grid-template-columns: repeat(
-        auto-fit,
-        minmax(160px, 1fr)
-      );
+      grid-template-columns:
+        repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
-      margin-top: 16px;
+      margin-bottom: 24px;
     }
 
     .detail-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
       padding: 14px;
+      background: var(--surface-muted);
     }
 
-    .status {
-      display: inline-block;
-      border-radius: 999px;
-      background: #f3f4f6;
-      padding: 4px 9px;
-      margin-top: 6px;
-      font-size: 13px;
-      font-weight: bold;
+    .detail-card strong {
+      display: block;
+      font-size: 22px;
     }
 
-    .error {
-      color: #991b1b;
-      font-weight: bold;
+    .detail-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .membership-form {
+      display: grid;
+      grid-template-columns:
+        minmax(220px, 1fr)
+        140px
+        auto;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .membership-form select,
+    .membership-row select {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      padding: 8px 10px;
+    }
+
+    .membership-row {
+      display: grid;
+      grid-template-columns:
+        minmax(220px, 1fr)
+        140px
+        auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .membership-row:first-of-type {
+      border-top: 0;
+    }
+
+    .membership-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .empty {
+      padding: 22px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1000px) {
+      .summary-grid {
+        grid-template-columns:
+          repeat(2, minmax(150px, 1fr));
+      }
+
+      .list-row,
+      .membership-row {
+        grid-template-columns: 1fr;
+      }
+
+      .row-actions,
+      .membership-actions {
+        text-align: left;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+
+      .nav {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .sidebar-links {
+        display: none;
+      }
+
+      .topbar {
+        padding: 0 18px;
+      }
+
+      main {
+        padding: 20px 16px 50px;
+      }
+
+      .membership-form {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 
 <body>
 
-<header>
-  <div class="header-inner">
-    <div>
-      <div class="brand">JobFlow Administration</div>
-      <div class="meta">Platform administration</div>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <strong>JobFlow</strong>
+      <span>Platform Administration</span>
     </div>
 
-    <div class="header-actions">
-      <a class="button" href="/commercialization">
+    <nav class="nav">
+      <button
+        class="nav-button active"
+        type="button"
+        data-view="overview"
+      >
+        Overview
+      </button>
+
+      <button
+        class="nav-button"
+        type="button"
+        data-view="tenants"
+      >
+        Tenants
+      </button>
+
+      <button
+        class="nav-button"
+        type="button"
+        data-view="users"
+      >
+        Users
+      </button>
+    </nav>
+
+    <div class="sidebar-links">
+      <a class="sidebar-link" href="/commercialization">
         Commercialization
       </a>
 
-      <a class="button" href="/app">
+      <a class="sidebar-link" href="/app">
         Tenant Workspace
       </a>
     </div>
+  </aside>
+
+  <div class="content">
+
+    <header class="topbar">
+      <div class="topbar-title">
+        <strong>Platform Control Center</strong>
+        <span>Administrative operations and oversight</span>
+      </div>
+
+      <div class="operator-status">
+        <span class="health-dot"></span>
+        <span id="operatorLabel">Checking access...</span>
+      </div>
+    </header>
+
+    <main>
+
+      <div id="statusBanner" class="status-banner">
+        Verifying platform administrator access...
+      </div>
+
+      <section id="overviewView">
+
+        <div class="page-header">
+          <div>
+            <h1>Overview</h1>
+            <p>
+              Platform users, tenants, access, and operational state.
+            </p>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span>Users</span>
+            <strong id="userCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Active Users</span>
+            <strong id="activeUserCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Tenants</span>
+            <strong id="tenantCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Memberships</span>
+            <strong id="membershipCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Platform Admins</span>
+            <strong id="platformAdminCount">-</strong>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Tenants</h2>
+              <p>Current customer workspaces.</p>
+            </div>
+          </div>
+
+          <div
+            id="overviewTenantList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Users</h2>
+              <p>Platform identities and access state.</p>
+            </div>
+          </div>
+
+          <div
+            id="overviewUserList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+      </section>
+
+      <section id="tenantsView" class="hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>Tenants</h1>
+            <p>
+              Manage customer workspaces and membership access.
+            </p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Tenant Directory</h2>
+              <p>Select a tenant to administer it.</p>
+            </div>
+
+            <input
+              id="tenantSearch"
+              class="search-input"
+              type="search"
+              placeholder="Search tenants..."
+            >
+          </div>
+
+          <div
+            id="tenantList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section
+          id="tenantDetailPanel"
+          class="panel hidden"
+        >
+          <div
+            id="tenantDetail"
+            class="panel-body"
+          ></div>
+        </section>
+
+      </section>
+
+      <section id="usersView" class="hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>Users</h1>
+            <p>
+              Review user identities, status, and tenant access.
+            </p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>User Directory</h2>
+              <p>Select a user to inspect access.</p>
+            </div>
+
+            <input
+              id="userSearch"
+              class="search-input"
+              type="search"
+              placeholder="Search users..."
+            >
+          </div>
+
+          <div
+            id="userList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section
+          id="userDetailPanel"
+          class="panel hidden"
+        >
+          <div
+            id="userDetail"
+            class="panel-body"
+          ></div>
+        </section>
+
+      </section>
+
+    </main>
+
   </div>
-</header>
 
-<main>
-  <div class="page-heading">
-    <h1>Platform Overview</h1>
-    <p>
-      Users, tenants, memberships, and platform access.
-    </p>
-  </div>
-
-  <div id="adminStatus" class="meta">
-    Checking administrator access...
-  </div>
-
-  <div class="summary-grid">
-    <div class="summary-card">
-      <span class="meta">Users</span>
-      <strong id="userCount">-</strong>
-    </div>
-
-    <div class="summary-card">
-      <span class="meta">Tenants</span>
-      <strong id="tenantCount">-</strong>
-    </div>
-
-    <div class="summary-card">
-      <span class="meta">Memberships</span>
-      <strong id="membershipCount">-</strong>
-    </div>
-  </div>
-
-  <section class="panel">
-    <h2>Users</h2>
-    <div id="userList"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Tenants</h2>
-    <div id="tenantList"></div>
-  </section>
-
-  <section
-    class="panel"
-    id="detailPanel"
-    style="display: none;"
-  >
-    <h2 id="detailTitle">Details</h2>
-    <div id="detailContent"></div>
-  </section>
-
-</main>
+</div>
 
 <script>
   const API_BASE = "/api/v1";
 
-  const tenantId =
-    localStorage.getItem("jobflow_tenant_id");
-
-  const adminStatus =
-    document.getElementById("adminStatus");
-
-  const userCount =
-    document.getElementById("userCount");
-
-  const tenantCount =
-    document.getElementById("tenantCount");
-
-  const membershipCount =
-    document.getElementById("membershipCount");
-
-  const userList =
-    document.getElementById("userList");
-
-  const tenantList =
-    document.getElementById("tenantList");
+  const state = {
+    overview: null,
+    currentTenantId: null,
+    currentUserId: null,
+  };
 
 
-  const detailPanel =
-    document.getElementById("detailPanel");
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-  const detailTitle =
-    document.getElementById("detailTitle");
 
-  const detailContent =
-    document.getElementById("detailContent");
+  function setStatus(message, type = "") {
+    const banner =
+      document.getElementById("statusBanner");
+
+    banner.textContent = message;
+    banner.className =
+      `status-banner${type ? ` ${type}` : ""}`;
+  }
 
 
   async function apiRequest(path, options = {}) {
     const headers = {
-      ...(options.headers || {})
+      ...(options.headers || {}),
     };
+
+    const tenantId =
+      localStorage.getItem("jobflow_tenant_id");
 
     if (tenantId) {
       headers["X-Tenant-ID"] = tenantId;
@@ -297,7 +801,7 @@
       {
         ...options,
         credentials: "same-origin",
-        headers
+        headers,
       }
     );
 
@@ -306,13 +810,13 @@
         `Request failed (${response.status})`;
 
       try {
-        const data = await response.json();
+        const payload = await response.json();
 
-        if (data.detail) {
-          detail = data.detail;
+        if (payload.detail) {
+          detail = payload.detail;
         }
       } catch {
-        // Keep default error.
+        // Keep fallback error.
       }
 
       throw new Error(detail);
@@ -326,418 +830,593 @@
   }
 
 
-  function escapeHtml(value) {
-    return String(value)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  function showView(viewName) {
+    const views = {
+      overview:
+        document.getElementById("overviewView"),
+      tenants:
+        document.getElementById("tenantsView"),
+      users:
+        document.getElementById("usersView"),
+    };
+
+    Object.entries(views).forEach(
+      ([name, element]) => {
+        element.classList.toggle(
+          "hidden",
+          name !== viewName
+        );
+      }
+    );
+
+    document
+      .querySelectorAll(".nav-button")
+      .forEach(button => {
+        button.classList.toggle(
+          "active",
+          button.dataset.view === viewName
+        );
+      });
   }
 
 
-  function renderOverview(data) {
-    userCount.textContent =
-      data.counts.users;
+  function userBadges(user) {
+    const badges = [];
 
-    tenantCount.textContent =
-      data.counts.tenants;
+    badges.push(
+      user.is_active
+        ? '<span class="badge success">Active</span>'
+        : '<span class="badge">Inactive</span>'
+    );
 
-    membershipCount.textContent =
-      data.counts.memberships;
+    if (user.is_platform_admin) {
+      badges.push(
+        '<span class="badge admin">Platform Admin</span>'
+      );
+    }
 
-    userList.innerHTML = data.users.map(user => `
-      <div class="record">
-        <button
-          class="record-button"
-          onclick="loadUserDetail(${user.id})"
-        >
-          <strong>${escapeHtml(user.display_name)}</strong>
-          <div>${escapeHtml(user.email)}</div>
-          <div class="meta">User #${user.id}</div>
-          <span class="status">
-            ${user.is_active ? "Active" : "Inactive"}
+    return badges.join("");
+  }
+
+
+  function renderUserRows(users) {
+    if (!users.length) {
+      return '<div class="empty">No users found.</div>';
+    }
+
+    return users.map(user => `
+      <div class="list-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(user.display_name)}
+          </strong>
+
+          <span>
+            ${escapeHtml(user.email)}
           </span>
-          ${
-            user.is_platform_admin
-              ? '<span class="status">Platform Admin</span>'
-              : ""
-          }
-        </button>
-      </div>
-    `).join("");
+        </div>
 
-    tenantList.innerHTML = data.tenants.map(
-      tenant => `
-        <div class="record">
+        <div class="row-secondary">
+          ${userBadges(user)}
+        </div>
+
+        <div class="row-actions">
           <button
-            class="record-button"
-            onclick="loadTenantDetail(${tenant.id})"
+            class="btn"
+            type="button"
+            data-open-user="${user.id}"
           >
-            <strong>${escapeHtml(tenant.name)}</strong>
-            <div>Slug: ${escapeHtml(tenant.slug)}</div>
-            <div class="meta">Tenant #${tenant.id}</div>
+            View
           </button>
         </div>
-      `
-    ).join("");
-
+      </div>
+    `).join("");
   }
 
 
-  async function loadUserDetail(userId) {
+  function renderTenantRows(tenants) {
+    if (!tenants.length) {
+      return '<div class="empty">No tenants found.</div>';
+    }
+
+    return tenants.map(tenant => `
+      <div class="list-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(tenant.name)}
+          </strong>
+
+          <span>
+            ${escapeHtml(tenant.slug)}
+          </span>
+        </div>
+
+        <div class="row-secondary">
+          Tenant #${tenant.id}
+        </div>
+
+        <div class="row-actions">
+          <button
+            class="btn"
+            type="button"
+            data-open-tenant="${tenant.id}"
+          >
+            Manage
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+
+  function renderOverview() {
+    const data = state.overview;
+
+    document.getElementById(
+      "userCount"
+    ).textContent = data.counts.users;
+
+    document.getElementById(
+      "activeUserCount"
+    ).textContent = data.counts.active_users;
+
+    document.getElementById(
+      "tenantCount"
+    ).textContent = data.counts.tenants;
+
+    document.getElementById(
+      "membershipCount"
+    ).textContent = data.counts.memberships;
+
+    document.getElementById(
+      "platformAdminCount"
+    ).textContent = data.counts.platform_admins;
+
+    document.getElementById(
+      "overviewTenantList"
+    ).innerHTML =
+      renderTenantRows(data.tenants);
+
+    document.getElementById(
+      "overviewUserList"
+    ).innerHTML =
+      renderUserRows(data.users);
+
+    renderTenantDirectory();
+    renderUserDirectory();
+  }
+
+
+  function renderTenantDirectory() {
+    const query =
+      document.getElementById("tenantSearch")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const tenants =
+      state.overview.tenants.filter(tenant =>
+        tenant.name.toLowerCase().includes(query)
+        || tenant.slug.toLowerCase().includes(query)
+      );
+
+    document.getElementById(
+      "tenantList"
+    ).innerHTML = renderTenantRows(tenants);
+  }
+
+
+  function renderUserDirectory() {
+    const query =
+      document.getElementById("userSearch")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const users =
+      state.overview.users.filter(user =>
+        user.display_name
+          .toLowerCase()
+          .includes(query)
+        || user.email
+          .toLowerCase()
+          .includes(query)
+      );
+
+    document.getElementById(
+      "userList"
+    ).innerHTML = renderUserRows(users);
+  }
+
+
+  async function refreshOverview() {
+    state.overview =
+      await apiRequest("/admin/overview");
+
+    renderOverview();
+  }
+
+
+  async function openUser(userId) {
     try {
+      setStatus("Loading user...");
+
       const data =
-        await apiRequest(`/admin/users/${userId}`);
+        await apiRequest(
+          `/admin/users/${userId}`
+        );
 
-      const user = data.user;
+      state.currentUserId = userId;
 
-      detailTitle.textContent =
-        `User: ${user.display_name}`;
+      const memberships =
+        data.memberships.length
+          ? data.memberships.map(
+              membership => `
+                <div class="list-row">
+                  <div class="row-primary">
+                    <strong>
+                      ${escapeHtml(
+                        membership.tenant_name
+                      )}
+                    </strong>
 
-      detailContent.innerHTML = `
-        <div>
-          <strong>${escapeHtml(user.email)}</strong>
-        </div>
-
-        <div class="meta">
-          User #${user.id}
-        </div>
-
-        <div>
-          Status:
-          ${user.is_active ? "Active" : "Inactive"}
-        </div>
-
-        <div>
-          Platform Admin:
-          ${user.is_platform_admin ? "Yes" : "No"}
-        </div>
-
-        <h3>Memberships</h3>
-
-        ${
-          data.memberships.length
-            ? data.memberships.map(membership => `
-                <div class="record">
-                  <strong>
-                    ${escapeHtml(membership.tenant_name)}
-                  </strong>
-
-                  <div>
-                    Slug:
-                    ${escapeHtml(membership.tenant_slug)}
+                    <span>
+                      ${escapeHtml(
+                        membership.tenant_slug
+                      )}
+                    </span>
                   </div>
 
-                  <div>
+                  <div class="row-secondary">
                     Role:
                     ${escapeHtml(membership.role)}
                   </div>
+
+                  <div></div>
                 </div>
-              `).join("")
-            : '<p class="meta">No memberships.</p>'
-        }
+              `
+            ).join("")
+          : '<div class="empty">No memberships.</div>';
+
+      document.getElementById(
+        "userDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${escapeHtml(data.user.display_name)}
+            </h2>
+
+            <p>
+              ${escapeHtml(data.user.email)}
+              · User #${data.user.id}
+            </p>
+          </div>
+
+          <div>
+            ${userBadges(data.user)}
+          </div>
+        </div>
+
+        <h3>Tenant Access</h3>
+        <div class="list">
+          ${memberships}
+        </div>
       `;
 
-      detailPanel.style.display = "";
+      const userDetailPanel =
+        document.getElementById("userDetailPanel");
 
-      detailPanel.scrollIntoView({
+      userDetailPanel.classList.remove("hidden");
+
+      showView("users");
+
+      userDetailPanel.scrollIntoView({
         behavior: "smooth",
-        block: "start"
+        block: "start",
       });
 
+      setStatus(
+        "User details loaded.",
+        "success"
+      );
+
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      setStatus(error.message, "error");
     }
   }
 
 
-  async function loadTenantDetail(tenantId) {
-    try {
-      const data =
-        await apiRequest(`/admin/tenants/${tenantId}`);
+  function membershipRow(tenantId, membership) {
+    return `
+      <div class="membership-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(membership.display_name)}
+          </strong>
 
-      const tenant = data.tenant;
-      const counts = data.counts;
-
-      detailTitle.textContent =
-        `Tenant: ${tenant.name}`;
-
-      detailContent.innerHTML = `
-        <div>
-          Slug: ${escapeHtml(tenant.slug)}
+          <span>
+            ${escapeHtml(membership.user_email)}
+          </span>
         </div>
 
-        <div class="meta">
-          Tenant #${tenant.id}
+        <select
+          data-membership-role="${membership.id}"
+          data-tenant-id="${tenantId}"
+          data-original-role="${escapeHtml(membership.role)}"
+        >
+          <option
+            value="member"
+            ${membership.role === "member"
+              ? "selected"
+              : ""}
+          >
+            Member
+          </option>
+
+          <option
+            value="owner"
+            ${membership.role === "owner"
+              ? "selected"
+              : ""}
+          >
+            Owner
+          </option>
+        </select>
+
+        <div class="membership-actions">
+          <button
+            class="btn danger"
+            type="button"
+            data-remove-membership="${membership.id}"
+            data-tenant-id="${tenantId}"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function openTenant(tenantId) {
+    try {
+      setStatus("Loading tenant...");
+
+      const data =
+        await apiRequest(
+          `/admin/tenants/${tenantId}`
+        );
+
+      state.currentTenantId = tenantId;
+
+      const memberUserIds =
+        new Set(
+          data.memberships.map(
+            membership => membership.user_id
+          )
+        );
+
+      const eligibleUsers =
+        state.overview.users.filter(
+          user => !memberUserIds.has(user.id)
+        );
+
+      const userOptions =
+        eligibleUsers.length
+          ? eligibleUsers.map(user => `
+              <option value="${user.id}">
+                ${escapeHtml(user.display_name)}
+                (${escapeHtml(user.email)})
+              </option>
+            `).join("")
+          : '<option value="">No eligible users</option>';
+
+      const membershipRows =
+        data.memberships.length
+          ? data.memberships.map(
+              membership =>
+                membershipRow(
+                  tenantId,
+                  membership
+                )
+            ).join("")
+          : '<div class="empty">No memberships.</div>';
+
+      document.getElementById(
+        "tenantDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${escapeHtml(data.tenant.name)}
+            </h2>
+
+            <p>
+              ${escapeHtml(data.tenant.slug)}
+              · Tenant #${data.tenant.id}
+            </p>
+          </div>
         </div>
 
         <div class="detail-grid">
           <div class="detail-card">
-            <strong>${counts.memberships}</strong>
-            <div class="meta">Memberships</div>
+            <strong>${data.counts.memberships}</strong>
+            <span>Memberships</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.customers}</strong>
-            <div class="meta">Customers</div>
+            <strong>${data.counts.customers}</strong>
+            <span>Customers</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.jobs}</strong>
-            <div class="meta">Jobs</div>
+            <strong>${data.counts.jobs}</strong>
+            <span>Jobs</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.estimates}</strong>
-            <div class="meta">Estimates</div>
+            <strong>${data.counts.estimates}</strong>
+            <span>Estimates</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.schedules}</strong>
-            <div class="meta">Schedules</div>
+            <strong>${data.counts.schedules}</strong>
+            <span>Schedules</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.invoices}</strong>
-            <div class="meta">Invoices</div>
+            <strong>${data.counts.invoices}</strong>
+            <span>Invoices</span>
           </div>
 
           <div class="detail-card">
-            <strong>${counts.payments}</strong>
-            <div class="meta">Payments</div>
+            <strong>${data.counts.payments}</strong>
+            <span>Payments</span>
           </div>
+        </div>
+
+        <h3>Add Membership</h3>
+
+        <div class="membership-form">
+          <select id="newMembershipUser">
+            <option value="">Select user</option>
+            ${userOptions}
+          </select>
+
+          <select id="newMembershipRole">
+            <option value="member">Member</option>
+            <option value="owner">Owner</option>
+          </select>
+
+          <button
+            id="addMembershipButton"
+            class="btn primary"
+            type="button"
+          >
+            Add Membership
+          </button>
         </div>
 
         <h3>Memberships</h3>
 
-        <div class="record">
-          <strong>Add membership</strong>
-
-          <div style="margin-top: 8px;">
-            <select id="membershipUserId">
-              <option value="">
-                Select user
-              </option>
-              ${
-                window.adminOverview.users
-                  .filter(user =>
-                    !data.memberships.some(
-                      membership =>
-                        membership.user_id === user.id
-                    )
-                  )
-                  .map(user => `
-                    <option value="${user.id}">
-                      ${escapeHtml(user.display_name)}
-                      (${escapeHtml(user.email)})
-                    </option>
-                  `).join("")
-              }
-            </select>
-
-            <select id="membershipRole">
-              <option value="member">Member</option>
-              <option value="owner">Owner</option>
-            </select>
-
-            <button
-              type="button"
-              class="button"
-              data-action="add-membership"
-              data-tenant-id="${tenant.id}"
-            >
-              Add
-            </button>
-          </div>
+        <div id="membershipRows">
+          ${membershipRows}
         </div>
-
-        ${
-          data.memberships.length
-            ? data.memberships.map(membership => `
-                <div class="record">
-                  <strong>
-                    ${escapeHtml(membership.display_name)}
-                  </strong>
-
-                  <div>
-                    ${escapeHtml(membership.user_email)}
-                  </div>
-
-                  <div style="margin-top: 8px;">
-                    <select
-                      id="membership-role-${membership.id}"
-                    >
-                      <option
-                        value="member"
-                        ${membership.role === "member"
-                          ? "selected"
-                          : ""}
-                      >
-                        Member
-                      </option>
-
-                      <option
-                        value="owner"
-                        ${membership.role === "owner"
-                          ? "selected"
-                          : ""}
-                      >
-                        Owner
-                      </option>
-                    </select>
-
-                    <button
-                      type="button"
-                      class="button"
-                      data-action="update-membership"
-                      data-tenant-id="${tenant.id}"
-                      data-membership-id="${membership.id}"
-                    >
-                      Save Role
-                    </button>
-
-                    <button
-                      type="button"
-                      class="button"
-                      data-action="remove-membership"
-                      data-tenant-id="${tenant.id}"
-                      data-membership-id="${membership.id}"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              `).join("")
-            : '<p class="meta">No memberships.</p>'
-        }
       `;
 
-      detailContent
-        .querySelectorAll(
-          'button[data-action="add-membership"]'
-        )
-        .forEach(button => {
-          button.onclick = () =>
-            addTenantMembership(
-              Number(button.dataset.tenantId)
-            );
-        });
+      const tenantDetailPanel =
+        document.getElementById("tenantDetailPanel");
 
-      detailContent
-        .querySelectorAll(
-          'button[data-action="update-membership"]'
-        )
-        .forEach(button => {
-          button.onclick = () =>
-            updateMembershipRole(
-              Number(button.dataset.tenantId),
-              Number(button.dataset.membershipId)
-            );
-        });
+      tenantDetailPanel.classList.remove("hidden");
 
-      detailContent
-        .querySelectorAll(
-          'button[data-action="remove-membership"]'
-        )
-        .forEach(button => {
-          button.onclick = () =>
-            removeMembership(
-              Number(button.dataset.tenantId),
-              Number(button.dataset.membershipId)
-            );
-        });
+      showView("tenants");
 
-      detailPanel.style.display = "";
-
-      detailPanel.scrollIntoView({
+      tenantDetailPanel.scrollIntoView({
         behavior: "smooth",
-        block: "start"
+        block: "start",
       });
 
+      setStatus(
+        "Tenant details loaded.",
+        "success"
+      );
+
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      setStatus(error.message, "error");
     }
   }
 
 
-  async function addTenantMembership(tenantId) {
+  async function addMembership() {
     const userId =
-      document.getElementById("membershipUserId").value;
+      document.getElementById(
+        "newMembershipUser"
+      ).value;
 
     const role =
-      document.getElementById("membershipRole").value;
+      document.getElementById(
+        "newMembershipRole"
+      ).value;
 
     if (!userId) {
-      adminStatus.textContent = "Select a user first.";
-      adminStatus.className = "error";
+      setStatus(
+        "Select a user before adding a membership.",
+        "error"
+      );
       return;
     }
 
     try {
       await apiRequest(
-        `/admin/tenants/${tenantId}/memberships`,
+        `/admin/tenants/${state.currentTenantId}/memberships`,
         {
           method: "POST",
           body: JSON.stringify({
             user_id: Number(userId),
-            role
-          })
+            role,
+          }),
         }
       );
 
-      adminStatus.textContent =
-        "Membership added.";
+      await refreshOverview();
+      await openTenant(state.currentTenantId);
 
-      adminStatus.className = "meta";
-
-      await loadAdmin();
-      await loadTenantDetail(tenantId);
+      setStatus(
+        "Membership added.",
+        "success"
+      );
 
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      setStatus(error.message, "error");
     }
   }
 
 
-  async function updateMembershipRole(
-    tenantId,
-    membershipId
+  async function saveMembership(
+    membershipId,
+    tenantId
   ) {
-    const role = document.getElementById(
-      `membership-role-${membershipId}`
-    ).value;
+    const select =
+      document.querySelector(
+        `[data-membership-role="${membershipId}"]`
+      );
+
+    if (!select) {
+      setStatus(
+        "Membership control not found.",
+        "error"
+      );
+      return;
+    }
 
     try {
       await apiRequest(
         `/admin/memberships/${membershipId}`,
         {
           method: "PUT",
-          body: JSON.stringify({ role })
+          body: JSON.stringify({
+            role: select.value,
+          }),
         }
       );
 
-      adminStatus.textContent =
-        "Membership role updated.";
+      await refreshOverview();
+      await openTenant(tenantId);
 
-      adminStatus.className = "meta";
-
-      await loadAdmin();
-      await loadTenantDetail(tenantId);
+      setStatus(
+        "Membership role updated.",
+        "success"
+      );
 
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      setStatus(error.message, "error");
     }
   }
 
 
   async function removeMembership(
-    tenantId,
-    membershipId
+    membershipId,
+    tenantId
   ) {
     if (
       !window.confirm(
@@ -751,45 +1430,178 @@
       await apiRequest(
         `/admin/memberships/${membershipId}`,
         {
-          method: "DELETE"
+          method: "DELETE",
         }
       );
 
-      adminStatus.textContent =
-        "Membership removed.";
+      await refreshOverview();
+      await openTenant(tenantId);
 
-      adminStatus.className = "meta";
-
-      await loadAdmin();
-      await loadTenantDetail(tenantId);
+      setStatus(
+        "Membership removed.",
+        "success"
+      );
 
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      setStatus(error.message, "error");
     }
   }
 
 
-  async function loadAdmin() {
+  document.addEventListener(
+    "click",
+    async event => {
+      const navButton =
+        event.target.closest("[data-view]");
+
+      if (navButton) {
+        showView(navButton.dataset.view);
+        return;
+      }
+
+      const tenantButton =
+        event.target.closest("[data-open-tenant]");
+
+      if (tenantButton) {
+        await openTenant(
+          Number(tenantButton.dataset.openTenant)
+        );
+        return;
+      }
+
+      const userButton =
+        event.target.closest("[data-open-user]");
+
+      if (userButton) {
+        await openUser(
+          Number(userButton.dataset.openUser)
+        );
+        return;
+      }
+
+      const addButton =
+        event.target.closest("#addMembershipButton");
+
+      if (addButton) {
+        await addMembership();
+        return;
+      }
+
+      const removeButton =
+        event.target.closest(
+          "[data-remove-membership]"
+        );
+
+      if (removeButton) {
+        await removeMembership(
+          Number(removeButton.dataset.removeMembership),
+          Number(removeButton.dataset.tenantId)
+        );
+      }
+    }
+  );
+
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const select = event.target.closest(
+        "[data-membership-role]"
+      );
+
+      if (!select) {
+        return;
+      }
+
+      const membershipId = Number(
+        select.dataset.membershipRole
+      );
+
+      const tenantId = Number(
+        select.dataset.tenantId
+      );
+
+      const previousRole =
+        select.dataset.originalRole;
+
+      setStatus("Updating membership role...");
+
+      try {
+        await apiRequest(
+          `/admin/memberships/${membershipId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              role: select.value,
+            }),
+          }
+        );
+
+        select.dataset.originalRole =
+          select.value;
+
+        await refreshOverview();
+        await openTenant(tenantId);
+
+        setStatus(
+          "Membership role updated.",
+          "success"
+        );
+
+      } catch (error) {
+        select.value = previousRole;
+
+        setStatus(
+          error.message,
+          "error"
+        );
+      }
+    }
+  );
+
+
+  document.getElementById(
+    "tenantSearch"
+  ).addEventListener(
+    "input",
+    renderTenantDirectory
+  );
+
+
+  document.getElementById(
+    "userSearch"
+  ).addEventListener(
+    "input",
+    renderUserDirectory
+  );
+
+
+  async function initializeAdmin() {
     try {
-      const data =
-        await apiRequest("/admin/overview");
+      await refreshOverview();
 
-      window.adminOverview = data;
+      document.getElementById(
+        "operatorLabel"
+      ).textContent =
+        "Platform administrator";
 
-      adminStatus.textContent =
-        "Platform administrator access verified.";
-
-      renderOverview(data);
+      setStatus(
+        "Platform administrator access verified.",
+        "success"
+      );
 
     } catch (error) {
-      adminStatus.textContent = error.message;
-      adminStatus.className = "error";
+      document.getElementById(
+        "operatorLabel"
+      ).textContent =
+        "Access unavailable";
+
+      setStatus(error.message, "error");
     }
   }
 
 
-  loadAdmin();
+  initializeAdmin();
 </script>
 
 </body>

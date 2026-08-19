@@ -48,6 +48,16 @@ def admin_overview(
             "memberships": db.scalar(
                 select(func.count()).select_from(TenantMembership)
             ),
+            "active_users": db.scalar(
+                select(func.count())
+                .select_from(User)
+                .where(User.is_active.is_(True))
+            ),
+            "platform_admins": db.scalar(
+                select(func.count())
+                .select_from(User)
+                .where(User.is_platform_admin.is_(True))
+            ),
         },
         "users": [
             {

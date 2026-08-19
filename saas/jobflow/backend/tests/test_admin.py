@@ -417,3 +417,34 @@ def test_admin_can_remove_owner_when_another_owner_exists(
         TenantMembership,
         membership_id,
     ) is None
+
+
+def test_admin_overview_includes_operational_user_counts(
+    client,
+    db_session,
+):
+    from app.models import User
+
+    make_platform_admin(db_session)
+
+    inactive_user = User(
+        email="inactive-admin-overview@example.com",
+        display_name="Inactive Overview User",
+        password_hash="unused",
+        is_active=False,
+        is_platform_admin=False,
+    )
+
+    db_session.add(inactive_user)
+    db_session.commit()
+
+    response = client.get("/api/v1/admin/overview")
+
+    assert response.status_code == 200
+
+    counts = response.json()["counts"]
+
+    assert counts["users"] >= 2
+    assert counts["active_users"] >= 1
+    assert counts["active_users"] < counts["users"]
+    assert counts["platform_admins"] >= 1
