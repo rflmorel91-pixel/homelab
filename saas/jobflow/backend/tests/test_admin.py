@@ -135,3 +135,285 @@ def test_admin_user_detail_returns_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found"
+
+
+def test_platform_admin_can_add_tenant_membership(
+    client,
+    db_session,
+):
+    from app.models import Tenant, TenantMembership, User
+
+    make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    user = User(
+        email="admin-membership-test@example.com",
+        display_name="Admin Membership Test",
+        password_hash="unused",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/memberships",
+        json={
+            "user_id": user.id,
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+
+    assert payload["user_id"] == user.id
+    assert payload["tenant_id"] == tenant.id
+    assert payload["role"] == "member"
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id == user.id,
+        )
+    )
+    assert membership is not None
+
+
+def test_admin_cannot_add_duplicate_tenant_membership(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    user = make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/memberships",
+        json={
+            "user_id": user.id,
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 409
+
+
+def test_platform_admin_can_change_membership_role(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    response = client.put(
+        f"/api/v1/admin/memberships/{membership.id}",
+        json={"role": "member"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "member"
+
+
+def test_admin_rejects_invalid_membership_role(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    response = client.put(
+        f"/api/v1/admin/memberships/{membership.id}",
+        json={"role": "superuser"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_platform_admin_can_remove_membership(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+    membership_id = membership.id
+
+    response = client.delete(
+        f"/api/v1/admin/memberships/{membership_id}"
+    )
+
+    assert response.status_code == 204
+
+    db_session.expire_all()
+
+    assert db_session.get(
+        TenantMembership,
+        membership_id,
+    ) is None
+
+
+def test_admin_cannot_demote_last_tenant_owner(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    response = client.put(
+        f"/api/v1/admin/memberships/{membership.id}",
+        json={"role": "member"},
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Tenant must retain at least one owner"
+    )
+
+
+def test_admin_cannot_remove_last_tenant_owner(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    response = client.delete(
+        f"/api/v1/admin/memberships/{membership.id}"
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Tenant must retain at least one owner"
+    )
+
+
+def test_admin_can_demote_owner_when_another_owner_exists(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership, User
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+
+    second_user = User(
+        email="second-owner@example.com",
+        display_name="Second Owner",
+        password_hash="unused",
+        is_active=True,
+    )
+    db_session.add(second_user)
+    db_session.flush()
+
+    second_owner = TenantMembership(
+        tenant_id=membership.tenant_id,
+        user_id=second_user.id,
+        role="owner",
+    )
+    db_session.add(second_owner)
+    db_session.commit()
+
+    response = client.put(
+        f"/api/v1/admin/memberships/{membership.id}",
+        json={"role": "member"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "member"
+
+
+def test_admin_can_remove_owner_when_another_owner_exists(
+    client,
+    db_session,
+):
+    from app.models import TenantMembership, User
+
+    make_platform_admin(db_session)
+
+    membership = db_session.scalar(
+        select(TenantMembership)
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+
+    second_user = User(
+        email="removal-owner@example.com",
+        display_name="Removal Owner",
+        password_hash="unused",
+        is_active=True,
+    )
+    db_session.add(second_user)
+    db_session.flush()
+
+    second_owner = TenantMembership(
+        tenant_id=membership.tenant_id,
+        user_id=second_user.id,
+        role="owner",
+    )
+    db_session.add(second_owner)
+    db_session.commit()
+
+    membership_id = membership.id
+
+    response = client.delete(
+        f"/api/v1/admin/memberships/{membership_id}"
+    )
+
+    assert response.status_code == 204
+
+    db_session.expire_all()
+
+    assert db_session.get(
+        TenantMembership,
+        membership_id,
+    ) is None

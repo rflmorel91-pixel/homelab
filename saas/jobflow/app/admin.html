@@ -276,16 +276,26 @@
     document.getElementById("detailContent");
 
 
-  async function apiRequest(path) {
-    const headers = {};
+  async function apiRequest(path, options = {}) {
+    const headers = {
+      ...(options.headers || {})
+    };
 
     if (tenantId) {
       headers["X-Tenant-ID"] = tenantId;
     }
 
+    if (
+      options.body !== undefined
+      && !headers["Content-Type"]
+    ) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const response = await fetch(
       `${API_BASE}${path}`,
       {
+        ...options,
         credentials: "same-origin",
         headers
       }
@@ -306,6 +316,10 @@
       }
 
       throw new Error(detail);
+    }
+
+    if (response.status === 204) {
+      return null;
     }
 
     return response.json();
@@ -498,6 +512,45 @@
 
         <h3>Memberships</h3>
 
+        <div class="record">
+          <strong>Add membership</strong>
+
+          <div style="margin-top: 8px;">
+            <select id="membershipUserId">
+              <option value="">
+                Select user
+              </option>
+              ${
+                window.adminOverview.users
+                  .filter(user =>
+                    !data.memberships.some(
+                      membership =>
+                        membership.user_id === user.id
+                    )
+                  )
+                  .map(user => `
+                    <option value="${user.id}">
+                      ${escapeHtml(user.display_name)}
+                      (${escapeHtml(user.email)})
+                    </option>
+                  `).join("")
+              }
+            </select>
+
+            <select id="membershipRole">
+              <option value="member">Member</option>
+              <option value="owner">Owner</option>
+            </select>
+
+            <button
+              class="button"
+              onclick="addTenantMembership(${tenant.id})"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
         ${
           data.memberships.length
             ? data.memberships.map(membership => `
@@ -510,9 +563,48 @@
                     ${escapeHtml(membership.user_email)}
                   </div>
 
-                  <div>
-                    Role:
-                    ${escapeHtml(membership.role)}
+                  <div style="margin-top: 8px;">
+                    <select
+                      id="membership-role-${membership.id}"
+                    >
+                      <option
+                        value="member"
+                        ${membership.role === "member"
+                          ? "selected"
+                          : ""}
+                      >
+                        Member
+                      </option>
+
+                      <option
+                        value="owner"
+                        ${membership.role === "owner"
+                          ? "selected"
+                          : ""}
+                      >
+                        Owner
+                      </option>
+                    </select>
+
+                    <button
+                      class="button"
+                      onclick="updateMembershipRole(
+                        ${tenant.id},
+                        ${membership.id}
+                      )"
+                    >
+                      Save Role
+                    </button>
+
+                    <button
+                      class="button"
+                      onclick="removeMembership(
+                        ${tenant.id},
+                        ${membership.id}
+                      )"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
               `).join("")
@@ -534,10 +626,119 @@
   }
 
 
+  async function addTenantMembership(tenantId) {
+    const userId =
+      document.getElementById("membershipUserId").value;
+
+    const role =
+      document.getElementById("membershipRole").value;
+
+    if (!userId) {
+      adminStatus.textContent = "Select a user first.";
+      adminStatus.className = "error";
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/admin/tenants/${tenantId}/memberships`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: Number(userId),
+            role
+          })
+        }
+      );
+
+      adminStatus.textContent =
+        "Membership added.";
+
+      adminStatus.className = "meta";
+
+      await loadAdmin();
+      await loadTenantDetail(tenantId);
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
+  }
+
+
+  async function updateMembershipRole(
+    tenantId,
+    membershipId
+  ) {
+    const role = document.getElementById(
+      `membership-role-${membershipId}`
+    ).value;
+
+    try {
+      await apiRequest(
+        `/admin/memberships/${membershipId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ role })
+        }
+      );
+
+      adminStatus.textContent =
+        "Membership role updated.";
+
+      adminStatus.className = "meta";
+
+      await loadAdmin();
+      await loadTenantDetail(tenantId);
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
+  }
+
+
+  async function removeMembership(
+    tenantId,
+    membershipId
+  ) {
+    if (
+      !window.confirm(
+        "Remove this user from the tenant?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/admin/memberships/${membershipId}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      adminStatus.textContent =
+        "Membership removed.";
+
+      adminStatus.className = "meta";
+
+      await loadAdmin();
+      await loadTenantDetail(tenantId);
+
+    } catch (error) {
+      adminStatus.textContent = error.message;
+      adminStatus.className = "error";
+    }
+  }
+
+
   async function loadAdmin() {
     try {
       const data =
         await apiRequest("/admin/overview");
+
+      window.adminOverview = data;
 
       adminStatus.textContent =
         "Platform administrator access verified.";

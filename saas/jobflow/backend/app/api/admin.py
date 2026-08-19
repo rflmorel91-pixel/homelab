@@ -235,3 +235,168 @@ def admin_user_detail(
             in memberships
         ],
     }
+
+
+from typing import Literal
+
+from fastapi import HTTPException, Response, status
+from pydantic import BaseModel
+
+
+class MembershipCreate(BaseModel):
+    user_id: int
+    role: Literal["owner", "member"] = "member"
+
+
+class MembershipUpdate(BaseModel):
+    role: Literal["owner", "member"]
+
+
+@router.post(
+    "/tenants/{tenant_id}/memberships",
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_membership(
+    tenant_id: int,
+    payload: MembershipCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    user = db.get(User, payload.user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    existing = db.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant_id,
+            TenantMembership.user_id == payload.user_id,
+        )
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="User is already a tenant member",
+        )
+
+    membership = TenantMembership(
+        tenant_id=tenant_id,
+        user_id=payload.user_id,
+        role=payload.role,
+    )
+
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+
+    return {
+        "id": membership.id,
+        "tenant_id": membership.tenant_id,
+        "user_id": membership.user_id,
+        "role": membership.role,
+    }
+
+
+@router.put("/memberships/{membership_id}")
+def admin_update_membership(
+    membership_id: int,
+    payload: MembershipUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    membership = db.get(
+        TenantMembership,
+        membership_id,
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Membership not found",
+        )
+
+    if (
+        membership.role == "owner"
+        and payload.role != "owner"
+    ):
+        owner_count = db.scalar(
+            select(func.count())
+            .select_from(TenantMembership)
+            .where(
+                TenantMembership.tenant_id
+                == membership.tenant_id,
+                TenantMembership.role == "owner",
+            )
+        )
+
+        if owner_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Tenant must retain at least one owner",
+            )
+
+    membership.role = payload.role
+    db.commit()
+    db.refresh(membership)
+
+    return {
+        "id": membership.id,
+        "tenant_id": membership.tenant_id,
+        "user_id": membership.user_id,
+        "role": membership.role,
+    }
+
+
+@router.delete(
+    "/memberships/{membership_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def admin_delete_membership(
+    membership_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    membership = db.get(
+        TenantMembership,
+        membership_id,
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Membership not found",
+        )
+
+    if membership.role == "owner":
+        owner_count = db.scalar(
+            select(func.count())
+            .select_from(TenantMembership)
+            .where(
+                TenantMembership.tenant_id
+                == membership.tenant_id,
+                TenantMembership.role == "owner",
+            )
+        )
+
+        if owner_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Tenant must retain at least one owner",
+            )
+
+    db.delete(membership)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
