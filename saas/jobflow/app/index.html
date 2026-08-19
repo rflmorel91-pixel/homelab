@@ -734,12 +734,8 @@
 
       const nextStatus = {
         customer_requested: ["quoted", "Mark Quoted"],
-        quoted: ["approved", "Approve Job"],
-        approved: ["scheduled", "Schedule Job"],
         scheduled: ["in_progress", "Start Job"],
-        in_progress: ["completed", "Complete Job"],
-        completed: ["invoiced", "Mark Invoiced"],
-        invoiced: ["paid", "Mark Paid"]
+        in_progress: ["completed", "Complete Job"]
       }[job.status];
 
       const actions = nextStatus
