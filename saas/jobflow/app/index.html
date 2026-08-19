@@ -172,6 +172,31 @@
     .amount {
       font-weight: bold;
     }
+
+    .job-workspace {
+      display: grid;
+      gap: 14px;
+    }
+
+    .job-workspace-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .job-workspace-item {
+      padding: 10px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+
+    .job-workspace-item strong {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 
@@ -675,6 +700,38 @@
       const customer =
         customers.find(customer => customer.id === job.customer_id);
 
+      const jobEstimates =
+        estimates.filter(estimate => estimate.job_id === job.id);
+
+      const jobSchedules =
+        schedules.filter(schedule => schedule.job_id === job.id);
+
+      const jobInvoices =
+        invoices.filter(invoice => invoice.job_id === job.id);
+
+      const jobPayments =
+        payments.filter(payment =>
+          jobInvoices.some(invoice => invoice.id === payment.invoice_id)
+        );
+
+      const latestEstimate =
+        jobEstimates.find(estimate => estimate.status === "approved") ||
+        jobEstimates.find(estimate => estimate.status === "sent") ||
+        jobEstimates.find(estimate => estimate.status === "draft") ||
+        jobEstimates[jobEstimates.length - 1];
+
+      const latestSchedule =
+        jobSchedules[jobSchedules.length - 1];
+
+      const latestInvoice =
+        jobInvoices[jobInvoices.length - 1];
+
+      const totalPayments =
+        jobPayments.reduce(
+          (total, payment) => total + Number(payment.amount),
+          0
+        );
+
       const nextStatus = {
         customer_requested: ["quoted", "Mark Quoted"],
         quoted: ["approved", "Approve Job"],
@@ -695,24 +752,69 @@
         `
         : "";
 
+      const scheduleText = latestSchedule
+        ? new Date(latestSchedule.scheduled_start).toLocaleString()
+        : "Not scheduled";
+
       return `
-        <div class="card">
-          <strong>${escapeHtml(job.title)}</strong>
-
+        <div class="card job-workspace">
           <div>
-            Customer:
-            ${customer
-              ? escapeHtml(customer.name)
-              : "Unknown customer"}
+            <strong>${escapeHtml(job.title)}</strong>
+
+            <div>
+              Customer:
+              ${customer
+                ? escapeHtml(customer.name)
+                : "Unknown customer"}
+            </div>
+
+            <div>
+              ${escapeHtml(job.description || "")}
+            </div>
+
+            <span class="status">
+              ${escapeHtml(job.status)}
+            </span>
           </div>
 
-          <div>
-            ${escapeHtml(job.description || "")}
+          <div class="job-workspace-details">
+
+            <div class="job-workspace-item">
+              <strong>Estimate</strong>
+              ${
+                latestEstimate
+                  ? `$${escapeHtml(latestEstimate.amount)}
+                     · ${escapeHtml(latestEstimate.status)}`
+                  : "Not created"
+              }
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Schedule</strong>
+              ${escapeHtml(scheduleText)}
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Invoice</strong>
+              ${
+                latestInvoice
+                  ? `$${escapeHtml(latestInvoice.amount)}
+                     · ${escapeHtml(latestInvoice.status)}`
+                  : "Not created"
+              }
+            </div>
+
+            <div class="job-workspace-item">
+              <strong>Payments</strong>
+              ${
+                jobPayments.length
+                  ? `$${escapeHtml(totalPayments.toFixed(2))}`
+                  : "None recorded"
+              }
+            </div>
+
           </div>
 
-          <span class="status">
-            ${escapeHtml(job.status)}
-          </span>
           ${
             actions
               ? `<div class="actions">${actions}</div>`
