@@ -211,7 +211,19 @@
 
   <div class="toolbar">
     <strong>Client Workspace</strong>
-    <span id="healthStatus" class="health">Checking API...</span>
+
+    <div class="actions">
+      <span id="healthStatus" class="health">Checking API...</span>
+
+      <button
+        type="button"
+        id="logoutButton"
+        class="secondary"
+        style="display: none;"
+      >
+        Sign Out
+      </button>
+    </div>
   </div>
 
   <div id="errorMessage" class="error"></div>
@@ -246,9 +258,6 @@
       >
 
       <button type="submit">Sign In</button>
-      <button type="button" id="logoutButton" class="secondary">
-        Sign Out
-      </button>
     </form>
   </section>
 
@@ -491,6 +500,24 @@
   const errorMessage = document.getElementById("errorMessage");
   const successMessage = document.getElementById("successMessage");
   const healthStatus = document.getElementById("healthStatus");
+
+  const workspaceSections = document.querySelectorAll(
+    "main > .grid, main > section.panel:not(#authPanel)"
+  );
+
+
+  function setAuthenticatedUI(isAuthenticated) {
+    document.getElementById("authPanel").style.display =
+      isAuthenticated ? "none" : "block";
+
+    logoutButton.style.display =
+      isAuthenticated ? "block" : "none";
+
+    workspaceSections.forEach(section => {
+      section.style.display =
+        isAuthenticated ? "" : "none";
+    });
+  }
 
 
   function showError(message) {
@@ -1361,6 +1388,7 @@
 
       loginForm.reset();
       await loadData();
+      setAuthenticatedUI(true);
 
       showSuccess("Signed in.");
 
@@ -1405,6 +1433,8 @@
 
 
   checkHealth();
+
+  setAuthenticatedUI(Boolean(tenantId));
 
   if (tenantId) {
     loadData();
