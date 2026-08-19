@@ -416,13 +416,6 @@
 
   </div>
 
-  <section class="panel" id="leadsPanel" style="display: none;">
-    <h2>Leads</h2>
-    <div id="leadList">
-      <p class="empty">Loading leads...</p>
-    </div>
-  </section>
-
   <section class="panel">
     <h2>Customers</h2>
     <div id="customerList">
@@ -471,7 +464,6 @@
 
   let tenantId = localStorage.getItem("jobflow_tenant_id");
 
-  let leads = [];
   let customers = [];
   let jobs = [];
   let estimates = [];
@@ -492,8 +484,6 @@
   const paymentForm = document.getElementById("paymentForm");
   const scheduleForm = document.getElementById("scheduleForm");
 
-  const leadsPanel = document.getElementById("leadsPanel");
-  const leadList = document.getElementById("leadList");
   const customerList = document.getElementById("customerList");
   const jobList = document.getElementById("jobList");
   const estimateList = document.getElementById("estimateList");
@@ -595,25 +585,6 @@
   }
 
 
-  async function loadLeads() {
-    try {
-      leads = await apiRequest("/leads/");
-      leadsPanel.style.display = "";
-      renderLeads();
-    } catch (error) {
-      leads = [];
-      leadsPanel.style.display = "none";
-
-      if (
-        error.message !== "Owner access required" &&
-        error.message !== "Authentication required"
-      ) {
-        console.error("Unable to load leads:", error);
-      }
-    }
-  }
-
-
   async function loadData() {
     try {
       [customers, jobs, estimates, invoices, payments, schedules] = await Promise.all([
@@ -636,7 +607,6 @@
       updateEstimateJobOptions();
       updateInvoiceJobOptions();
       updatePaymentInvoiceOptions();
-      await loadLeads();
 
     } catch (error) {
       showError(error.message);
@@ -727,58 +697,6 @@
         </option>
       `).join("");
   }
-
-  function renderLeads() {
-    if (leads.length === 0) {
-      leadList.innerHTML =
-        '<p class="empty">No leads yet.</p>';
-      return;
-    }
-
-    leadList.innerHTML = leads.map(lead => {
-      const submitted =
-        new Date(lead.created_at).toLocaleString();
-
-      return `
-        <div class="card">
-          <strong>${escapeHtml(lead.business_name)}</strong>
-
-          <div>
-            Contact: ${escapeHtml(lead.contact_name)}
-          </div>
-
-          <div>
-            Email: ${escapeHtml(lead.email)}
-          </div>
-
-          ${
-            lead.phone
-              ? `<div>Phone: ${escapeHtml(lead.phone)}</div>`
-              : ""
-          }
-
-          <div>
-            Service: ${escapeHtml(lead.service_type)}
-          </div>
-
-          ${
-            lead.message
-              ? `<div>${escapeHtml(lead.message)}</div>`
-              : ""
-          }
-
-          <div>
-            Submitted: ${escapeHtml(submitted)}
-          </div>
-
-          <span class="status">
-            ${escapeHtml(formatStatus(lead.status))}
-          </span>
-        </div>
-      `;
-    }).join("");
-  }
-
 
   function renderCustomers() {
     if (customers.length === 0) {
@@ -1547,8 +1465,7 @@
       draft: "Draft",
       sent: "Sent",
       declined: "Declined",
-      rejected: "Rejected",
-      new: "New"
+      rejected: "Rejected"
     };
 
     return labels[status] || status;

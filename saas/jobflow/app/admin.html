@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>JobFlow Commercialization</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 24px;
+    }
+
+    .header-inner,
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .button {
+      display: inline-block;
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 16px;
+      background: #111827;
+      color: white;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .button-light {
+      background: white;
+      color: #111827;
+    }
+
+    main {
+      padding: 36px 24px 80px;
+    }
+
+    .page-heading {
+      margin-bottom: 28px;
+    }
+
+    .page-heading h1 {
+      margin: 0 0 8px;
+    }
+
+    .page-heading p {
+      margin: 0;
+      color: #6b7280;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+    }
+
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 18px;
+      margin-top: 14px;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .status {
+      display: inline-block;
+      margin-top: 10px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #f3f4f6;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .empty {
+      color: #6b7280;
+    }
+
+    .error {
+      color: #991b1b;
+      font-weight: bold;
+    }
+
+    .meta {
+      color: #6b7280;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="brand">JobFlow Commercialization</div>
+      <div class="meta">Pilot acquisition and customer development</div>
+    </div>
+
+    <a class="button button-light" href="/app">
+      Tenant Workspace
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="page-heading">
+    <h1>Pilot Leads</h1>
+    <p>
+      Prospective service businesses interested in using JobFlow.
+    </p>
+  </div>
+
+  <section class="panel">
+    <div id="operatorStatus" class="meta">
+      Checking operator access...
+    </div>
+
+    <div id="leadList">
+      <p class="empty">Loading leads...</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API_BASE = "/api/v1";
+
+  const tenantId =
+    localStorage.getItem("jobflow_tenant_id");
+
+  const operatorStatus =
+    document.getElementById("operatorStatus");
+
+  const leadList =
+    document.getElementById("leadList");
+
+
+  async function apiRequest(path, options = {}) {
+    const headers = {
+      ...(options.headers || {})
+    };
+
+    if (tenantId) {
+      headers["X-Tenant-ID"] = tenantId;
+    }
+
+    const response = await fetch(
+      `${API_BASE}${path}`,
+      {
+        ...options,
+        credentials: "same-origin",
+        headers
+      }
+    );
+
+    if (!response.ok) {
+      let detail = `Request failed (${response.status})`;
+
+      try {
+        const data = await response.json();
+
+        if (data.detail) {
+          detail = data.detail;
+        }
+      } catch {
+        // Keep default error.
+      }
+
+      throw new Error(detail);
+    }
+
+    return response.json();
+  }
+
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  function formatStatus(status) {
+    const labels = {
+      new: "New",
+      contacted: "Contacted",
+      qualified: "Qualified",
+      converted: "Converted",
+      closed: "Closed"
+    };
+
+    return labels[status] || status;
+  }
+
+
+  function renderLeads(leads) {
+    if (leads.length === 0) {
+      leadList.innerHTML =
+        '<p class="empty">No pilot leads yet.</p>';
+      return;
+    }
+
+    leadList.innerHTML = leads.map(lead => {
+      const submitted =
+        new Date(lead.created_at).toLocaleString();
+
+      return `
+        <div class="card">
+          <strong>${escapeHtml(lead.business_name)}</strong>
+
+          <div>
+            Contact: ${escapeHtml(lead.contact_name)}
+          </div>
+
+          <div>
+            Email: ${escapeHtml(lead.email)}
+          </div>
+
+          ${
+            lead.phone
+              ? `<div>Phone: ${escapeHtml(lead.phone)}</div>`
+              : ""
+          }
+
+          <div>
+            Service: ${escapeHtml(lead.service_type)}
+          </div>
+
+          ${
+            lead.message
+              ? `<div>${escapeHtml(lead.message)}</div>`
+              : ""
+          }
+
+          <div class="meta">
+            Submitted: ${escapeHtml(submitted)}
+          </div>
+
+          <span class="status">
+            ${escapeHtml(formatStatus(lead.status))}
+          </span>
+        </div>
+      `;
+    }).join("");
+  }
+
+
+  async function loadOperatorLeads() {
+    try {
+      const leads = await apiRequest("/leads/");
+
+      operatorStatus.textContent =
+        "Platform operator access verified.";
+
+      renderLeads(leads);
+
+    } catch (error) {
+      operatorStatus.textContent = error.message;
+      operatorStatus.className = "error";
+
+      leadList.innerHTML =
+        '<p class="empty">Lead data is unavailable.</p>';
+    }
+  }
+
+
+  loadOperatorLeads();
+</script>
+
+</body>
+</html>
