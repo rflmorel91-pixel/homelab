@@ -783,6 +783,13 @@
         `;
       }
 
+      if (job.status === "completed" && jobInvoices.length === 0) {
+        actions = `
+          <button onclick="prepareInvoice(${job.id})">
+            Create Invoice
+          </button>
+        `;
+      }
       const scheduleText = latestSchedule
         ? new Date(latestSchedule.scheduled_start).toLocaleString()
         : "Not scheduled";
@@ -914,7 +921,30 @@
     document.getElementById("scheduleStart").focus();
   }
 
+  function prepareInvoice(jobId) {
+    invoiceJob.value = String(jobId);
+
+    invoiceForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+
+    document.getElementById("invoiceDescription").focus();
+  }
+
+  function preparePayment(invoiceId) {
+    paymentInvoice.value = String(invoiceId);
+
+    paymentForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+
+    document.getElementById("paymentAmount").focus();
+  }
+
   async function updateJobStatus(jobId, newStatus) {
+
     const job =
       jobs.find(item => item.id === jobId);
 
@@ -1091,9 +1121,9 @@
         actions = `
           <button
             class="success"
-            onclick="updateInvoiceStatus(${invoice.id}, 'paid')"
+            onclick="preparePayment(${invoice.id})"
           >
-            Mark Paid
+            Record Payment
           </button>
         `;
       }
