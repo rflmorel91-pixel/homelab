@@ -2031,10 +2031,25 @@
       ).textContent =
         "Platform administrator";
 
-      setStatus(
-        "Platform administrator access verified.",
-        "success"
-      );
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const linkedTenantId =
+        Number(params.get("tenant"));
+
+      if (
+        Number.isInteger(linkedTenantId)
+        && linkedTenantId > 0
+      ) {
+        await openTenant(linkedTenantId);
+      } else {
+        setStatus(
+          "Platform administrator access verified.",
+          "success"
+        );
+      }
 
     } catch (error) {
       document.getElementById(

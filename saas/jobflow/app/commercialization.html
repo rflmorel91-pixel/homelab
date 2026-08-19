@@ -200,6 +200,8 @@
   const leadList =
     document.getElementById("leadList");
 
+  let provisioningOwners = [];
+
 
   async function apiRequest(path, options = {}) {
     const headers = {
@@ -249,6 +251,15 @@
   }
 
 
+  function slugify(value) {
+    return String(value)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+
   function formatStatus(status) {
     const labels = {
       new: "New",
@@ -282,7 +293,6 @@
           ["closed", "Close Lead"]
         ],
         qualified: [
-          ["converted", "Mark Converted"],
           ["closed", "Close Lead"]
         ],
         converted: [],
@@ -298,6 +308,117 @@
           </button>
         `
       ).join("");
+
+      const ownerOptions =
+        provisioningOwners.map(owner => `
+          <option value="${owner.user_id}">
+            ${escapeHtml(owner.display_name)}
+            (${escapeHtml(owner.email)})
+          </option>
+        `).join("");
+
+      const provisioning =
+        lead.status === "qualified"
+          ? `
+            <div class="lead-actions">
+              <strong>Provision Tenant</strong>
+
+              <div style="margin-top: 8px;">
+                <select id="owner-${lead.id}">
+                  <option value="">
+                    Select initial tenant owner
+                  </option>
+                  ${ownerOptions}
+                </select>
+              </div>
+
+              <div style="margin-top: 8px;">
+                <input
+                  id="slug-${lead.id}"
+                  type="text"
+                  value="${escapeHtml(
+                    slugify(lead.business_name)
+                  )}"
+                  placeholder="tenant-slug"
+                >
+              </div>
+
+              <div style="margin-top: 8px;">
+                <button
+                  onclick="provisionLead(${lead.id})"
+                >
+                  Provision Tenant
+                </button>
+              </div>
+            </div>
+          `
+          : "";
+
+      const legacyConverted =
+        lead.status === "converted"
+        && !lead.converted_tenant_id
+          ? `
+            <div class="lead-actions">
+              <strong>
+                Legacy conversion requires reconciliation
+              </strong>
+
+              <div class="meta">
+                This lead was marked converted before tenant
+                provisioning was enforced.
+              </div>
+
+              <div style="margin-top: 8px;">
+                <button
+                  onclick="reopenLegacyConversion(${lead.id})"
+                >
+                  Reopen for Provisioning
+                </button>
+              </div>
+            </div>
+          `
+          : "";
+
+      const converted =
+        lead.status === "converted"
+        && lead.converted_tenant_id
+          ? `
+            <div class="lead-actions">
+              <strong>Provisioned Tenant</strong>
+
+              <div>
+                ${escapeHtml(lead.business_name)}
+              </div>
+
+              <div>
+                Tenant #${lead.converted_tenant_id}
+              </div>
+
+              ${
+                lead.converted_at
+                  ? `
+                    <div class="meta">
+                      Provisioned:
+                      ${escapeHtml(
+                        new Date(
+                          lead.converted_at
+                        ).toLocaleString()
+                      )}
+                    </div>
+                  `
+                  : ""
+              }
+
+              <div style="margin-top: 8px;">
+                <a
+                  href="/admin?tenant=${lead.converted_tenant_id}"
+                >
+                  Manage Tenant
+                </a>
+              </div>
+            </div>
+          `
+          : "";
 
       return `
         <div class="card">
@@ -340,6 +461,10 @@
               ? `<div class="lead-actions">${actionButtons}</div>`
               : ""
           }
+
+          ${provisioning}
+          ${legacyConverted}
+          ${converted}
         </div>
       `;
     }).join("");
@@ -370,9 +495,119 @@
   }
 
 
+  async function reopenLegacyConversion(leadId) {
+    if (
+      !window.confirm(
+        "Reopen this legacy converted lead for proper tenant provisioning?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      operatorStatus.textContent =
+        "Reopening legacy conversion...";
+
+      await apiRequest(
+        `/leads/${leadId}/reopen-conversion`,
+        {
+          method: "POST"
+        }
+      );
+
+      operatorStatus.textContent =
+        "Lead reopened for provisioning.";
+
+      operatorStatus.className = "";
+
+      await loadOperatorLeads();
+
+    } catch (error) {
+      operatorStatus.textContent = error.message;
+      operatorStatus.className = "error";
+    }
+  }
+
+
+  async function provisionLead(leadId) {
+    const ownerSelect =
+      document.getElementById(`owner-${leadId}`);
+
+    const slugInput =
+      document.getElementById(`slug-${leadId}`);
+
+    if (!ownerSelect || !ownerSelect.value) {
+      operatorStatus.textContent =
+        "Select an initial tenant owner.";
+
+      operatorStatus.className = "error";
+      return;
+    }
+
+    const tenantSlug =
+      slugInput.value.trim();
+
+    if (!tenantSlug) {
+      operatorStatus.textContent =
+        "Tenant slug is required.";
+
+      operatorStatus.className = "error";
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Provision this qualified lead as a JobFlow tenant?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      operatorStatus.textContent =
+        "Provisioning tenant...";
+
+      await apiRequest(
+        `/leads/${leadId}/provision`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            owner_user_id:
+              Number(ownerSelect.value),
+            tenant_slug: tenantSlug
+          })
+        }
+      );
+
+      operatorStatus.textContent =
+        "Tenant provisioned successfully.";
+
+      operatorStatus.className = "";
+
+      await loadOperatorLeads();
+
+    } catch (error) {
+      operatorStatus.textContent = error.message;
+      operatorStatus.className = "error";
+    }
+  }
+
+
   async function loadOperatorLeads() {
     try {
-      const leads = await apiRequest("/leads/");
+      const [
+        leads,
+        provisioningOptions
+      ] = await Promise.all([
+        apiRequest("/leads/"),
+        apiRequest("/leads/provisioning-options")
+      ]);
+
+      provisioningOwners =
+        provisioningOptions.owners;
 
       operatorStatus.textContent =
         "Platform operator access verified.";

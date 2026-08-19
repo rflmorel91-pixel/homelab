@@ -48,6 +48,58 @@ class LeadRead(BaseModel):
     service_type: str
     message: str | None
     status: str
+    converted_tenant_id: int | None = None
+    converted_at: datetime | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+TenantSlug = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    ),
+]
+
+
+class LeadProvisionRequest(BaseModel):
+    owner_user_id: int
+    tenant_slug: TenantSlug
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProvisionedTenantRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    status: str
+
+
+class ProvisionedOwnerRead(BaseModel):
+    user_id: int
+    email: str
+    display_name: str
+    role: str
+
+
+class LeadProvisionRead(BaseModel):
+    lead_id: int
+    status: str
+    converted_at: datetime
+    tenant: ProvisionedTenantRead
+    owner: ProvisionedOwnerRead
+
+
+class ProvisioningOwnerRead(BaseModel):
+    user_id: int
+    email: str
+    display_name: str
+
+
+class LeadProvisioningOptionsRead(BaseModel):
+    owners: list[ProvisioningOwnerRead]

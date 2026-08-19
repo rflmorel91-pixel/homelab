@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -45,6 +45,18 @@ class Lead(Base):
         nullable=False,
         default="new",
         index=True,
+    )
+
+    converted_tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id"),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+
+    converted_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
