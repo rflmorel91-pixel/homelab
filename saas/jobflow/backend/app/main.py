@@ -4,6 +4,7 @@ from app.api.auth import router as auth_router
 from app.api.customers import router as customers_router
 from app.api.estimates import router as estimates_router
 from app.api.jobs import router as jobs_router
+from app.api.leads import router as leads_router
 from app.api.invoices import router as invoices_router
 from app.api.payments import router as payments_router
 from app.api.public_leads import router as public_leads_router
@@ -30,6 +31,11 @@ app.include_router(
 
 app.include_router(
     jobs_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    leads_router,
     prefix="/api/v1",
 )
 
