@@ -568,13 +568,19 @@ def main() -> int:
         ),
     )
 
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path.cwd(),
+        help=(
+            "Developer workspace root "
+            "(default: current directory)"
+        ),
+    )
+
     args = parser.parse_args()
 
-    backend_root = (
-        Path(__file__)
-        .resolve()
-        .parents[1]
-    )
+    backend_root = args.root.resolve()
 
     try:
         product_dir = create_product(

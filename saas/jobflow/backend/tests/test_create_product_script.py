@@ -219,3 +219,36 @@ def test_generated_data_product_declares_platform_contract(
         "platform_contract_version=1"
         in definition
     )
+
+
+def test_cli_defaults_to_current_working_directory(
+    tmp_path,
+    monkeypatch,
+):
+    from scripts.create_product import main
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "saas-create-product",
+            "workspace-proof",
+            "Workspace Proof",
+        ],
+    )
+
+    result = main()
+
+    assert result == 0
+
+    product_dir = (
+        tmp_path
+        / "app"
+        / "products"
+        / "workspace_proof"
+    )
+
+    assert product_dir.is_dir()
+    assert (
+        product_dir / "definition.py"
+    ).is_file()

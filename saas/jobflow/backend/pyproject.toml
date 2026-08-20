@@ -23,6 +23,9 @@ test = [
     "httpx==0.28.1",
 ]
 
+[project.scripts]
+saas-create-product = "scripts.create_product:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*"]
+include = ["app*", "scripts*"]
