@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import (
+    Lead,
+    Product,
     AdminAuditLog,
     Tenant,
     TenantMembership,
@@ -99,6 +101,10 @@ def admin_overview(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_operator),
 ):
+    products = db.execute(
+        select(Product).order_by(Product.id)
+    ).scalars().all()
+
     users = db.execute(
         select(User).order_by(User.id)
     ).scalars().all()
@@ -120,6 +126,9 @@ def admin_overview(
 
     return {
         "counts": {
+            "products": db.scalar(
+                select(func.count()).select_from(Product)
+            ),
             "users": db.scalar(
                 select(func.count()).select_from(User)
             ),
@@ -140,6 +149,27 @@ def admin_overview(
                 .where(User.is_platform_admin.is_(True))
             ),
         },
+        "products": [
+            {
+                "id": product.id,
+                "name": product.name,
+                "slug": product.slug,
+                "status": product.status,
+                "workspace_key": product.workspace_key,
+                "tenant_count": db.scalar(
+                    select(func.count())
+                    .select_from(Tenant)
+                    .where(Tenant.product_id == product.id)
+                ),
+                "lead_count": db.scalar(
+                    select(func.count())
+                    .select_from(Lead)
+                    .where(Lead.product_id == product.id)
+                ),
+                "created_at": product.created_at,
+            }
+            for product in products
+        ],
         "users": [
             {
                 "id": user.id,
@@ -154,6 +184,7 @@ def admin_overview(
         "tenants": [
             {
                 "id": tenant.id,
+                "product_id": tenant.product_id,
                 "name": tenant.name,
                 "slug": tenant.slug,
                 "created_at": tenant.created_at,

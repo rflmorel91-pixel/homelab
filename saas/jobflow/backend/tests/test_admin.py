@@ -28,9 +28,22 @@ def test_platform_admin_can_view_admin_overview(
 
     payload = response.json()
 
+    assert payload["counts"]["products"] >= 1
     assert payload["counts"]["users"] >= 1
     assert payload["counts"]["tenants"] >= 1
     assert payload["counts"]["memberships"] >= 1
+
+    assert any(
+        product["slug"] == "jobflow"
+        and product["workspace_key"] == "jobflow"
+        and product["tenant_count"] >= 1
+        for product in payload["products"]
+    )
+
+    assert all(
+        "product_id" in tenant
+        for tenant in payload["tenants"]
+    )
 
     assert any(
         item["email"] == "default-test-user@example.com"

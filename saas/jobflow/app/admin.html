@@ -694,6 +694,14 @@
       <button
         class="nav-button"
         type="button"
+        data-view="products"
+      >
+        Products
+      </button>
+
+      <button
+        class="nav-button"
+        type="button"
         data-view="tenants"
       >
         Tenants
@@ -774,6 +782,11 @@
 
         <div class="summary-grid">
           <div class="summary-card">
+            <span>Products</span>
+            <strong id="productCount">-</strong>
+          </div>
+
+          <div class="summary-card">
             <span>Users</span>
             <strong id="userCount">-</strong>
           </div>
@@ -802,6 +815,20 @@
         <section class="panel">
           <div class="panel-header">
             <div>
+              <h2>Products</h2>
+              <p>Products operating on the shared SaaS platform.</p>
+            </div>
+          </div>
+
+          <div
+            id="overviewProductList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
               <h2>Tenants</h2>
               <p>Current customer workspaces.</p>
             </div>
@@ -823,6 +850,35 @@
 
           <div
             id="overviewUserList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+      </section>
+
+      <section id="productsView" class="hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>Products</h1>
+            <p>
+              SaaS products running on the shared platform.
+            </p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Product Directory</h2>
+              <p>
+                Product identity, workspace, and customer footprint.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="productList"
             class="panel-body list"
           ></div>
         </section>
@@ -1051,6 +1107,8 @@
     const views = {
       overview:
         document.getElementById("overviewView"),
+      products:
+        document.getElementById("productsView"),
       tenants:
         document.getElementById("tenantsView"),
       users:
@@ -1168,8 +1226,53 @@
   }
 
 
+  function renderProductRows(products) {
+    if (!products.length) {
+      return `
+        <div class="empty-state">
+          No products found.
+        </div>
+      `;
+    }
+
+    return products.map(product => `
+      <div class="list-row">
+        <div class="list-main">
+          <strong>${escapeHtml(product.name)}</strong>
+          <span>
+            ${escapeHtml(product.slug)}
+            · workspace ${escapeHtml(product.workspace_key)}
+          </span>
+        </div>
+
+        <div class="list-meta">
+          <span class="badge ${
+            product.status === "active" ? "success" : ""
+          }">
+            ${escapeHtml(product.status)}
+          </span>
+
+          <span>
+            ${product.tenant_count} tenant${
+              product.tenant_count === 1 ? "" : "s"
+            }
+            ·
+            ${product.lead_count} lead${
+              product.lead_count === 1 ? "" : "s"
+            }
+          </span>
+        </div>
+      </div>
+    `).join("");
+  }
+
+
   function renderOverview() {
     const data = state.overview;
+
+    document.getElementById(
+      "productCount"
+    ).textContent = data.counts.products;
 
     document.getElementById(
       "userCount"
@@ -1190,6 +1293,16 @@
     document.getElementById(
       "platformAdminCount"
     ).textContent = data.counts.platform_admins;
+
+    document.getElementById(
+      "overviewProductList"
+    ).innerHTML =
+      renderProductRows(data.products);
+
+    document.getElementById(
+      "productList"
+    ).innerHTML =
+      renderProductRows(data.products);
 
     document.getElementById(
       "overviewTenantList"
