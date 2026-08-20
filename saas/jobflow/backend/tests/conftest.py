@@ -46,7 +46,7 @@ def clean_test_database():
                 "TRUNCATE TABLE "
                 "admin_audit_logs, payments, invoices, schedules, "
                 "estimates, jobs, customers, tenant_memberships, "
-                "users, tenants RESTART IDENTITY CASCADE"
+                "users, tenants, products RESTART IDENTITY CASCADE"
             )
         )
 
