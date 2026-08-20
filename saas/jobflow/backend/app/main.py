@@ -11,6 +11,7 @@ from app.api.payments import router as payments_router
 from app.api.public_leads import router as public_leads_router
 from app.api.public_requests import router as public_requests_router
 from app.api.schedules import router as schedules_router
+from app import products as installed_products
 
 
 
