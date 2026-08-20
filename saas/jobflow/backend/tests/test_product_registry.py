@@ -4,7 +4,10 @@ from app.platform.products import (
     ProductDefinition,
     ProductRegistry,
 )
-from app.products import JOBFLOW_PRODUCT
+from app.products import (
+    JOBFLOW_PRODUCT,
+    PROOFVAULT_PRODUCT,
+)
 
 
 def test_jobflow_product_definition():
@@ -15,6 +18,26 @@ def test_jobflow_product_definition():
     assert JOBFLOW_PRODUCT.landing_route == "/"
     assert JOBFLOW_PRODUCT.workspace_route == "/app"
     assert JOBFLOW_PRODUCT.api_prefix == "/api/v1"
+
+
+def test_proofvault_product_definition():
+    assert PROOFVAULT_PRODUCT.slug == "proofvault"
+    assert PROOFVAULT_PRODUCT.name == "ProofVault"
+    assert PROOFVAULT_PRODUCT.version == "0.1.0"
+    assert PROOFVAULT_PRODUCT.workspace_key == "proofvault"
+    assert (
+        PROOFVAULT_PRODUCT.landing_route
+        == "/proofvault"
+    )
+    assert (
+        PROOFVAULT_PRODUCT.workspace_route
+        == "/proofvault/app"
+    )
+    assert (
+        PROOFVAULT_PRODUCT.api_prefix
+        == "/api/v1/products/proofvault"
+    )
+    assert len(PROOFVAULT_PRODUCT.routers) == 1
 
 
 def test_registry_registers_and_gets_product():
