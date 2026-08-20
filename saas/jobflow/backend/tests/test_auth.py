@@ -110,6 +110,8 @@ def test_login_token_accesses_protected_tenant_resource(
     )
 
     tenant = Tenant(
+
+        product_id=1,
         name="Integration Tenant",
         slug="integration-tenant",
     )
@@ -218,6 +220,8 @@ def test_cookie_authenticates_protected_tenant_resource(
     )
 
     tenant = Tenant(
+
+        product_id=1,
         name="Cookie Auth Tenant",
         slug="cookie-auth-tenant",
     )

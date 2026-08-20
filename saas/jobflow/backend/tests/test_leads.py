@@ -5,6 +5,7 @@ from app.models import Lead, User
 
 def create_lead(db_session):
     lead = Lead(
+        product_id=1,
         business_name="Lead Test Services",
         contact_name="Lead Prospect",
         email="protected-lead@example.com",
@@ -465,6 +466,8 @@ def test_provision_rejects_duplicate_tenant_slug(
     owner = create_owner_user(db_session)
 
     tenant = Tenant(
+
+        product_id=1,
         name="Existing Tenant",
         slug="existing-tenant",
     )
@@ -585,6 +588,8 @@ def test_platform_admin_can_reopen_orphaned_legacy_conversion(
     operator = make_platform_admin(db_session)
 
     lead = Lead(
+
+        product_id=1,
         business_name="Legacy Converted Lead",
         contact_name="Legacy Contact",
         email="legacy-converted@example.com",
@@ -641,6 +646,8 @@ def test_linked_converted_lead_cannot_be_reopened(
     make_platform_admin(db_session)
 
     tenant = Tenant(
+
+        product_id=1,
         name="Real Provisioned Tenant",
         slug="real-provisioned-tenant",
     )
@@ -649,6 +656,8 @@ def test_linked_converted_lead_cannot_be_reopened(
     db_session.refresh(tenant)
 
     lead = Lead(
+
+        product_id=1,
         business_name="Real Converted Lead",
         contact_name="Real Contact",
         email="real-converted@example.com",

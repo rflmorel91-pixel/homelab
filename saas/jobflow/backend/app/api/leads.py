@@ -191,6 +191,7 @@ def provision_lead(
 
     try:
         tenant = Tenant(
+            product_id=lead.product_id,
             name=lead.business_name,
             slug=payload.tenant_slug,
             status="active",

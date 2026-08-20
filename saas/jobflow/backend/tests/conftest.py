@@ -46,7 +46,25 @@ def clean_test_database():
                 "TRUNCATE TABLE "
                 "admin_audit_logs, payments, invoices, schedules, "
                 "estimates, jobs, customers, tenant_memberships, "
-                "users, tenants, products RESTART IDENTITY CASCADE"
+                "users, tenants, leads, products "
+                "RESTART IDENTITY CASCADE"
+            )
+        )
+
+        connection.execute(
+            text(
+                """
+                INSERT INTO products
+                    (name, slug, status, workspace_key, created_at)
+                VALUES
+                    (
+                        'JobFlow',
+                        'jobflow',
+                        'active',
+                        'jobflow',
+                        CURRENT_TIMESTAMP
+                    )
+                """
             )
         )
 
@@ -86,6 +104,8 @@ def client() -> Generator[TestClient, None, None]:
         db.refresh(user)
 
         tenant = Tenant(
+
+            product_id=1,
             name="Default Test Tenant",
             slug="default-test-tenant",
         )

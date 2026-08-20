@@ -3,6 +3,7 @@ from app.models import Tenant, TenantMembership, User
 
 def create_tenant(db_session, name, slug):
     tenant = Tenant(
+        product_id=1,
         name=name,
         slug=slug,
     )

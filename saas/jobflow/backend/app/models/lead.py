@@ -11,6 +11,12 @@ class Lead(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id"),
+        nullable=False,
+        index=True,
+    )
+
     business_name: Mapped[str] = mapped_column(
         String(200),
         nullable=False,

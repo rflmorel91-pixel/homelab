@@ -41,6 +41,7 @@ class LeadUpdate(BaseModel):
 
 class LeadRead(BaseModel):
     id: int
+    product_id: int
     business_name: str
     contact_name: str
     email: str

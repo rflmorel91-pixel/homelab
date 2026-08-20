@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Lead
+from app.models import Lead, Product
 from app.schemas.lead import (
     PublicLeadCreate,
     PublicLeadRead,
@@ -24,7 +25,21 @@ def create_public_lead(
     lead: PublicLeadCreate,
     db: Session = Depends(get_db),
 ):
+    product = db.scalar(
+        select(Product).where(
+            Product.slug == "jobflow",
+            Product.status == "active",
+        )
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Product is unavailable",
+        )
+
     db_lead = Lead(
+        product_id=product.id,
         business_name=lead.business_name,
         contact_name=lead.contact_name,
         email=lead.email,
