@@ -203,27 +203,6 @@ def admin_tenant_detail(
         .order_by(TenantMembership.id)
     ).all()
 
-    from app.models import (
-        Customer,
-        Estimate,
-        Invoice,
-        Job,
-        Payment,
-        Schedule,
-    )
-
-    customer_ids = select(Customer.id).where(
-        Customer.tenant_id == tenant_id
-    )
-
-    job_ids = select(Job.id).where(
-        Job.customer_id.in_(customer_ids)
-    )
-
-    invoice_ids = select(Invoice.id).where(
-        Invoice.job_id.in_(job_ids)
-    )
-
     return {
         "tenant": {
             "id": tenant.id,
@@ -235,36 +214,6 @@ def admin_tenant_detail(
         },
         "counts": {
             "memberships": len(memberships),
-            "customers": db.scalar(
-                select(func.count())
-                .select_from(Customer)
-                .where(Customer.tenant_id == tenant_id)
-            ),
-            "jobs": db.scalar(
-                select(func.count())
-                .select_from(Job)
-                .where(Job.customer_id.in_(customer_ids))
-            ),
-            "estimates": db.scalar(
-                select(func.count())
-                .select_from(Estimate)
-                .where(Estimate.job_id.in_(job_ids))
-            ),
-            "schedules": db.scalar(
-                select(func.count())
-                .select_from(Schedule)
-                .where(Schedule.job_id.in_(job_ids))
-            ),
-            "invoices": db.scalar(
-                select(func.count())
-                .select_from(Invoice)
-                .where(Invoice.job_id.in_(job_ids))
-            ),
-            "payments": db.scalar(
-                select(func.count())
-                .select_from(Payment)
-                .where(Payment.invoice_id.in_(invoice_ids))
-            ),
         },
         "memberships": [
             {

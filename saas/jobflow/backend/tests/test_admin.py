@@ -86,8 +86,7 @@ def test_platform_admin_can_view_tenant_detail(
 
     assert payload["tenant"]["id"] == tenant_id
     assert payload["counts"]["memberships"] >= 1
-    assert "customers" in payload["counts"]
-    assert "jobs" in payload["counts"]
+    assert set(payload["counts"]) == {"memberships"}
 
 
 def test_platform_admin_can_view_user_detail(
