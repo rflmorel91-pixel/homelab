@@ -2,7 +2,12 @@ from app.platform import (
     ProductDefinition,
     register_product,
 )
-from app.products.renewaldesk.api import router
+from app.products.renewaldesk.api import (
+    router as status_router,
+)
+from app.products.renewaldesk.items_api import (
+    router as items_router,
+)
 
 
 RENEWALDESK_PRODUCT = register_product(
@@ -15,7 +20,10 @@ RENEWALDESK_PRODUCT = register_product(
         workspace_route="/renewaldesk/app",
         api_prefix="/api/v1/products/renewaldesk",
         routers=(
-            router,
+            status_router,
+        ),
+        tenant_routers=(
+            items_router,
         ),
         description='Track recurring licenses, certifications, and renewal deadlines.',
     )
