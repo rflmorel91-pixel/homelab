@@ -338,3 +338,153 @@ def test_client_cannot_supply_tenant_id(
     ).all()
 
     assert stored == []
+
+
+def test_renewaldesk_item_supports_commercial_fields(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Commercial Tenant",
+        "renewaldesk-commercial-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "General Liability Insurance",
+            "category": "insurance",
+            "renewal_date": "2027-02-01",
+            "status": "active",
+            "owner_name": "Office Manager",
+            "reminder_days": 60,
+            "notes": "Renew with current carrier.",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["name"] == (
+        "General Liability Insurance"
+    )
+    assert payload["category"] == "insurance"
+    assert payload["status"] == "active"
+    assert payload["owner_name"] == "Office Manager"
+    assert payload["reminder_days"] == 60
+    assert payload["notes"] == (
+        "Renew with current carrier."
+    )
+    assert payload["created_at"] is not None
+    assert payload["updated_at"] is not None
+
+
+def test_renewaldesk_item_defaults_are_safe(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Defaults Tenant",
+        "renewaldesk-defaults-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Contractor License",
+            "renewal_date": "2027-03-15",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["category"] == "other"
+    assert payload["status"] == "active"
+    assert payload["owner_name"] is None
+    assert payload["reminder_days"] == 30
+    assert payload["notes"] is None
+
+
+def test_renewaldesk_rejects_invalid_status(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Invalid Status Tenant",
+        "renewaldesk-invalid-status-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Business License",
+            "renewal_date": "2027-01-01",
+            "status": "overdue",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_renewaldesk_rejects_invalid_reminder_days(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Reminder Tenant",
+        "renewaldesk-reminder-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Insurance",
+            "renewal_date": "2027-04-01",
+            "reminder_days": -1,
+        },
+    )
+
+    assert response.status_code == 422

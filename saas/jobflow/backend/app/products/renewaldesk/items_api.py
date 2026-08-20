@@ -32,7 +32,12 @@ def create_renewal_item(
     db_item = RenewalItem(
         tenant_id=tenant.id,
         name=item.name,
+        category=item.category,
         renewal_date=item.renewal_date,
+        status=item.status,
+        owner_name=item.owner_name,
+        reminder_days=item.reminder_days,
+        notes=item.notes,
     )
 
     db.add(db_item)
@@ -110,7 +115,12 @@ def update_renewal_item(
         )
 
     item.name = update.name
+    item.category = update.category
     item.renewal_date = update.renewal_date
+    item.status = update.status
+    item.owner_name = update.owner_name
+    item.reminder_days = update.reminder_days
+    item.notes = update.notes
 
     db.commit()
     db.refresh(item)
