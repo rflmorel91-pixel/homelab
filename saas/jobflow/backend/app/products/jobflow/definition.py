@@ -1,10 +1,10 @@
-from app.api.customers import router as customers_router
-from app.api.estimates import router as estimates_router
-from app.api.invoices import router as invoices_router
-from app.api.jobs import router as jobs_router
-from app.api.payments import router as payments_router
-from app.api.public_requests import router as public_requests_router
-from app.api.schedules import router as schedules_router
+from app.products.jobflow.api.customers import router as customers_router
+from app.products.jobflow.api.estimates import router as estimates_router
+from app.products.jobflow.api.invoices import router as invoices_router
+from app.products.jobflow.api.jobs import router as jobs_router
+from app.products.jobflow.api.payments import router as payments_router
+from app.products.jobflow.api.public_requests import router as public_requests_router
+from app.products.jobflow.api.schedules import router as schedules_router
 from app.platform import (
     ProductDefinition,
     register_product,
