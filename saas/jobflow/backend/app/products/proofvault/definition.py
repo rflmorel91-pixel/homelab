@@ -10,6 +10,8 @@ PROOFVAULT_PRODUCT = register_product(
         slug="proofvault",
         name="ProofVault",
         version="0.1.0",
+
+        platform_contract_version=1,
         workspace_key="proofvault",
         landing_route="/proofvault",
         workspace_route="/proofvault/app",

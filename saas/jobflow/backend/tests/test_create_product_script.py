@@ -174,3 +174,48 @@ def test_create_product_rejects_bad_resource(
             description="Sample.",
             resource=resource,
         )
+
+
+def test_generated_product_declares_platform_contract(
+    tmp_path,
+):
+    backend_root = tmp_path / "backend"
+
+    product_dir = create_product(
+        root=backend_root,
+        slug="contract-test",
+        name="Contract Test",
+        description="Contract version test.",
+    )
+
+    definition = (
+        product_dir / "definition.py"
+    ).read_text()
+
+    assert (
+        "platform_contract_version=1"
+        in definition
+    )
+
+
+def test_generated_data_product_declares_platform_contract(
+    tmp_path,
+):
+    backend_root = tmp_path / "backend"
+
+    product_dir = create_product(
+        root=backend_root,
+        slug="data-contract-test",
+        name="Data Contract Test",
+        description="Data contract test.",
+        resource="record",
+    )
+
+    definition = (
+        product_dir / "definition.py"
+    ).read_text()
+
+    assert (
+        "platform_contract_version=1"
+        in definition
+    )

@@ -1,6 +1,7 @@
 import pytest
 
 from app.platform.products import (
+    PLATFORM_CONTRACT_VERSION,
     ProductDefinition,
     ProductRegistry,
 )
@@ -45,6 +46,8 @@ def test_registry_registers_and_gets_product():
         slug="example-product",
         name="Example Product",
         version="1.0.0",
+
+        platform_contract_version=PLATFORM_CONTRACT_VERSION,
         workspace_key="example-product",
         landing_route="/example",
         workspace_route="/example/app",
@@ -67,6 +70,8 @@ def test_registry_rejects_duplicate_slug():
         slug="duplicate",
         name="Duplicate",
         version="1.0.0",
+
+        platform_contract_version=PLATFORM_CONTRACT_VERSION,
         workspace_key="duplicate-one",
         landing_route="/duplicate",
         workspace_route="/duplicate/app",
@@ -84,6 +89,8 @@ def test_registry_rejects_duplicate_slug():
                 slug="duplicate",
                 name="Duplicate Two",
                 version="1.0.0",
+
+                platform_contract_version=PLATFORM_CONTRACT_VERSION,
                 workspace_key="duplicate-two",
                 landing_route="/duplicate-two",
                 workspace_route="/duplicate-two/app",
@@ -100,6 +107,8 @@ def test_registry_rejects_duplicate_workspace_key():
             slug="product-one",
             name="Product One",
             version="1.0.0",
+
+            platform_contract_version=PLATFORM_CONTRACT_VERSION,
             workspace_key="shared-workspace",
             landing_route="/one",
             workspace_route="/one/app",
@@ -116,6 +125,8 @@ def test_registry_rejects_duplicate_workspace_key():
                 slug="product-two",
                 name="Product Two",
                 version="1.0.0",
+
+                platform_contract_version=PLATFORM_CONTRACT_VERSION,
                 workspace_key="shared-workspace",
                 landing_route="/two",
                 workspace_route="/two/app",
@@ -142,6 +153,8 @@ def test_product_definition_rejects_invalid_slug(
             slug=slug,
             name="Invalid",
             version="1.0.0",
+
+            platform_contract_version=PLATFORM_CONTRACT_VERSION,
             workspace_key="invalid",
             landing_route="/",
             workspace_route="/app",
@@ -165,6 +178,9 @@ def test_product_definition_requires_absolute_routes(
         "slug": "test-product",
         "name": "Test Product",
         "version": "1.0.0",
+        "platform_contract_version": (
+            PLATFORM_CONTRACT_VERSION
+        ),
         "workspace_key": "test-product",
         "landing_route": "/",
         "workspace_route": "/app",
@@ -206,3 +222,51 @@ def test_jobflow_separates_public_and_tenant_routers():
 def test_proofvault_router_is_not_tenant_scoped():
     assert len(PROOFVAULT_PRODUCT.routers) == 1
     assert PROOFVAULT_PRODUCT.tenant_routers == ()
+
+
+def test_product_rejects_older_platform_contract():
+    with pytest.raises(
+        ValueError,
+        match="requires platform contract",
+    ):
+        ProductDefinition(
+            slug="old-contract-product",
+            name="Old Contract Product",
+            version="1.0.0",
+            platform_contract_version=(
+                PLATFORM_CONTRACT_VERSION - 1
+            ),
+            workspace_key="old-contract-product",
+            landing_route="/old",
+            workspace_route="/old/app",
+            api_prefix="/api/v1/products/old",
+        )
+
+
+def test_product_rejects_newer_platform_contract():
+    with pytest.raises(
+        ValueError,
+        match="requires platform contract",
+    ):
+        ProductDefinition(
+            slug="future-contract-product",
+            name="Future Contract Product",
+            version="1.0.0",
+            platform_contract_version=(
+                PLATFORM_CONTRACT_VERSION + 1
+            ),
+            workspace_key="future-contract-product",
+            landing_route="/future",
+            workspace_route="/future/app",
+            api_prefix="/api/v1/products/future",
+        )
+
+
+def test_installed_products_target_current_contract():
+    from app.platform import list_products
+
+    for product in list_products():
+        assert (
+            product.platform_contract_version
+            == PLATFORM_CONTRACT_VERSION
+        )

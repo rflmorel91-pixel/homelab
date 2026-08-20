@@ -10,6 +10,8 @@ PERMITPULSE_PRODUCT = register_product(
         slug="permitpulse",
         name="PermitPulse",
         version="0.1.0",
+
+        platform_contract_version=1,
         workspace_key="permitpulse",
         landing_route="/permitpulse",
         workspace_route="/permitpulse/app",

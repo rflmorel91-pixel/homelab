@@ -19,6 +19,7 @@ from app.platform.product_sync import (
     synchronize_products,
 )
 from app.platform.products import (
+    PLATFORM_CONTRACT_VERSION,
     ProductDefinition,
     ProductRegistry,
     get_product,
@@ -35,6 +36,7 @@ __all__ = [
     "discover_product_migration_locations",
     "ProductSyncError",
     "synchronize_products",
+    "PLATFORM_CONTRACT_VERSION",
     "ProductDefinition",
     "ProductRegistry",
     "get_product",

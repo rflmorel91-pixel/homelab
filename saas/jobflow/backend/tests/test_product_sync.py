@@ -3,6 +3,7 @@ from sqlalchemy import select
 
 from app.models import Product
 from app.platform import (
+    PLATFORM_CONTRACT_VERSION,
     ProductDefinition,
     ProductSyncError,
     synchronize_products,
@@ -19,6 +20,9 @@ def make_definition(
         slug=slug,
         name=name,
         version="1.0.0",
+        platform_contract_version=(
+            PLATFORM_CONTRACT_VERSION
+        ),
         workspace_key=workspace_key,
         landing_route=f"/{slug}",
         workspace_route=f"/{slug}/app",

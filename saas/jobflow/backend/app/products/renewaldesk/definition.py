@@ -15,6 +15,8 @@ RENEWALDESK_PRODUCT = register_product(
         slug="renewaldesk",
         name="RenewalDesk",
         version="0.1.0",
+
+        platform_contract_version=1,
         workspace_key="renewaldesk",
         landing_route="/renewaldesk",
         workspace_route="/renewaldesk/app",

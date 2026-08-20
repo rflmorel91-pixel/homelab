@@ -16,6 +16,8 @@ JOBFLOW_PRODUCT = register_product(
         slug="jobflow",
         name="JobFlow",
         version="1.0.0",
+
+        platform_contract_version=1,
         workspace_key="jobflow",
         landing_route="/",
         workspace_route="/app",

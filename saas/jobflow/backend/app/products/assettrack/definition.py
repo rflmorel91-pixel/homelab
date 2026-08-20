@@ -15,6 +15,8 @@ ASSETTRACK_PRODUCT = register_product(
         slug="assettrack",
         name="AssetTrack",
         version="0.1.0",
+
+        platform_contract_version=1,
         workspace_key="assettrack",
         landing_route="/assettrack",
         workspace_route="/assettrack/app",

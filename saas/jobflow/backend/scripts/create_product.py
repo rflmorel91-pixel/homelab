@@ -9,6 +9,9 @@ SLUG_PATTERN = re.compile(
 )
 
 
+PLATFORM_CONTRACT_VERSION = 1
+
+
 def python_package_name(slug: str) -> str:
     return slug.replace("-", "_")
 
@@ -127,6 +130,9 @@ from app.products.{package}.api import router
         slug="{slug}",
         name="{name}",
         version="0.1.0",
+        platform_contract_version={
+            PLATFORM_CONTRACT_VERSION
+        },
         workspace_key="{slug}",
         landing_route="/{slug}",
         workspace_route="/{slug}/app",
@@ -156,6 +162,9 @@ from app.products.{package}.{resource}s_api import (
         slug="{slug}",
         name="{name}",
         version="0.1.0",
+        platform_contract_version={
+            PLATFORM_CONTRACT_VERSION
+        },
         workspace_key="{slug}",
         landing_route="/{slug}",
         workspace_route="/{slug}/app",

@@ -9,11 +9,15 @@ SLUG_PATTERN = re.compile(
 )
 
 
+PLATFORM_CONTRACT_VERSION = 1
+
+
 @dataclass(frozen=True)
 class ProductDefinition:
     slug: str
     name: str
     version: str
+    platform_contract_version: int
     workspace_key: str
     landing_route: str
     workspace_route: str
@@ -42,6 +46,18 @@ class ProductDefinition:
         if not self.version.strip():
             raise ValueError(
                 "Product version is required"
+            )
+
+        if (
+            self.platform_contract_version
+            != PLATFORM_CONTRACT_VERSION
+        ):
+            raise ValueError(
+                "Product requires platform contract "
+                f"version "
+                f"{self.platform_contract_version}; "
+                "this platform provides version "
+                f"{PLATFORM_CONTRACT_VERSION}"
             )
 
         if not self.workspace_key.strip():
