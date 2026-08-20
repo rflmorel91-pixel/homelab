@@ -3,7 +3,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer, Job, Schedule, Tenant
+from app.models import Tenant
+from app.products.jobflow.models import (
+    Customer,
+    Job,
+    Schedule,
+)
 from app.products.jobflow.schemas import ScheduleCreate, ScheduleRead, ScheduleUpdate
 from app.tenant_context import get_current_tenant
 

@@ -5,7 +5,7 @@ from app.platform.products import (
     ProductDefinition,
     ProductRegistry,
 )
-from app.products.jobflow import JOBFLOW_PRODUCT
+from app.products.jobflow.definition import JOBFLOW_PRODUCT
 from app.products.proofvault import PROOFVAULT_PRODUCT
 
 

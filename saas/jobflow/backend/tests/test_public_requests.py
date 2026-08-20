@@ -1,6 +1,7 @@
 from sqlalchemy import select
 
-from app.models import Customer, Job, Tenant
+from app.models import Tenant
+from app.products.jobflow.models import Customer, Job
 
 
 def create_tenant(db_session, name, slug):

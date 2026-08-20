@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database import Base, DATABASE_URL
-from app.models import Customer, Lead
+from app.models import Lead
 from app.platform import (
     discover_product_models,
     discover_products,

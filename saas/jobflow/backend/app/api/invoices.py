@@ -3,7 +3,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Customer, Invoice, Job, Payment, Tenant
+from app.models import Tenant
+from app.products.jobflow.models import (
+    Customer,
+    Invoice,
+    Job,
+    Payment,
+)
 from app.products.jobflow.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate
 from app.tenant_context import get_current_tenant
 

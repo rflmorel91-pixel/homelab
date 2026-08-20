@@ -1,5 +1,5 @@
-from app.products.jobflow.definition import JOBFLOW_PRODUCT
+"""JobFlow product package.
 
-__all__ = [
-    "JOBFLOW_PRODUCT",
-]
+Product registration is performed by automatic product discovery
+through the definition module.
+"""
