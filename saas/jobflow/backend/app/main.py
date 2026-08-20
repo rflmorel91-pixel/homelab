@@ -8,6 +8,7 @@ from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
 from app.database import SessionLocal
 from app.platform import (
+    discover_product_models,
     discover_products,
     list_products,
     require_active_product,
@@ -17,6 +18,7 @@ from app.platform import (
 
 
 discover_products()
+discover_product_models()
 
 
 @asynccontextmanager
