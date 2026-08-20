@@ -535,6 +535,133 @@ def test_{package}_inherits_lifecycle(
     return product_dir
 
 
+def create_standalone_product(
+    *,
+    root: Path,
+    slug: str,
+    name: str,
+    description: str,
+    resource: str | None = None,
+) -> Path:
+    package = python_package_name(slug)
+
+    project_dir = (
+        root.resolve()
+        / f"{slug}-product"
+    )
+
+    if project_dir.exists():
+        raise FileExistsError(
+            "standalone product project "
+            f"already exists: {project_dir}"
+        )
+
+    project_dir.mkdir(parents=True)
+
+    try:
+        generated_dir = create_product(
+            root=project_dir,
+            slug=slug,
+            name=name,
+            description=description,
+            resource=resource,
+        )
+
+        namespace_root = (
+            project_dir / "saas_products"
+        )
+        namespace_root.mkdir()
+
+        standalone_dir = (
+            namespace_root / package
+        )
+
+        generated_dir.rename(
+            standalone_dir
+        )
+
+        app_root = project_dir / "app"
+        products_root = (
+            app_root / "products"
+        )
+
+        if (
+            products_root.exists()
+            and not any(products_root.iterdir())
+        ):
+            products_root.rmdir()
+
+        if (
+            app_root.exists()
+            and not any(app_root.iterdir())
+        ):
+            app_root.rmdir()
+
+        old_prefix = (
+            f"app.products.{package}"
+        )
+        new_prefix = (
+            f"saas_products.{package}"
+        )
+
+        for python_file in standalone_dir.rglob(
+            "*.py"
+        ):
+            source = python_file.read_text()
+            python_file.write_text(
+                source.replace(
+                    old_prefix,
+                    new_prefix,
+                )
+            )
+
+        (
+            project_dir / "pyproject.toml"
+        ).write_text(
+            f"""[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{slug}-product"
+version = "0.1.0"
+description = {description!r}
+requires-python = ">=3.14"
+dependencies = [
+    "jobflow-saas-platform==0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["saas_products.{package}*"]
+namespaces = true
+"""
+        )
+
+        (
+            project_dir / "README.md"
+        ).write_text(
+            f"""# {name}
+
+{description}
+
+Standalone SaaS product plugin for
+`jobflow-saas-platform`.
+"""
+        )
+
+    except Exception:
+        import shutil
+
+        shutil.rmtree(
+            project_dir,
+            ignore_errors=True,
+        )
+        raise
+
+    return project_dir
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -578,18 +705,38 @@ def main() -> int:
         ),
     )
 
+    parser.add_argument(
+        "--standalone",
+        action="store_true",
+        help=(
+            "Generate an independently "
+            "installable SaaS product project"
+        ),
+    )
+
     args = parser.parse_args()
 
     backend_root = args.root.resolve()
 
     try:
-        product_dir = create_product(
-            root=backend_root,
-            slug=args.slug,
-            name=args.name,
-            description=args.description,
-            resource=args.resource,
-        )
+        if args.standalone:
+            product_dir = (
+                create_standalone_product(
+                    root=backend_root,
+                    slug=args.slug,
+                    name=args.name,
+                    description=args.description,
+                    resource=args.resource,
+                )
+            )
+        else:
+            product_dir = create_product(
+                root=backend_root,
+                slug=args.slug,
+                name=args.name,
+                description=args.description,
+                resource=args.resource,
+            )
 
     except (
         ValueError,

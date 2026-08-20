@@ -252,3 +252,203 @@ def test_cli_defaults_to_current_working_directory(
     assert (
         product_dir / "definition.py"
     ).is_file()
+
+
+def test_create_standalone_product_generates_installable_project(
+    tmp_path,
+):
+    from scripts.create_product import (
+        create_standalone_product,
+    )
+
+    project_dir = create_standalone_product(
+        root=tmp_path,
+        slug="fieldops",
+        name="FieldOps",
+        description="Standalone external SaaS product.",
+        resource="asset",
+    )
+
+    assert project_dir == (
+        tmp_path / "fieldops-product"
+    )
+
+    product_dir = (
+        project_dir
+        / "saas_products"
+        / "fieldops"
+    )
+
+    assert product_dir.is_dir()
+    assert (product_dir / "__init__.py").is_file()
+    assert (product_dir / "definition.py").is_file()
+    assert (product_dir / "api.py").is_file()
+
+    assert (
+        product_dir
+        / "models"
+        / "asset.py"
+    ).is_file()
+
+    assert (
+        product_dir
+        / "migrations"
+        / "versions"
+    ).is_dir()
+
+    assert (
+        project_dir / "pyproject.toml"
+    ).is_file()
+
+    assert (
+        project_dir / "README.md"
+    ).is_file()
+
+    assert (
+        project_dir
+        / "tests"
+        / "test_fieldops_product.py"
+    ).is_file()
+
+
+def test_standalone_product_uses_plugin_namespace(
+    tmp_path,
+):
+    from scripts.create_product import (
+        create_standalone_product,
+    )
+
+    project_dir = create_standalone_product(
+        root=tmp_path,
+        slug="fieldops",
+        name="FieldOps",
+        description="Standalone.",
+        resource="asset",
+    )
+
+    product_dir = (
+        project_dir
+        / "saas_products"
+        / "fieldops"
+    )
+
+    generated_python = "\n".join(
+        path.read_text()
+        for path in product_dir.rglob("*.py")
+    )
+
+    assert "app.products.fieldops" not in generated_python
+
+    assert (
+        "saas_products.fieldops"
+        in generated_python
+    )
+
+
+def test_standalone_pyproject_declares_platform_dependency(
+    tmp_path,
+):
+    from scripts.create_product import (
+        create_standalone_product,
+    )
+
+    project_dir = create_standalone_product(
+        root=tmp_path,
+        slug="fieldops",
+        name="FieldOps",
+        description="Standalone.",
+        resource="asset",
+    )
+
+    pyproject = (
+        project_dir / "pyproject.toml"
+    ).read_text()
+
+    assert (
+        'name = "fieldops-product"'
+        in pyproject
+    )
+
+    assert (
+        '"jobflow-saas-platform==0.1.0"'
+        in pyproject
+    )
+
+    assert (
+        'include = ["saas_products.fieldops*"]'
+        in pyproject
+    )
+
+    assert "namespaces = true" in pyproject
+
+
+def test_standalone_product_refuses_overwrite(
+    tmp_path,
+):
+    from scripts.create_product import (
+        create_standalone_product,
+    )
+
+    project_dir = (
+        tmp_path / "fieldops-product"
+    )
+
+    project_dir.mkdir()
+
+    with pytest.raises(FileExistsError):
+        create_standalone_product(
+            root=tmp_path,
+            slug="fieldops",
+            name="FieldOps",
+            description="Standalone.",
+        )
+
+
+def test_cli_generates_standalone_product(
+    tmp_path,
+    monkeypatch,
+):
+    from scripts.create_product import main
+
+    monkeypatch.chdir(tmp_path)
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "saas-create-product",
+            "cli-plugin",
+            "CLI Plugin",
+            "--standalone",
+            "--with-resource",
+            "record",
+        ],
+    )
+
+    result = main()
+
+    assert result == 0
+
+    project_dir = (
+        tmp_path
+        / "cli-plugin-product"
+    )
+
+    assert (
+        project_dir
+        / "saas_products"
+        / "cli_plugin"
+        / "definition.py"
+    ).is_file()
+
+    assert (
+        project_dir
+        / "saas_products"
+        / "cli_plugin"
+        / "models"
+        / "record.py"
+    ).is_file()
+
+    assert (
+        project_dir
+        / "pyproject.toml"
+    ).is_file()
