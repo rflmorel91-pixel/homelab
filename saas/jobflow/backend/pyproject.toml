@@ -25,7 +25,13 @@ test = [
 
 [project.scripts]
 saas-create-product = "scripts.create_product:main"
+saas-alembic = "scripts.platform_alembic:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*", "scripts*"]
+
+[tool.setuptools.package-data]
+"app.platform.migrations" = [
+    "script.py.mako",
+]

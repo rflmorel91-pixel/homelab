@@ -1,22 +1,22 @@
 from pathlib import Path
 import sys
 
+from alembic import command
+from alembic.config import Config
 
-BACKEND_ROOT = (
+
+SOURCE_BACKEND_ROOT = (
     Path(__file__)
     .resolve()
     .parents[1]
 )
 
-if str(BACKEND_ROOT) not in sys.path:
+if str(SOURCE_BACKEND_ROOT) not in sys.path:
     sys.path.insert(
         0,
-        str(BACKEND_ROOT),
+        str(SOURCE_BACKEND_ROOT),
     )
 
-
-from alembic import command
-from alembic.config import Config
 
 from app.platform import (
     discover_product_migration_locations,
@@ -25,31 +25,82 @@ from app.platform import (
 )
 
 
-def build_config() -> Config:
-    backend_root = BACKEND_ROOT
+def platform_migration_root() -> Path:
+    from app.platform import migrations
 
-    ini_path = backend_root / "alembic.ini"
+    return Path(
+        migrations.__file__
+    ).resolve().parent
 
-    config = Config(str(ini_path))
+
+def workspace_root(
+    value: str | None = None,
+) -> Path:
+    if value is None:
+        return Path.cwd().resolve()
+
+    return Path(value).resolve()
+
+
+def build_config(
+    *,
+    root: Path | None = None,
+) -> Config:
+    if root is None:
+        root = workspace_root()
+
+    migration_root = (
+        platform_migration_root()
+    )
+
+    config = Config()
+
+    config.set_main_option(
+        "script_location",
+        str(migration_root),
+    )
+
+    config.set_main_option(
+        "file_template",
+        "%%(rev)s_%%(slug)s",
+    )
 
     platform_versions = (
-        backend_root
-        / "migrations"
+        migration_root
         / "versions"
     ).resolve()
+
+    bundled_root = (
+        Path(__file__)
+        .resolve()
+        .parents[1]
+    )
 
     version_locations = [
         platform_versions,
         *discover_product_migration_locations(
-            backend_root
+            bundled_root
+        ),
+        *discover_product_migration_locations(
+            root
         ),
     ]
+
+    unique_locations: list[Path] = []
+
+    for location in version_locations:
+        location = location.resolve()
+
+        if location not in unique_locations:
+            unique_locations.append(
+                location
+            )
 
     config.set_main_option(
         "version_locations",
         " ".join(
             str(path)
-            for path in version_locations
+            for path in unique_locations
         ),
     )
 
@@ -58,28 +109,43 @@ def build_config() -> Config:
         "space",
     )
 
+    config.attributes[
+        "workspace_root"
+    ] = root
+
     return config
 
 
 def get_product_version_path(
     product_slug: str,
+    *,
+    root: Path | None = None,
 ) -> Path:
-    discover_products()
+    if root is None:
+        root = workspace_root()
 
-    product = get_product(product_slug)
+    discover_products(
+        root=root
+    )
+
+    product = get_product(
+        product_slug
+    )
 
     if product is None:
         raise ValueError(
             f"Unknown product: {product_slug}"
         )
 
-    package_name = product_slug.replace(
-        "-",
-        "_",
+    package_name = (
+        product_slug.replace(
+            "-",
+            "_",
+        )
     )
 
     expected = (
-        BACKEND_ROOT
+        root
         / "app"
         / "products"
         / package_name
@@ -89,7 +155,7 @@ def get_product_version_path(
 
     locations = set(
         discover_product_migration_locations(
-            BACKEND_ROOT
+            root
         )
     )
 
@@ -102,19 +168,61 @@ def get_product_version_path(
     return expected
 
 
-def main(argv: list[str] | None = None) -> int:
+def parse_root(
+    argv: list[str],
+) -> tuple[Path, list[str]]:
+    root = None
+    remaining: list[str] = []
+
+    index = 0
+
+    while index < len(argv):
+        argument = argv[index]
+
+        if argument == "--root":
+            index += 1
+
+            if index >= len(argv):
+                raise SystemExit(
+                    "--root requires a path"
+                )
+
+            root = workspace_root(
+                argv[index]
+            )
+        else:
+            remaining.append(
+                argument
+            )
+
+        index += 1
+
+    if root is None:
+        root = workspace_root()
+
+    return root, remaining
+
+
+def main(
+    argv: list[str] | None = None,
+) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
+    root, argv = parse_root(argv)
+
     if not argv:
         print(
-            "Usage: platform_alembic.py "
+            "Usage: saas-alembic "
+            "[--root PATH] "
             "<command> [arguments...]",
             file=sys.stderr,
         )
         return 2
 
-    config = build_config()
+    config = build_config(
+        root=root
+    )
 
     command_name = argv[0]
     args = argv[1:]
@@ -130,7 +238,11 @@ def main(argv: list[str] | None = None) -> int:
     if command_name == "history":
         command.history(
             config,
-            rev_range=args[0] if args else None,
+            rev_range=(
+                args[0]
+                if args
+                else None
+            ),
         )
         return 0
 
@@ -176,9 +288,14 @@ def main(argv: list[str] | None = None) -> int:
                         "--product requires a slug"
                     )
 
-                product_slug = args[index]
+                product_slug = (
+                    args[index]
+                )
 
-            elif argument in ("-m", "--message"):
+            elif argument in (
+                "-m",
+                "--message",
+            ):
                 index += 1
 
                 if index >= len(args):
@@ -193,8 +310,8 @@ def main(argv: list[str] | None = None) -> int:
 
             else:
                 raise SystemExit(
-                    "Unsupported revision argument: "
-                    f"{argument}"
+                    "Unsupported revision "
+                    f"argument: {argument}"
                 )
 
             index += 1
@@ -206,24 +323,30 @@ def main(argv: list[str] | None = None) -> int:
 
         if not message:
             raise SystemExit(
-                "revision requires -m/--message"
+                "revision requires "
+                "-m/--message"
             )
 
         try:
             version_path = (
                 get_product_version_path(
-                    product_slug
+                    product_slug,
+                    root=root,
                 )
             )
         except ValueError as exc:
-            raise SystemExit(str(exc)) from exc
+            raise SystemExit(
+                str(exc)
+            ) from exc
 
         command.revision(
             config,
             message=message,
             autogenerate=autogenerate,
             head="head",
-            version_path=str(version_path),
+            version_path=str(
+                version_path
+            ),
         )
 
         return 0
@@ -233,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     raise SystemExit(
-        f"Unsupported Alembic command: "
+        "Unsupported Alembic command: "
         f"{command_name}"
     )
 

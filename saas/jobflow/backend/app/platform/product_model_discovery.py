@@ -6,22 +6,16 @@ from app.platform.product_discovery import (
 )
 from app.platform.product_paths import (
     product_roots,
-    register_product_root,
-    unregister_product_root,
+    temporary_product_root,
 )
 
 
 def discover_product_models(
     root: Path | None = None,
 ) -> tuple[str, ...]:
-    temporary_root = root is not None
-
-    if root is not None:
-        register_product_root(root)
-
     discovered: list[str] = []
 
-    try:
+    with temporary_product_root(root):
         for products_path in product_roots():
             for entry in sorted(
                 products_path.iterdir()
@@ -66,10 +60,6 @@ def discover_product_models(
                         entry.name
                     )
 
-        return tuple(
-            sorted(discovered)
-        )
-
-    finally:
-        if temporary_root:
-            unregister_product_root(root)
+    return tuple(
+        sorted(discovered)
+    )

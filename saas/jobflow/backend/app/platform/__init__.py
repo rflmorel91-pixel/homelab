@@ -1,6 +1,7 @@
 from app.platform.product_paths import (
     product_roots,
     register_product_root,
+    temporary_product_root,
     unregister_product_root,
 )
 from app.platform.product_context import (
@@ -33,6 +34,7 @@ from app.platform.products import (
 )
 
 __all__ = [
+    "temporary_product_root",
     "unregister_product_root",
     "register_product_root",
     "product_roots",

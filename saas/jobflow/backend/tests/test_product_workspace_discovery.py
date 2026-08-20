@@ -144,3 +144,33 @@ def test_workspace_discovery_does_not_leak_path(
         products_path
         not in app.products.__path__
     )
+
+
+def test_existing_product_root_is_not_removed(
+    tmp_path,
+):
+    import app.products
+
+    from app.platform.product_paths import (
+        product_roots,
+    )
+
+    installed_root = Path(
+        next(iter(app.products.__path__))
+    ).resolve()
+
+    backend_root = (
+        installed_root
+        .parents[1]
+    )
+
+    before = product_roots()
+
+    discover_products(
+        root=backend_root
+    )
+
+    after = product_roots()
+
+    assert installed_root in after
+    assert before == after
