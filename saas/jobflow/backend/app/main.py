@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
@@ -10,6 +10,7 @@ from app import products as installed_products
 from app.database import SessionLocal
 from app.platform import (
     list_products,
+    require_active_product,
     synchronize_products,
 )
 
@@ -63,6 +64,13 @@ for product in list_products():
         app.include_router(
             router,
             prefix=product.api_prefix,
+            dependencies=[
+                Depends(
+                    require_active_product(
+                        product.slug
+                    )
+                )
+            ],
         )
 
 @app.get("/api/v1/health")
