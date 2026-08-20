@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Customer, Job, Tenant
-from app.schemas.public_request import (
+from app.products.jobflow.schemas.public_request import (
     PublicRequestCreate,
     PublicRequestRead,
 )

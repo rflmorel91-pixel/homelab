@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Customer, Job, Tenant
-from app.schemas import CustomerCreate, CustomerRead, CustomerUpdate
+from app.products.jobflow.schemas import CustomerCreate, CustomerRead, CustomerUpdate
 from app.tenant_context import get_current_tenant
 
 
