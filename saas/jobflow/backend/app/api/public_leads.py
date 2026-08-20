@@ -11,31 +11,32 @@ from app.schemas.lead import (
 
 
 router = APIRouter(
-    prefix="/public/leads",
+    prefix="/public/products",
     tags=["Public Leads"],
 )
 
 
 @router.post(
-    "",
+    "/{product_slug}/leads",
     response_model=PublicLeadRead,
     status_code=201,
 )
 def create_public_lead(
+    product_slug: str,
     lead: PublicLeadCreate,
     db: Session = Depends(get_db),
 ):
     product = db.scalar(
         select(Product).where(
-            Product.slug == "jobflow",
+            Product.slug == product_slug,
             Product.status == "active",
         )
     )
 
     if product is None:
         raise HTTPException(
-            status_code=503,
-            detail="Product is unavailable",
+            status_code=404,
+            detail="Product not found or unavailable",
         )
 
     db_lead = Lead(

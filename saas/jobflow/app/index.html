@@ -506,7 +506,7 @@
     leadMessageStatus.textContent = "Submitting...";
 
     try {
-      const response = await fetch("/api/v1/public/leads", {
+      const response = await fetch("/api/v1/public/products/jobflow/leads", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
