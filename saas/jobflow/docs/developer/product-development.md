@@ -305,33 +305,52 @@ Only required components need to exist.
 
 ## Database and Migration Boundary
 
-Product-specific database migration isolation is not yet a stable
-developer contract.
+Product-specific models and migration ownership are supported by
+Platform Contract v1.
 
-The platform currently uses the shared SQLAlchemy Base and shared
-Alembic migration environment.
+Product models may live under:
 
-Developers must not assume that adding a product model is sufficient for
-safe database installation or upgrade.
+    app/products/<product>/models/
 
-The migration extension contract should eventually provide:
+and are discovered automatically.
 
-- automatic product model discovery
-- explicit product migration ownership
-- deterministic migration ordering
-- collision protection
-- install and upgrade validation
-- product removal policy
+Product migration revisions may live under:
+
+    app/products/<product>/migrations/versions/
+
+The platform Alembic wrapper discovers product migration locations and
+keeps product revisions in the shared deterministic migration graph.
+
+From the backend directory:
+
+    python scripts/platform_alembic.py revision       --product <slug>       --autogenerate       -m "<message>"
+
+    python scripts/platform_alembic.py upgrade head
+
+    python scripts/platform_alembic.py check
+
+Contract v1 currently requires one global Alembic head.
+
+Product removal and independent migration graphs are not yet supported
+developer contracts.
 
 ## Compatibility
 
-`ProductDefinition` is becoming a public developer API.
+`ProductDefinition` is a supported Platform Contract v1 developer API.
 
-Before long-term third-party compatibility is promised, the platform
-should introduce explicit compatibility and contract-version rules.
+Every product declares:
 
-Developer-contract changes should be deliberate, tested, documented,
-and versioned.
+    platform_contract_version=1
+
+The platform rejects products targeting an incompatible contract
+version before they are loaded for operation.
+
+See:
+
+    docs/developer/platform-contract-v1.md
+
+for compatibility, breaking-change, deprecation, and future Contract v2
+policy.
 
 ## Developer Rule of Thumb
 

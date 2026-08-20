@@ -5,6 +5,7 @@
 Start with:
 
 - [Product Development](product-development.md)
+- [Platform Contract v1](platform-contract-v1.md)
 
 The platform supports automatically discovered SaaS product packages
 with platform-owned routing composition, synchronization, lifecycle
@@ -21,9 +22,14 @@ Supported:
 - lifecycle enforcement
 - generated product scaffolding
 
+Now formalized:
+
+- product-specific migration ownership
+- Platform Contract v1 compatibility enforcement
+
 Not yet formalized:
 
-- product-specific migration isolation
-- product compatibility negotiation
 - product dependency declarations
 - product install/uninstall lifecycle
+- multi-version contract compatibility
+- external package distribution
