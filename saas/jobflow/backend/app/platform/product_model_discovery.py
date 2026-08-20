@@ -1,6 +1,10 @@
 from importlib import import_module
 from pathlib import Path
 
+from app.platform.installed_product_discovery import (
+    import_installed_product_models,
+    installed_product_packages,
+)
 from app.platform.product_discovery import (
     ProductDiscoveryError,
 )
@@ -59,6 +63,27 @@ def discover_product_models(
                     discovered.append(
                         entry.name
                     )
+
+    for package in installed_product_packages():
+        try:
+            has_models = (
+                import_installed_product_models(
+                    package
+                )
+            )
+        except Exception as exc:
+            raise ProductDiscoveryError(
+                "Failed to load installed product "
+                f"models for {package}: {exc}"
+            ) from exc
+
+        if (
+            has_models
+            and package not in discovered
+        ):
+            discovered.append(
+                package
+            )
 
     return tuple(
         sorted(discovered)

@@ -1,6 +1,10 @@
 from importlib import import_module
 from pathlib import Path
 
+from app.platform.installed_product_discovery import (
+    import_installed_product,
+    installed_product_packages,
+)
 from app.platform.product_paths import (
     product_roots,
     temporary_product_root,
@@ -52,6 +56,22 @@ def discover_products(
                     discovered.append(
                         entry.name
                     )
+
+    for package in installed_product_packages():
+        try:
+            import_installed_product(
+                package
+            )
+        except Exception as exc:
+            raise ProductDiscoveryError(
+                "Failed to load installed product "
+                f"{package}: {exc}"
+            ) from exc
+
+        if package not in discovered:
+            discovered.append(
+                package
+            )
 
     return tuple(
         sorted(discovered)

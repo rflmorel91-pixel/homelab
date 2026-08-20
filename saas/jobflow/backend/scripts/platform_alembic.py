@@ -23,6 +23,9 @@ from app.platform import (
     discover_products,
     get_product,
 )
+from app.platform.installed_product_migrations import (
+    installed_product_migration_locations,
+)
 
 
 def platform_migration_root() -> Path:
@@ -84,6 +87,7 @@ def build_config(
         *discover_product_migration_locations(
             root
         ),
+        *installed_product_migration_locations(),
     ]
 
     unique_locations: list[Path] = []

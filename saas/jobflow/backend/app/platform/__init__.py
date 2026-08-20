@@ -1,3 +1,8 @@
+from app.platform.installed_product_discovery import (
+    import_installed_product,
+    import_installed_product_models,
+    installed_product_packages,
+)
 from app.platform.product_paths import (
     product_roots,
     register_product_root,
@@ -34,6 +39,9 @@ from app.platform.products import (
 )
 
 __all__ = [
+    "installed_product_packages",
+    "import_installed_product_models",
+    "import_installed_product",
     "temporary_product_root",
     "unregister_product_root",
     "register_product_root",
