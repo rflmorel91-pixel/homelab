@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import re
 
+from fastapi import APIRouter
+
 
 SLUG_PATTERN = re.compile(
     r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -16,6 +18,7 @@ class ProductDefinition:
     landing_route: str
     workspace_route: str
     api_prefix: str
+    routers: tuple[APIRouter, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:
