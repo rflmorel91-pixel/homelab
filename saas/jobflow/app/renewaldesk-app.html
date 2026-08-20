@@ -351,6 +351,11 @@
         <h2>Add Renewal</h2>
 
         <form id="renewalForm">
+          <input
+            id="renewalEditId"
+            type="hidden"
+          >
+
           <div>
             <label for="renewalName">
               Name
@@ -395,6 +400,30 @@
           </div>
 
           <div>
+            <label for="renewalStatus">
+              Workflow Status
+            </label>
+
+            <select id="renewalStatus">
+              <option value="active" selected>
+                Active
+              </option>
+              <option value="renewal_in_progress">
+                Renewal In Progress
+              </option>
+              <option value="renewed">
+                Renewed
+              </option>
+              <option value="inactive">
+                Inactive
+              </option>
+              <option value="archived">
+                Archived
+              </option>
+            </select>
+          </div>
+
+          <div>
             <label for="renewalOwner">
               Responsible Owner
             </label>
@@ -425,8 +454,20 @@
             <textarea id="renewalNotes"></textarea>
           </div>
 
-          <button type="submit">
+          <button
+            id="renewalSubmitButton"
+            type="submit"
+          >
             Add Renewal
+          </button>
+
+          <button
+            id="cancelEditButton"
+            type="button"
+            class="secondary"
+            style="display: none;"
+          >
+            Cancel Edit
           </button>
         </form>
       </section>
@@ -488,6 +529,19 @@
 
   const renewalForm =
     document.getElementById("renewalForm");
+
+  const renewalEditId =
+    document.getElementById("renewalEditId");
+
+  const renewalSubmitButton =
+    document.getElementById(
+      "renewalSubmitButton"
+    );
+
+  const cancelEditButton =
+    document.getElementById(
+      "cancelEditButton"
+    );
 
   const renewalList =
     document.getElementById("renewalList");
@@ -692,23 +746,38 @@
               : ""
           }
 
-          <button
-            type="button"
-            class="danger"
-            onclick="deleteRenewal(${item.id})"
-          >
-            Delete
-          </button>
+          <div class="actions">
+            <button
+              type="button"
+              class="secondary"
+              onclick="beginEditRenewal(${item.id})"
+            >
+              Edit
+            </button>
+
+            <button
+              type="button"
+              class="danger"
+              onclick="deleteRenewal(${item.id})"
+            >
+              Delete
+            </button>
+          </div>
         </article>
       `).join("") +
       "</div>";
   }
 
 
+  let dashboardItems = [];
+
+
   async function loadDashboard() {
     const data = await apiRequest(
       `${PRODUCT_BASE}/dashboard`
     );
+
+    dashboardItems = data.items;
 
     expiredCount.textContent =
       data.expired;
@@ -722,8 +791,94 @@
     inactiveCount.textContent =
       data.inactive;
 
-    renderRenewals(data.items);
+    renderRenewals(dashboardItems);
   }
+
+
+  function resetRenewalForm() {
+    renewalForm.reset();
+    renewalEditId.value = "";
+
+    document.getElementById(
+      "reminderDays"
+    ).value = "30";
+
+    document.getElementById(
+      "renewalCategory"
+    ).value = "other";
+
+    document.getElementById(
+      "renewalStatus"
+    ).value = "active";
+
+    renewalSubmitButton.textContent =
+      "Add Renewal";
+
+    cancelEditButton.style.display =
+      "none";
+  }
+
+
+  function beginEditRenewal(itemId) {
+    const item = dashboardItems.find(
+      candidate => candidate.id === itemId
+    );
+
+    if (!item) {
+      showError("Renewal item not found.");
+      return;
+    }
+
+    renewalEditId.value =
+      String(item.id);
+
+    document.getElementById(
+      "renewalName"
+    ).value = item.name;
+
+    document.getElementById(
+      "renewalCategory"
+    ).value = item.category;
+
+    document.getElementById(
+      "renewalDate"
+    ).value = item.renewal_date;
+
+    document.getElementById(
+      "renewalStatus"
+    ).value = item.status;
+
+    document.getElementById(
+      "renewalOwner"
+    ).value = item.owner_name || "";
+
+    document.getElementById(
+      "reminderDays"
+    ).value = String(
+      item.reminder_days
+    );
+
+    document.getElementById(
+      "renewalNotes"
+    ).value = item.notes || "";
+
+    renewalSubmitButton.textContent =
+      "Save Renewal";
+
+    cancelEditButton.style.display =
+      "block";
+
+    renewalForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+
+  cancelEditButton.addEventListener(
+    "click",
+    resetRenewalForm
+  );
 
 
   async function deleteRenewal(itemId) {
@@ -818,64 +973,75 @@
     async event => {
       event.preventDefault();
 
+      const editId =
+        renewalEditId.value.trim();
+
+      const payload = {
+        name:
+          document.getElementById(
+            "renewalName"
+          ).value,
+
+        category:
+          document.getElementById(
+            "renewalCategory"
+          ).value,
+
+        renewal_date:
+          document.getElementById(
+            "renewalDate"
+          ).value,
+
+        status:
+          document.getElementById(
+            "renewalStatus"
+          ).value,
+
+        owner_name:
+          document.getElementById(
+            "renewalOwner"
+          ).value || null,
+
+        reminder_days:
+          Number(
+            document.getElementById(
+              "reminderDays"
+            ).value
+          ),
+
+        notes:
+          document.getElementById(
+            "renewalNotes"
+          ).value || null
+      };
+
       try {
-        await apiRequest(
-          `${PRODUCT_BASE}/items`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              name:
-                document.getElementById(
-                  "renewalName"
-                ).value,
+        if (editId) {
+          await apiRequest(
+            `${PRODUCT_BASE}/items/${editId}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(payload)
+            }
+          );
+        } else {
+          await apiRequest(
+            `${PRODUCT_BASE}/items`,
+            {
+              method: "POST",
+              body: JSON.stringify(payload)
+            }
+          );
+        }
 
-              category:
-                document.getElementById(
-                  "renewalCategory"
-                ).value,
+        const message = editId
+          ? "Renewal updated."
+          : "Renewal added.";
 
-              renewal_date:
-                document.getElementById(
-                  "renewalDate"
-                ).value,
-
-              owner_name:
-                document.getElementById(
-                  "renewalOwner"
-                ).value || null,
-
-              reminder_days:
-                Number(
-                  document.getElementById(
-                    "reminderDays"
-                  ).value
-                ),
-
-              notes:
-                document.getElementById(
-                  "renewalNotes"
-                ).value || null,
-
-              status: "active"
-            })
-          }
-        );
-
-        renewalForm.reset();
-
-        document.getElementById(
-          "reminderDays"
-        ).value = "30";
-
-        document.getElementById(
-          "renewalCategory"
-        ).value = "other";
-
+        resetRenewalForm();
         await loadDashboard();
 
-        showSuccess(
-          "Renewal added."
-        );
+        showSuccess(message);
 
       } catch (error) {
         showError(error.message);
