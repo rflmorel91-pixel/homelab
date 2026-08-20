@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -227,6 +229,8 @@ def admin_tenant_detail(
             "id": tenant.id,
             "name": tenant.name,
             "slug": tenant.slug,
+            "status": tenant.status,
+            "suspended_at": tenant.suspended_at,
             "created_at": tenant.created_at,
         },
         "counts": {
@@ -273,6 +277,125 @@ def admin_tenant_detail(
             for membership, email, display_name
             in memberships
         ],
+    }
+
+
+@router.post("/tenants/{tenant_id}/suspend")
+def admin_suspend_tenant(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    if tenant.status == "suspended":
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant is already suspended",
+        )
+
+    suspended_at = datetime.now(timezone.utc)
+
+    before_data = {
+        "status": tenant.status,
+        "suspended_at": (
+            tenant.suspended_at.isoformat()
+            if tenant.suspended_at
+            else None
+        ),
+    }
+
+    tenant.status = "suspended"
+    tenant.suspended_at = suspended_at
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="tenant.suspended",
+        target_type="tenant",
+        target_id=tenant.id,
+        tenant_id=tenant.id,
+        before_data=before_data,
+        after_data={
+            "status": tenant.status,
+            "suspended_at":
+                tenant.suspended_at.isoformat(),
+        },
+    )
+
+    db.commit()
+    db.refresh(tenant)
+
+    return {
+        "id": tenant.id,
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "status": tenant.status,
+        "suspended_at": tenant.suspended_at,
+    }
+
+
+@router.post("/tenants/{tenant_id}/reactivate")
+def admin_reactivate_tenant(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    if tenant.status == "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant is already active",
+        )
+
+    before_data = {
+        "status": tenant.status,
+        "suspended_at": (
+            tenant.suspended_at.isoformat()
+            if tenant.suspended_at
+            else None
+        ),
+    }
+
+    tenant.status = "active"
+    tenant.suspended_at = None
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="tenant.reactivated",
+        target_type="tenant",
+        target_id=tenant.id,
+        tenant_id=tenant.id,
+        before_data=before_data,
+        after_data={
+            "status": tenant.status,
+            "suspended_at": None,
+        },
+    )
+
+    db.commit()
+    db.refresh(tenant)
+
+    return {
+        "id": tenant.id,
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "status": tenant.status,
+        "suspended_at": tenant.suspended_at,
     }
 
 

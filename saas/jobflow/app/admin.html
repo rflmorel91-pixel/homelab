@@ -1547,6 +1547,55 @@
               ${escapeHtml(data.tenant.slug)}
               · Tenant #${data.tenant.id}
             </p>
+
+            <div style="margin-top: 10px;">
+              <span class="badge">
+                ${
+                  data.tenant.status === "active"
+                    ? "Active"
+                    : "Suspended"
+                }
+              </span>
+
+              ${
+                data.tenant.suspended_at
+                  ? `
+                    <span class="row-secondary">
+                      Suspended:
+                      ${escapeHtml(
+                        new Date(
+                          data.tenant.suspended_at
+                        ).toLocaleString()
+                      )}
+                    </span>
+                  `
+                  : ""
+              }
+            </div>
+          </div>
+
+          <div class="membership-actions">
+            ${
+              data.tenant.status === "active"
+                ? `
+                  <button
+                    class="btn danger"
+                    type="button"
+                    data-suspend-tenant="${data.tenant.id}"
+                  >
+                    Suspend Tenant
+                  </button>
+                `
+                : `
+                  <button
+                    class="btn primary"
+                    type="button"
+                    data-reactivate-tenant="${data.tenant.id}"
+                  >
+                    Reactivate Tenant
+                  </button>
+                `
+            }
           </div>
         </div>
 
@@ -1630,6 +1679,72 @@
 
       setStatus(
         "Tenant details loaded.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+
+  async function suspendTenant(tenantId) {
+    if (
+      !window.confirm(
+        "Suspend this tenant? Tenant workspace access will be blocked until reactivated."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setStatus("Suspending tenant...");
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/suspend`,
+        {
+          method: "POST",
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        "Tenant suspended. Workspace access is now blocked.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+
+  async function reactivateTenant(tenantId) {
+    if (
+      !window.confirm(
+        "Reactivate this tenant and restore workspace access?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setStatus("Reactivating tenant...");
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/reactivate`,
+        {
+          method: "POST",
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        "Tenant reactivated. Workspace access restored.",
         "success"
       );
 
@@ -1806,6 +1921,34 @@
 
       if (refreshActivityButton) {
         await loadActivity();
+        return;
+      }
+
+      const suspendTenantButton =
+        event.target.closest(
+          "[data-suspend-tenant]"
+        );
+
+      if (suspendTenantButton) {
+        await suspendTenant(
+          Number(
+            suspendTenantButton.dataset.suspendTenant
+          )
+        );
+        return;
+      }
+
+      const reactivateTenantButton =
+        event.target.closest(
+          "[data-reactivate-tenant]"
+        );
+
+      if (reactivateTenantButton) {
+        await reactivateTenant(
+          Number(
+            reactivateTenantButton.dataset.reactivateTenant
+          )
+        );
         return;
       }
 

@@ -50,4 +50,10 @@ def get_current_tenant(
             detail="Tenant not found",
         )
 
+    if tenant.status != "active":
+        raise HTTPException(
+            status_code=403,
+            detail="Tenant is suspended",
+        )
+
     return tenant

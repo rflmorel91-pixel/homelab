@@ -744,3 +744,165 @@ def test_unauthenticated_user_cannot_view_audit_log(
     )
 
     assert response.status_code == 401
+
+
+def test_platform_admin_can_suspend_tenant(
+    client,
+    db_session,
+):
+    from app.models import AdminAuditLog, Tenant
+
+    operator = make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+    assert tenant.status == "active"
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/suspend"
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["status"] == "suspended"
+    assert payload["suspended_at"] is not None
+
+    db_session.expire_all()
+
+    tenant = db_session.get(Tenant, tenant.id)
+    assert tenant is not None
+    assert tenant.status == "suspended"
+    assert tenant.suspended_at is not None
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action == "tenant.suspended",
+            AdminAuditLog.target_id == tenant.id,
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.tenant_id == tenant.id
+    assert audit.before_data == {
+        "status": "active",
+        "suspended_at": None,
+    }
+    assert audit.after_data["status"] == "suspended"
+    assert audit.after_data["suspended_at"] is not None
+
+
+def test_suspending_suspended_tenant_is_rejected(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    tenant.status = "suspended"
+    db_session.commit()
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/suspend"
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Tenant is already suspended"
+    )
+
+
+def test_platform_admin_can_reactivate_tenant(
+    client,
+    db_session,
+):
+    from datetime import datetime, timezone
+
+    from app.models import AdminAuditLog, Tenant
+
+    operator = make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    tenant.status = "suspended"
+    tenant.suspended_at = datetime.now(timezone.utc)
+    db_session.commit()
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/reactivate"
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["suspended_at"] is None
+
+    db_session.expire_all()
+
+    tenant = db_session.get(Tenant, tenant.id)
+    assert tenant is not None
+    assert tenant.status == "active"
+    assert tenant.suspended_at is None
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action == "tenant.reactivated",
+            AdminAuditLog.target_id == tenant.id,
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.tenant_id == tenant.id
+    assert audit.before_data["status"] == "suspended"
+    assert audit.after_data == {
+        "status": "active",
+        "suspended_at": None,
+    }
+
+
+def test_reactivating_active_tenant_is_rejected(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+    assert tenant.status == "active"
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/reactivate"
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "Tenant is already active"
+    )
+
+
+def test_non_platform_admin_cannot_suspend_tenant(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/suspend"
+    )
+
+    assert response.status_code == 403

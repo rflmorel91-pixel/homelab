@@ -2018,3 +2018,66 @@ def test_tenant_header_alone_does_not_prove_membership(
     # Authentication is required before tenant membership can be checked.
     assert response.status_code == 401
     assert response.json()["detail"] == "Authentication required"
+
+
+def test_suspended_tenant_cannot_access_tenant_api(
+    authenticated_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        "Suspended Tenant",
+        "suspended-tenant",
+    )
+
+    tenant.status = "suspended"
+    db_session.commit()
+
+    response = authenticated_client.get(
+        "/api/v1/customers/",
+        headers=authenticated_client.auth_headers(
+            tenant
+        ),
+    )
+
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "Tenant is suspended"
+    )
+
+
+def test_reactivated_tenant_can_access_tenant_api(
+    authenticated_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        "Reactivated Tenant",
+        "reactivated-tenant",
+    )
+
+    tenant.status = "suspended"
+    db_session.commit()
+
+    blocked = authenticated_client.get(
+        "/api/v1/customers/",
+        headers=authenticated_client.auth_headers(
+            tenant
+        ),
+    )
+
+    assert blocked.status_code == 403
+
+    tenant.status = "active"
+    tenant.suspended_at = None
+    db_session.commit()
+
+    response = authenticated_client.get(
+        "/api/v1/customers/",
+        headers=authenticated_client.auth_headers(
+            tenant
+        ),
+    )
+
+    assert response.status_code == 200
