@@ -20,6 +20,8 @@ from alembic.config import Config
 
 from app.platform import (
     discover_product_migration_locations,
+    discover_products,
+    get_product,
 )
 
 
@@ -57,6 +59,47 @@ def build_config() -> Config:
     )
 
     return config
+
+
+def get_product_version_path(
+    product_slug: str,
+) -> Path:
+    discover_products()
+
+    product = get_product(product_slug)
+
+    if product is None:
+        raise ValueError(
+            f"Unknown product: {product_slug}"
+        )
+
+    package_name = product_slug.replace(
+        "-",
+        "_",
+    )
+
+    expected = (
+        BACKEND_ROOT
+        / "app"
+        / "products"
+        / package_name
+        / "migrations"
+        / "versions"
+    ).resolve()
+
+    locations = set(
+        discover_product_migration_locations(
+            BACKEND_ROOT
+        )
+    )
+
+    if expected not in locations:
+        raise ValueError(
+            "Product does not have a migration "
+            f"versions directory: {product_slug}"
+        )
+
+    return expected
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -113,6 +156,76 @@ def main(argv: list[str] | None = None) -> int:
             config,
             args[0],
         )
+        return 0
+
+    if command_name == "revision":
+        product_slug = None
+        message = None
+        autogenerate = False
+
+        index = 0
+
+        while index < len(args):
+            argument = args[index]
+
+            if argument == "--product":
+                index += 1
+
+                if index >= len(args):
+                    raise SystemExit(
+                        "--product requires a slug"
+                    )
+
+                product_slug = args[index]
+
+            elif argument in ("-m", "--message"):
+                index += 1
+
+                if index >= len(args):
+                    raise SystemExit(
+                        "-m/--message requires text"
+                    )
+
+                message = args[index]
+
+            elif argument == "--autogenerate":
+                autogenerate = True
+
+            else:
+                raise SystemExit(
+                    "Unsupported revision argument: "
+                    f"{argument}"
+                )
+
+            index += 1
+
+        if product_slug is None:
+            raise SystemExit(
+                "revision requires --product"
+            )
+
+        if not message:
+            raise SystemExit(
+                "revision requires -m/--message"
+            )
+
+        try:
+            version_path = (
+                get_product_version_path(
+                    product_slug
+                )
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+
+        command.revision(
+            config,
+            message=message,
+            autogenerate=autogenerate,
+            head="head",
+            version_path=str(version_path),
+        )
+
         return 0
 
     if command_name == "check":

@@ -43,3 +43,49 @@ def test_platform_alembic_uses_space_separator():
         )
         == "space"
     )
+
+
+def test_product_version_path_resolves_assettrack():
+    from scripts.platform_alembic import (
+        get_product_version_path,
+    )
+
+    path = get_product_version_path(
+        "assettrack"
+    )
+
+    assert path.name == "versions"
+    assert path.parent.name == "migrations"
+    assert path.parent.parent.name == "assettrack"
+
+
+def test_product_version_path_rejects_unknown_product():
+    import pytest
+
+    from scripts.platform_alembic import (
+        get_product_version_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Unknown product",
+    ):
+        get_product_version_path(
+            "does-not-exist"
+        )
+
+
+def test_product_version_path_requires_migrations():
+    import pytest
+
+    from scripts.platform_alembic import (
+        get_product_version_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="does not have a migration",
+    ):
+        get_product_version_path(
+            "proofvault"
+        )

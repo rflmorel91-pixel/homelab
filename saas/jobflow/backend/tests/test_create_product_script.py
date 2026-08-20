@@ -75,3 +75,102 @@ def test_create_product_refuses_overwrite(
             name="Existing",
             description="Existing product.",
         )
+
+
+def test_create_product_with_resource_generates_data_layer(
+    tmp_path,
+):
+    backend_root = tmp_path / "backend"
+
+    product_dir = create_product(
+        root=backend_root,
+        slug="assettrack",
+        name="AssetTrack",
+        description="Track assets.",
+        resource="asset",
+    )
+
+    assert (
+        product_dir
+        / "models"
+        / "asset.py"
+    ).exists()
+
+    assert (
+        product_dir
+        / "models"
+        / "__init__.py"
+    ).exists()
+
+    assert (
+        product_dir
+        / "schemas.py"
+    ).exists()
+
+    assert (
+        product_dir
+        / "assets_api.py"
+    ).exists()
+
+    assert (
+        product_dir
+        / "migrations"
+        / "__init__.py"
+    ).exists()
+
+    assert (
+        product_dir
+        / "migrations"
+        / "versions"
+    ).is_dir()
+
+    definition = (
+        product_dir / "definition.py"
+    ).read_text()
+
+    assert "tenant_routers=(" in definition
+    assert "assets_router" in definition
+
+    model = (
+        product_dir
+        / "models"
+        / "asset.py"
+    ).read_text()
+
+    assert (
+        '__tablename__ = "assettrack_assets"'
+        in model
+    )
+
+    assert 'ForeignKey("tenants.id")' in model
+
+    schemas = (
+        product_dir / "schemas.py"
+    ).read_text()
+
+    assert "extra=\"forbid\"" in schemas
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        "BadResource",
+        "bad-resource",
+        "bad resource",
+        "1resource",
+    ],
+)
+def test_create_product_rejects_bad_resource(
+    tmp_path,
+    resource,
+):
+    backend_root = tmp_path / "backend"
+
+    with pytest.raises(ValueError):
+        create_product(
+            root=backend_root,
+            slug="sample",
+            name="Sample",
+            description="Sample.",
+            resource=resource,
+        )

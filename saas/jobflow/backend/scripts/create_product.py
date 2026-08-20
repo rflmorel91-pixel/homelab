@@ -26,6 +26,7 @@ def create_product(
     slug: str,
     name: str,
     description: str,
+    resource: str | None = None,
 ) -> Path:
     if not SLUG_PATTERN.fullmatch(slug):
         raise ValueError(
@@ -34,6 +35,21 @@ def create_product(
         )
 
     package = python_package_name(slug)
+
+    if resource is not None:
+        if not re.fullmatch(
+            r"[a-z][a-z0-9_]*",
+            resource,
+        ):
+            raise ValueError(
+                "resource must use lowercase letters, "
+                "numbers, and underscores"
+            )
+
+        if not resource.isidentifier():
+            raise ValueError(
+                "resource must be a valid Python identifier"
+            )
 
     if not package.isidentifier():
         raise ValueError(
@@ -98,8 +114,8 @@ def {package}_status():
 '''
     )
 
-    (product_dir / "definition.py").write_text(
-        f'''from app.platform import (
+    if resource is None:
+        definition_text = f'''from app.platform import (
     ProductDefinition,
     register_product,
 )
@@ -122,7 +138,310 @@ from app.products.{package}.api import router
     )
 )
 '''
+    else:
+        definition_text = f'''from app.platform import (
+    ProductDefinition,
+    register_product,
+)
+from app.products.{package}.api import (
+    router as status_router,
+)
+from app.products.{package}.{resource}s_api import (
+    router as {resource}s_router,
+)
+
+
+{constant} = register_product(
+    ProductDefinition(
+        slug="{slug}",
+        name="{name}",
+        version="0.1.0",
+        workspace_key="{slug}",
+        landing_route="/{slug}",
+        workspace_route="/{slug}/app",
+        api_prefix="{api_prefix}",
+        routers=(
+            status_router,
+        ),
+        tenant_routers=(
+            {resource}s_router,
+        ),
+        description={description!r},
     )
+)
+'''
+
+    (product_dir / "definition.py").write_text(
+        definition_text
+    )
+
+    if resource is not None:
+        resource_class = "".join(
+            part[:1].upper() + part[1:]
+            for part in resource.split("_")
+        )
+
+        models_dir = product_dir / "models"
+        migrations_dir = (
+            product_dir
+            / "migrations"
+            / "versions"
+        )
+
+        models_dir.mkdir(
+            parents=True,
+        )
+        migrations_dir.mkdir(
+            parents=True,
+        )
+
+        (
+            product_dir
+            / "migrations"
+            / "__init__.py"
+        ).write_text("")
+
+        model_class = resource_class
+
+        (
+            models_dir
+            / f"{resource}.py"
+        ).write_text(
+            f'''from datetime import datetime, timezone
+
+from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class {model_class}(Base):
+    __tablename__ = "{slug.replace("-", "_")}_{resource}s"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+    )
+
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+'''
+        )
+
+        (
+            models_dir
+            / "__init__.py"
+        ).write_text(
+            f'''from app.products.{package}.models.{resource} import (
+    {model_class},
+)
+
+__all__ = [
+    "{model_class}",
+]
+'''
+        )
+
+        (
+            product_dir
+            / "schemas.py"
+        ).write_text(
+            f'''from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class {resource_class}Base(BaseModel):
+    name: str
+
+
+class {resource_class}Create({resource_class}Base):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+
+class {resource_class}Update({resource_class}Base):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+
+class {resource_class}Read({resource_class}Base):
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+'''
+        )
+
+        (
+            product_dir
+            / f"{resource}s_api.py"
+        ).write_text(
+            f'''from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Tenant
+from app.products.{package}.models import {model_class}
+from app.products.{package}.schemas import (
+    {resource_class}Create,
+    {resource_class}Read,
+    {resource_class}Update,
+)
+from app.tenant_context import get_current_tenant
+
+
+router = APIRouter(
+    prefix="/{resource}s",
+    tags=["{name} {resource_class}s"],
+)
+
+
+@router.post(
+    "",
+    response_model={resource_class}Read,
+    status_code=201,
+)
+def create_{resource}(
+    payload: {resource_class}Create,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    item = {model_class}(
+        tenant_id=tenant.id,
+        name=payload.name,
+    )
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.get(
+    "",
+    response_model=list[{resource_class}Read],
+)
+def list_{resource}s(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    result = db.execute(
+        select({model_class})
+        .where(
+            {model_class}.tenant_id
+            == tenant.id
+        )
+        .order_by({model_class}.id)
+    )
+
+    return result.scalars().all()
+
+
+@router.get(
+    "/{{item_id}}",
+    response_model={resource_class}Read,
+)
+def get_{resource}(
+    item_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    item = db.scalar(
+        select({model_class}).where(
+            {model_class}.id == item_id,
+            {model_class}.tenant_id
+            == tenant.id,
+        )
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="{resource_class} not found",
+        )
+
+    return item
+
+
+@router.put(
+    "/{{item_id}}",
+    response_model={resource_class}Read,
+)
+def update_{resource}(
+    item_id: int,
+    payload: {resource_class}Update,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    item = db.scalar(
+        select({model_class}).where(
+            {model_class}.id == item_id,
+            {model_class}.tenant_id
+            == tenant.id,
+        )
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="{resource_class} not found",
+        )
+
+    item.name = payload.name
+
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.delete(
+    "/{{item_id}}",
+    status_code=204,
+)
+def delete_{resource}(
+    item_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    item = db.scalar(
+        select({model_class}).where(
+            {model_class}.id == item_id,
+            {model_class}.tenant_id
+            == tenant.id,
+        )
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="{resource_class} not found",
+        )
+
+    db.delete(item)
+    db.commit()
+'''
+        )
 
     test_path = (
         tests_dir
@@ -230,6 +549,16 @@ def main() -> int:
         default="SaaS product.",
     )
 
+    parser.add_argument(
+        "--with-resource",
+        dest="resource",
+        default=None,
+        help=(
+            "Generate tenant-scoped CRUD for a "
+            "resource, e.g. asset"
+        ),
+    )
+
     args = parser.parse_args()
 
     backend_root = (
@@ -244,6 +573,7 @@ def main() -> int:
             slug=args.slug,
             name=args.name,
             description=args.description,
+            resource=args.resource,
         )
 
     except (
