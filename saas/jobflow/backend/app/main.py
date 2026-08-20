@@ -6,14 +6,17 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
-from app import products as installed_products
 from app.database import SessionLocal
 from app.platform import (
+    discover_products,
     list_products,
     require_active_product,
     synchronize_products,
 )
 
+
+
+discover_products()
 
 
 @asynccontextmanager

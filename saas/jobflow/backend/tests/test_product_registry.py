@@ -4,10 +4,8 @@ from app.platform.products import (
     ProductDefinition,
     ProductRegistry,
 )
-from app.products import (
-    JOBFLOW_PRODUCT,
-    PROOFVAULT_PRODUCT,
-)
+from app.products.jobflow import JOBFLOW_PRODUCT
+from app.products.proofvault import PROOFVAULT_PRODUCT
 
 
 def test_jobflow_product_definition():
@@ -177,3 +175,24 @@ def test_product_definition_requires_absolute_routes(
 
     with pytest.raises(ValueError):
         ProductDefinition(**values)
+
+
+def test_product_discovery_finds_installed_products():
+    from app.platform import discover_products
+
+    discovered = discover_products()
+
+    assert "jobflow" in discovered
+    assert "proofvault" in discovered
+
+
+def test_discovered_products_are_registered():
+    from app.platform import (
+        discover_products,
+        get_product,
+    )
+
+    discover_products()
+
+    assert get_product("jobflow") is not None
+    assert get_product("proofvault") is not None

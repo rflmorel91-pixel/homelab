@@ -1,7 +1,6 @@
-from app.products.jobflow import JOBFLOW_PRODUCT
-from app.products.proofvault import PROOFVAULT_PRODUCT
+"""Installed SaaS product packages.
 
-__all__ = [
-    "JOBFLOW_PRODUCT",
-    "PROOFVAULT_PRODUCT",
-]
+Products are discovered automatically by the platform.
+A product package is installable when it contains a
+definition.py module that registers a ProductDefinition.
+"""

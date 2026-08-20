@@ -1,6 +1,10 @@
 from app.platform.product_context import (
     require_active_product,
 )
+from app.platform.product_discovery import (
+    ProductDiscoveryError,
+    discover_products,
+)
 from app.platform.product_sync import (
     ProductSyncError,
     synchronize_products,
@@ -15,6 +19,8 @@ from app.platform.products import (
 
 __all__ = [
     "require_active_product",
+    "ProductDiscoveryError",
+    "discover_products",
     "ProductSyncError",
     "synchronize_products",
     "ProductDefinition",
