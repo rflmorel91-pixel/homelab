@@ -1,3 +1,7 @@
+from app.platform.product_sync import (
+    ProductSyncError,
+    synchronize_products,
+)
 from app.platform.products import (
     ProductDefinition,
     ProductRegistry,
@@ -7,6 +11,8 @@ from app.platform.products import (
 )
 
 __all__ = [
+    "ProductSyncError",
+    "synchronize_products",
     "ProductDefinition",
     "ProductRegistry",
     "get_product",

@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.admin import router as admin_router
@@ -5,13 +7,33 @@ from app.api.auth import router as auth_router
 from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
 from app import products as installed_products
-from app.platform import list_products
+from app.database import SessionLocal
+from app.platform import (
+    list_products,
+    synchronize_products,
+)
 
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    db = SessionLocal()
+
+    try:
+        synchronize_products(
+            db,
+            list_products(),
+        )
+    finally:
+        db.close()
+
+    yield
 
 
 app = FastAPI(
-    title="JobFlow API",
+    title="SaaS Platform API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
