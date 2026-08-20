@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>RenewalDesk Workspace</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 24px 30px;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #d1d5db;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px 40px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .health {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .panel {
+      background: white;
+      padding: 24px;
+      margin-bottom: 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px
+        rgba(0, 0, 0, 0.08);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px
+        rgba(0, 0, 0, 0.06);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 30px;
+      margin-bottom: 4px;
+    }
+
+    .summary-card span {
+      color: #6b7280;
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(280px, 360px) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      padding: 10px;
+      font: inherit;
+      border-radius: 6px;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid #d1d5db;
+      background: white;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      background: #111827;
+      color: white;
+    }
+
+    button:hover {
+      background: #374151;
+    }
+
+    button.secondary {
+      width: auto;
+      background: #6b7280;
+    }
+
+    button.danger {
+      width: auto;
+      background: #991b1b;
+    }
+
+    .error,
+    .success {
+      display: none;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .renewal-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .renewal-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    .renewal-card h3 {
+      margin: 0 0 6px;
+    }
+
+    .renewal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      color: #6b7280;
+      font-size: 14px;
+      margin: 8px 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .empty {
+      color: #6b7280;
+    }
+
+    @media (max-width: 800px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>RenewalDesk</h1>
+  <p>
+    Track renewals before they become problems.
+  </p>
+</header>
+
+<main>
+
+  <div class="toolbar">
+    <strong>Renewal Workspace</strong>
+
+    <div class="actions">
+      <span
+        id="healthStatus"
+        class="health"
+      >
+        Checking API...
+      </span>
+
+      <button
+        id="logoutButton"
+        type="button"
+        class="secondary"
+        style="display: none;"
+      >
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <div
+    id="errorMessage"
+    class="error"
+  ></div>
+
+  <div
+    id="successMessage"
+    class="success"
+  ></div>
+
+  <section
+    id="authPanel"
+    class="panel"
+  >
+    <h2>Sign In</h2>
+
+    <form id="loginForm">
+      <div>
+        <label for="loginEmail">
+          Email
+        </label>
+        <input
+          id="loginEmail"
+          type="email"
+          autocomplete="username"
+          required
+        >
+      </div>
+
+      <div>
+        <label for="loginPassword">
+          Password
+        </label>
+        <input
+          id="loginPassword"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+      </div>
+
+      <div>
+        <label for="loginTenantId">
+          RenewalDesk Tenant ID
+        </label>
+        <input
+          id="loginTenantId"
+          type="number"
+          min="1"
+          required
+        >
+      </div>
+
+      <button type="submit">
+        Sign In
+      </button>
+    </form>
+  </section>
+
+  <div
+    id="workspace"
+    style="display: none;"
+  >
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <strong id="expiredCount">0</strong>
+        <span>Expired</span>
+      </div>
+
+      <div class="summary-card">
+        <strong id="dueSoonCount">0</strong>
+        <span>Due Soon</span>
+      </div>
+
+      <div class="summary-card">
+        <strong id="upcomingCount">0</strong>
+        <span>Upcoming</span>
+      </div>
+
+      <div class="summary-card">
+        <strong id="inactiveCount">0</strong>
+        <span>Inactive</span>
+      </div>
+    </section>
+
+    <div class="workspace-grid">
+
+      <section class="panel">
+        <h2>Add Renewal</h2>
+
+        <form id="renewalForm">
+          <div>
+            <label for="renewalName">
+              Name
+            </label>
+            <input
+              id="renewalName"
+              maxlength="200"
+              required
+            >
+          </div>
+
+          <div>
+            <label for="renewalCategory">
+              Category
+            </label>
+            <select id="renewalCategory">
+              <option value="license">License</option>
+              <option value="insurance">Insurance</option>
+              <option value="certification">
+                Certification
+              </option>
+              <option value="contract">Contract</option>
+              <option value="permit">Permit</option>
+              <option value="registration">
+                Registration
+              </option>
+              <option value="other" selected>
+                Other
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label for="renewalDate">
+              Renewal Date
+            </label>
+            <input
+              id="renewalDate"
+              type="date"
+              required
+            >
+          </div>
+
+          <div>
+            <label for="renewalOwner">
+              Responsible Owner
+            </label>
+            <input
+              id="renewalOwner"
+              maxlength="200"
+            >
+          </div>
+
+          <div>
+            <label for="reminderDays">
+              Reminder Window (days)
+            </label>
+            <input
+              id="reminderDays"
+              type="number"
+              min="0"
+              max="3650"
+              value="30"
+              required
+            >
+          </div>
+
+          <div>
+            <label for="renewalNotes">
+              Notes
+            </label>
+            <textarea id="renewalNotes"></textarea>
+          </div>
+
+          <button type="submit">
+            Add Renewal
+          </button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Renewals</h2>
+
+        <div id="renewalList">
+          <p class="empty">
+            Loading renewals...
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const API_BASE = "/api/v1";
+  const PRODUCT_BASE =
+    "/products/renewaldesk";
+
+  let tenantId =
+    localStorage.getItem(
+      "renewaldesk_tenant_id"
+    );
+
+  const loginForm =
+    document.getElementById("loginForm");
+
+  const loginEmail =
+    document.getElementById("loginEmail");
+
+  const loginPassword =
+    document.getElementById("loginPassword");
+
+  const loginTenantId =
+    document.getElementById("loginTenantId");
+
+  const logoutButton =
+    document.getElementById("logoutButton");
+
+  const workspace =
+    document.getElementById("workspace");
+
+  const authPanel =
+    document.getElementById("authPanel");
+
+  const healthStatus =
+    document.getElementById("healthStatus");
+
+  const errorMessage =
+    document.getElementById("errorMessage");
+
+  const successMessage =
+    document.getElementById("successMessage");
+
+  const renewalForm =
+    document.getElementById("renewalForm");
+
+  const renewalList =
+    document.getElementById("renewalList");
+
+  const expiredCount =
+    document.getElementById("expiredCount");
+
+  const dueSoonCount =
+    document.getElementById("dueSoonCount");
+
+  const upcomingCount =
+    document.getElementById("upcomingCount");
+
+  const inactiveCount =
+    document.getElementById("inactiveCount");
+
+
+  function setAuthenticatedUI(
+    isAuthenticated
+  ) {
+    authPanel.style.display =
+      isAuthenticated ? "none" : "block";
+
+    workspace.style.display =
+      isAuthenticated ? "block" : "none";
+
+    logoutButton.style.display =
+      isAuthenticated ? "block" : "none";
+  }
+
+
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = "block";
+    successMessage.style.display = "none";
+  }
+
+
+  function showSuccess(message) {
+    successMessage.textContent = message;
+    successMessage.style.display = "block";
+    errorMessage.style.display = "none";
+
+    setTimeout(() => {
+      successMessage.style.display = "none";
+    }, 3000);
+  }
+
+
+  async function apiRequest(
+    path,
+    options = {}
+  ) {
+    const response = await fetch(
+      `${API_BASE}${path}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(tenantId
+            ? {
+                "X-Tenant-ID": tenantId
+              }
+            : {}),
+          ...(options.headers || {})
+        },
+        ...options
+      }
+    );
+
+    if (!response.ok) {
+      let detail =
+        `Request failed (${response.status})`;
+
+      try {
+        const body = await response.json();
+
+        if (body.detail) {
+          detail = body.detail;
+        }
+      } catch {
+        // Keep default message.
+      }
+
+      throw new Error(detail);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+
+  async function checkHealth() {
+    try {
+      const data =
+        await apiRequest("/health");
+
+      healthStatus.textContent =
+        `API: ${data.status}`;
+
+      healthStatus.style.color =
+        "#166534";
+    } catch {
+      healthStatus.textContent =
+        "API unavailable";
+
+      healthStatus.style.color =
+        "#991b1b";
+    }
+  }
+
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  function formatState(state) {
+    const labels = {
+      expired: "Expired",
+      due_soon: "Due Soon",
+      upcoming: "Upcoming",
+      inactive: "Inactive"
+    };
+
+    return labels[state] || state;
+  }
+
+
+  function formatDays(days) {
+    if (days < 0) {
+      return `${Math.abs(days)} day(s) overdue`;
+    }
+
+    if (days === 0) {
+      return "Due today";
+    }
+
+    return `${days} day(s) remaining`;
+  }
+
+
+  function renderRenewals(items) {
+    if (items.length === 0) {
+      renewalList.innerHTML =
+        '<p class="empty">No renewals yet.</p>';
+
+      return;
+    }
+
+    renewalList.innerHTML =
+      '<div class="renewal-list">' +
+      items.map(item => `
+        <article class="renewal-card">
+          <h3>${escapeHtml(item.name)}</h3>
+
+          <span class="badge">
+            ${escapeHtml(
+              formatState(item.renewal_state)
+            )}
+          </span>
+
+          <div class="renewal-meta">
+            <span>
+              ${escapeHtml(item.category)}
+            </span>
+
+            <span>
+              Renewal:
+              ${escapeHtml(item.renewal_date)}
+            </span>
+
+            <span>
+              ${escapeHtml(
+                formatDays(
+                  item.days_until_renewal
+                )
+              )}
+            </span>
+
+            ${
+              item.owner_name
+                ? `<span>Owner:
+                    ${escapeHtml(
+                      item.owner_name
+                    )}
+                   </span>`
+                : ""
+            }
+          </div>
+
+          ${
+            item.notes
+              ? `<p>${escapeHtml(item.notes)}</p>`
+              : ""
+          }
+
+          <button
+            type="button"
+            class="danger"
+            onclick="deleteRenewal(${item.id})"
+          >
+            Delete
+          </button>
+        </article>
+      `).join("") +
+      "</div>";
+  }
+
+
+  async function loadDashboard() {
+    const data = await apiRequest(
+      `${PRODUCT_BASE}/dashboard`
+    );
+
+    expiredCount.textContent =
+      data.expired;
+
+    dueSoonCount.textContent =
+      data.due_soon;
+
+    upcomingCount.textContent =
+      data.upcoming;
+
+    inactiveCount.textContent =
+      data.inactive;
+
+    renderRenewals(data.items);
+  }
+
+
+  async function deleteRenewal(itemId) {
+    if (!confirm(
+      "Delete this renewal?"
+    )) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/items/${itemId}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      await loadDashboard();
+      showSuccess("Renewal deleted.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+
+  loginForm.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      try {
+        await apiRequest(
+          "/auth/login",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              email: loginEmail.value,
+              password: loginPassword.value
+            })
+          }
+        );
+
+        tenantId =
+          loginTenantId.value;
+
+        localStorage.setItem(
+          "renewaldesk_tenant_id",
+          tenantId
+        );
+
+        await loadDashboard();
+
+        loginForm.reset();
+        setAuthenticatedUI(true);
+
+        showSuccess("Signed in.");
+
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+  );
+
+
+  logoutButton.addEventListener(
+    "click",
+    async () => {
+      try {
+        await apiRequest(
+          "/auth/logout",
+          {
+            method: "POST"
+          }
+        );
+      } catch {
+        // Continue local sign-out.
+      }
+
+      tenantId = null;
+
+      localStorage.removeItem(
+        "renewaldesk_tenant_id"
+      );
+
+      location.reload();
+    }
+  );
+
+
+  renewalForm.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      try {
+        await apiRequest(
+          `${PRODUCT_BASE}/items`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name:
+                document.getElementById(
+                  "renewalName"
+                ).value,
+
+              category:
+                document.getElementById(
+                  "renewalCategory"
+                ).value,
+
+              renewal_date:
+                document.getElementById(
+                  "renewalDate"
+                ).value,
+
+              owner_name:
+                document.getElementById(
+                  "renewalOwner"
+                ).value || null,
+
+              reminder_days:
+                Number(
+                  document.getElementById(
+                    "reminderDays"
+                  ).value
+                ),
+
+              notes:
+                document.getElementById(
+                  "renewalNotes"
+                ).value || null,
+
+              status: "active"
+            })
+          }
+        );
+
+        renewalForm.reset();
+
+        document.getElementById(
+          "reminderDays"
+        ).value = "30";
+
+        document.getElementById(
+          "renewalCategory"
+        ).value = "other";
+
+        await loadDashboard();
+
+        showSuccess(
+          "Renewal added."
+        );
+
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+  );
+
+
+  async function initialize() {
+    await checkHealth();
+
+    if (!tenantId) {
+      setAuthenticatedUI(false);
+      return;
+    }
+
+    try {
+      await loadDashboard();
+      setAuthenticatedUI(true);
+    } catch {
+      setAuthenticatedUI(false);
+    }
+  }
+
+
+  initialize();
+</script>
+
+</body>
+</html>
