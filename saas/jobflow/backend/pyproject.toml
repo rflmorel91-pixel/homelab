@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobflow-saas-platform"
+version = "0.1.0"
+description = "Multi-product SaaS platform and product runtime"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi==0.141.1",
+    "uvicorn==0.52.3",
+    "sqlalchemy==2.0.52",
+    "psycopg[binary]==3.3.4",
+    "alembic==1.19.1",
+    "pwdlib[argon2]==0.3.1",
+    "PyJWT==2.13.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==9.1.1",
+    "httpx==0.28.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

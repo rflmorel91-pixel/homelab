@@ -5,3 +5,8 @@ __pycache__/
 
 # Local development secrets
 ../database/.env
+
+# Python packaging artifacts
+dist/
+build/
+*.egg-info/
