@@ -5,6 +5,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    computed_field,
 )
 
 
@@ -13,6 +14,14 @@ RenewalStatus = Literal[
     "renewal_in_progress",
     "renewed",
     "archived",
+    "inactive",
+]
+
+RenewalState = Literal[
+    "upcoming",
+    "due_soon",
+    "expired",
+    "inactive",
 ]
 
 
@@ -50,3 +59,30 @@ class RenewalItemRead(RenewalItemBase):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+    @computed_field
+    @property
+    def days_until_renewal(self) -> int:
+        return (
+            self.renewal_date
+            - date.today()
+        ).days
+
+    @computed_field
+    @property
+    def renewal_state(self) -> RenewalState:
+        days = self.days_until_renewal
+
+        if self.status in {
+            "inactive",
+            "archived",
+        }:
+            return "inactive"
+
+        if days < 0:
+            return "expired"
+
+        if days <= self.reminder_days:
+            return "due_soon"
+
+        return "upcoming"

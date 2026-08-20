@@ -488,3 +488,210 @@ def test_renewaldesk_rejects_invalid_reminder_days(
     )
 
     assert response.status_code == 422
+
+
+def test_renewaldesk_item_reports_upcoming_renewal(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import schemas
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 1)
+
+    monkeypatch.setattr(
+        schemas,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Upcoming Tenant",
+        "renewaldesk-upcoming-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Business License",
+            "renewal_date": "2027-04-01",
+            "reminder_days": 30,
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["renewal_state"] == "upcoming"
+    assert payload["days_until_renewal"] == 90
+
+
+def test_renewaldesk_item_reports_due_soon(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import schemas
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 1)
+
+    monkeypatch.setattr(
+        schemas,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Due Soon Tenant",
+        "renewaldesk-due-soon-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Insurance",
+            "renewal_date": "2027-01-20",
+            "reminder_days": 30,
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["renewal_state"] == "due_soon"
+    assert payload["days_until_renewal"] == 19
+
+
+def test_renewaldesk_item_reports_expired(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import schemas
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        schemas,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Expired Tenant",
+        "renewaldesk-expired-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Contractor License",
+            "renewal_date": "2027-01-10",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["renewal_state"] == "expired"
+    assert payload["days_until_renewal"] == -5
+
+
+def test_inactive_renewaldesk_item_reports_inactive(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import schemas
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        schemas,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Inactive Tenant",
+        "renewaldesk-inactive-tenant",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "name": "Old Insurance Policy",
+            "renewal_date": "2027-01-10",
+            "status": "inactive",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["renewal_state"] == "inactive"
+    assert payload["days_until_renewal"] == -5
