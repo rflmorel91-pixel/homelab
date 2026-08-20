@@ -21,13 +21,15 @@ JOBFLOW_PRODUCT = register_product(
         workspace_route="/app",
         api_prefix="/api/v1",
         routers=(
+            public_requests_router,
+        ),
+        tenant_routers=(
             customers_router,
             jobs_router,
             estimates_router,
             schedules_router,
             invoices_router,
             payments_router,
-            public_requests_router,
         ),
         description=(
             "Workflow management for "

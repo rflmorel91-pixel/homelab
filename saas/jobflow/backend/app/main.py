@@ -12,6 +12,7 @@ from app.platform import (
     discover_products,
     list_products,
     require_active_product,
+    require_product_tenant,
     synchronize_products,
 )
 
@@ -75,6 +76,24 @@ for product in list_products():
                         product.slug
                     )
                 )
+            ],
+        )
+
+    for router in product.tenant_routers:
+        app.include_router(
+            router,
+            prefix=product.api_prefix,
+            dependencies=[
+                Depends(
+                    require_active_product(
+                        product.slug
+                    )
+                ),
+                Depends(
+                    require_product_tenant(
+                        product.slug
+                    )
+                ),
             ],
         )
 

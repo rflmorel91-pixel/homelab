@@ -196,3 +196,13 @@ def test_discovered_products_are_registered():
 
     assert get_product("jobflow") is not None
     assert get_product("proofvault") is not None
+
+
+def test_jobflow_separates_public_and_tenant_routers():
+    assert len(JOBFLOW_PRODUCT.routers) == 1
+    assert len(JOBFLOW_PRODUCT.tenant_routers) == 6
+
+
+def test_proofvault_router_is_not_tenant_scoped():
+    assert len(PROOFVAULT_PRODUCT.routers) == 1
+    assert PROOFVAULT_PRODUCT.tenant_routers == ()

@@ -19,6 +19,7 @@ class ProductDefinition:
     workspace_route: str
     api_prefix: str
     routers: tuple[APIRouter, ...] = ()
+    tenant_routers: tuple[APIRouter, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:

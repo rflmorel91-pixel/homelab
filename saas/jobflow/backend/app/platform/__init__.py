@@ -1,6 +1,9 @@
 from app.platform.product_context import (
     require_active_product,
 )
+from app.platform.product_tenant_context import (
+    require_product_tenant,
+)
 from app.platform.product_discovery import (
     ProductDiscoveryError,
     discover_products,
@@ -25,6 +28,7 @@ from app.platform.products import (
 
 __all__ = [
     "require_active_product",
+    "require_product_tenant",
     "ProductDiscoveryError",
     "discover_products",
     "discover_product_models",
