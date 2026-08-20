@@ -86,3 +86,12 @@ class RenewalItemRead(RenewalItemBase):
             return "due_soon"
 
         return "upcoming"
+
+
+class RenewalDashboard(BaseModel):
+    total: int
+    expired: int
+    due_soon: int
+    upcoming: int
+    inactive: int
+    items: list[RenewalItemRead]

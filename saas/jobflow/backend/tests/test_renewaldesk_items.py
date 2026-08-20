@@ -695,3 +695,186 @@ def test_inactive_renewaldesk_item_reports_inactive(
 
     assert payload["renewal_state"] == "inactive"
     assert payload["days_until_renewal"] == -5
+
+
+DASHBOARD_URL = "/api/v1/products/renewaldesk/dashboard"
+
+
+def test_renewaldesk_dashboard_summarizes_renewals(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import schemas
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        schemas,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Dashboard Tenant",
+        "renewaldesk-dashboard-tenant",
+    )
+
+    headers = client.auth_headers(tenant)
+
+    items = [
+        {
+            "name": "Expired License",
+            "renewal_date": "2027-01-10",
+            "reminder_days": 30,
+        },
+        {
+            "name": "Insurance Due Soon",
+            "renewal_date": "2027-01-25",
+            "reminder_days": 30,
+        },
+        {
+            "name": "Upcoming Permit",
+            "renewal_date": "2027-04-15",
+            "reminder_days": 30,
+        },
+        {
+            "name": "Inactive Registration",
+            "renewal_date": "2027-01-01",
+            "status": "inactive",
+        },
+    ]
+
+    for item in items:
+        response = client.post(
+            ITEMS_URL,
+            headers=headers,
+            json=item,
+        )
+
+        assert response.status_code == 201
+
+    response = client.get(
+        DASHBOARD_URL,
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["total"] == 4
+    assert payload["expired"] == 1
+    assert payload["due_soon"] == 1
+    assert payload["upcoming"] == 1
+    assert payload["inactive"] == 1
+
+    assert [
+        item["name"]
+        for item in payload["items"]
+    ] == [
+        "Expired License",
+        "Insurance Due Soon",
+        "Upcoming Permit",
+        "Inactive Registration",
+    ]
+
+
+def test_renewaldesk_dashboard_is_tenant_scoped(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant_a = create_tenant(
+        db_session,
+        renewaldesk,
+        "Dashboard Tenant A",
+        "dashboard-tenant-a",
+    )
+
+    tenant_b = create_tenant(
+        db_session,
+        renewaldesk,
+        "Dashboard Tenant B",
+        "dashboard-tenant-b",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(
+            tenant_a
+        ),
+        json={
+            "name": "Tenant A License",
+            "renewal_date": "2027-06-01",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        DASHBOARD_URL,
+        headers=client.auth_headers(
+            tenant_b
+        ),
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["total"] == 0
+    assert payload["expired"] == 0
+    assert payload["due_soon"] == 0
+    assert payload["upcoming"] == 0
+    assert payload["inactive"] == 0
+    assert payload["items"] == []
+
+
+def test_jobflow_tenant_cannot_use_renewaldesk_dashboard(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    jobflow = get_product(
+        db_session,
+        "jobflow",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        jobflow,
+        "Wrong Product Dashboard Tenant",
+        "wrong-product-dashboard-tenant",
+    )
+
+    response = client.get(
+        DASHBOARD_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Tenant does not belong to this product"
+    )
