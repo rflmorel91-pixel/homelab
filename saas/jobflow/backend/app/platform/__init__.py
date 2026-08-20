@@ -1,3 +1,8 @@
+from app.platform.product_paths import (
+    product_roots,
+    register_product_root,
+    unregister_product_root,
+)
 from app.platform.product_context import (
     require_active_product,
 )
@@ -28,6 +33,9 @@ from app.platform.products import (
 )
 
 __all__ = [
+    "unregister_product_root",
+    "register_product_root",
+    "product_roots",
     "require_active_product",
     "require_product_tenant",
     "ProductDiscoveryError",

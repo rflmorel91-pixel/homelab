@@ -1,43 +1,68 @@
 from importlib import import_module
 from pathlib import Path
 
+from app.platform.product_paths import (
+    product_roots,
+    register_product_root,
+    unregister_product_root,
+)
+
 
 class ProductDiscoveryError(RuntimeError):
     pass
 
 
-def discover_products() -> tuple[str, ...]:
-    products_path = (
-        Path(__file__).resolve().parents[1]
-        / "products"
-    )
+def discover_products(
+    root: Path | None = None,
+) -> tuple[str, ...]:
+    temporary_root = root is not None
 
-    discovered = []
+    if root is not None:
+        register_product_root(root)
 
-    for entry in sorted(products_path.iterdir()):
-        if not entry.is_dir():
-            continue
+    discovered: list[str] = []
 
-        if entry.name.startswith("_"):
-            continue
+    try:
+        for products_path in product_roots():
+            for entry in sorted(
+                products_path.iterdir()
+            ):
+                if not entry.is_dir():
+                    continue
 
-        definition = entry / "definition.py"
+                if entry.name.startswith("_"):
+                    continue
 
-        if not definition.is_file():
-            continue
+                definition = (
+                    entry
+                    / "definition.py"
+                )
 
-        module_name = (
-            f"app.products.{entry.name}.definition"
+                if not definition.is_file():
+                    continue
+
+                module_name = (
+                    "app.products."
+                    f"{entry.name}.definition"
+                )
+
+                try:
+                    import_module(module_name)
+                except Exception as exc:
+                    raise ProductDiscoveryError(
+                        "Failed to load product "
+                        f"{entry.name}: {exc}"
+                    ) from exc
+
+                if entry.name not in discovered:
+                    discovered.append(
+                        entry.name
+                    )
+
+        return tuple(
+            sorted(discovered)
         )
 
-        try:
-            import_module(module_name)
-        except Exception as exc:
-            raise ProductDiscoveryError(
-                "Failed to load product "
-                f"{entry.name}: {exc}"
-            ) from exc
-
-        discovered.append(entry.name)
-
-    return tuple(discovered)
+    finally:
+        if temporary_root:
+            unregister_product_root(root)

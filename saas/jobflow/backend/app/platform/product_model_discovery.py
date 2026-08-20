@@ -4,45 +4,72 @@ from pathlib import Path
 from app.platform.product_discovery import (
     ProductDiscoveryError,
 )
+from app.platform.product_paths import (
+    product_roots,
+    register_product_root,
+    unregister_product_root,
+)
 
 
-def discover_product_models() -> tuple[str, ...]:
-    products_path = (
-        Path(__file__).resolve().parents[1]
-        / "products"
-    )
+def discover_product_models(
+    root: Path | None = None,
+) -> tuple[str, ...]:
+    temporary_root = root is not None
 
-    discovered = []
+    if root is not None:
+        register_product_root(root)
 
-    for entry in sorted(products_path.iterdir()):
-        if not entry.is_dir():
-            continue
+    discovered: list[str] = []
 
-        if entry.name.startswith("_"):
-            continue
+    try:
+        for products_path in product_roots():
+            for entry in sorted(
+                products_path.iterdir()
+            ):
+                if not entry.is_dir():
+                    continue
 
-        models_package = entry / "models"
+                if entry.name.startswith("_"):
+                    continue
 
-        if not models_package.is_dir():
-            continue
+                models_package = (
+                    entry
+                    / "models"
+                )
 
-        init_file = models_package / "__init__.py"
+                if not models_package.is_dir():
+                    continue
 
-        if not init_file.is_file():
-            continue
+                init_file = (
+                    models_package
+                    / "__init__.py"
+                )
 
-        module_name = (
-            f"app.products.{entry.name}.models"
+                if not init_file.is_file():
+                    continue
+
+                module_name = (
+                    "app.products."
+                    f"{entry.name}.models"
+                )
+
+                try:
+                    import_module(module_name)
+                except Exception as exc:
+                    raise ProductDiscoveryError(
+                        "Failed to load product models "
+                        f"for {entry.name}: {exc}"
+                    ) from exc
+
+                if entry.name not in discovered:
+                    discovered.append(
+                        entry.name
+                    )
+
+        return tuple(
+            sorted(discovered)
         )
 
-        try:
-            import_module(module_name)
-        except Exception as exc:
-            raise ProductDiscoveryError(
-                "Failed to load product models "
-                f"for {entry.name}: {exc}"
-            ) from exc
-
-        discovered.append(entry.name)
-
-    return tuple(discovered)
+    finally:
+        if temporary_root:
+            unregister_product_root(root)
