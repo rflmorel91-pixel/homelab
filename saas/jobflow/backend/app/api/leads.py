@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import (
     AdminAuditLog,
     Lead,
+    Product,
     Tenant,
     TenantMembership,
     User,
@@ -35,6 +36,28 @@ router = APIRouter(
     prefix="/leads",
     tags=["Leads"],
 )
+
+
+def build_lead_read(
+    lead: Lead,
+    product: Product,
+) -> LeadRead:
+    return LeadRead(
+        id=lead.id,
+        product_id=lead.product_id,
+        product_slug=product.slug,
+        product_name=product.name,
+        business_name=lead.business_name,
+        contact_name=lead.contact_name,
+        email=lead.email,
+        phone=lead.phone,
+        service_type=lead.service_type,
+        message=lead.message,
+        status=lead.status,
+        converted_tenant_id=lead.converted_tenant_id,
+        converted_at=lead.converted_at,
+        created_at=lead.created_at,
+    )
 
 
 @router.get(
@@ -75,15 +98,28 @@ def list_leads(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_operator),
 ):
-    result = db.execute(
-        select(Lead)
+    rows = db.execute(
+        select(
+            Lead,
+            Product,
+        )
+        .join(
+            Product,
+            Product.id == Lead.product_id,
+        )
         .order_by(
             Lead.created_at.desc(),
             Lead.id.desc(),
         )
-    )
+    ).all()
 
-    return result.scalars().all()
+    return [
+        build_lead_read(
+            lead,
+            product,
+        )
+        for lead, product in rows
+    ]
 
 
 @router.put(
@@ -124,7 +160,21 @@ def update_lead(
     db.commit()
     db.refresh(db_lead)
 
-    return db_lead
+    product = db.get(
+        Product,
+        db_lead.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Lead product is unavailable",
+        )
+
+    return build_lead_read(
+        db_lead,
+        product,
+    )
 
 
 @router.post(
@@ -317,4 +367,18 @@ def reopen_legacy_conversion(
     db.commit()
     db.refresh(lead)
 
-    return lead
+    product = db.get(
+        Product,
+        lead.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Lead product is unavailable",
+        )
+
+    return build_lead_read(
+        lead,
+        product,
+    )

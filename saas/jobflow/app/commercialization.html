@@ -182,6 +182,16 @@
       Checking operator access...
     </div>
 
+    <div style="margin: 16px 0;">
+      <label for="productFilter">
+        <strong>Product</strong>
+      </label>
+
+      <select id="productFilter">
+        <option value="">All Products</option>
+      </select>
+    </div>
+
     <div id="leadList">
       <p class="empty">Loading leads...</p>
     </div>
@@ -200,7 +210,11 @@
   const leadList =
     document.getElementById("leadList");
 
+  const productFilter =
+    document.getElementById("productFilter");
+
   let provisioningOwners = [];
+  let operatorLeads = [];
 
 
   async function apiRequest(path, options = {}) {
@@ -436,6 +450,12 @@
         <div class="card">
           <strong>${escapeHtml(lead.business_name)}</strong>
 
+          <div class="meta">
+            Product:
+            ${escapeHtml(lead.product_name)}
+            (${escapeHtml(lead.product_slug)})
+          </div>
+
           <div>
             Contact: ${escapeHtml(lead.contact_name)}
           </div>
@@ -621,10 +641,34 @@
       provisioningOwners =
         provisioningOptions.owners;
 
+      operatorLeads = leads;
+
+      const products = Array.from(
+        new Map(
+          leads.map(lead => [
+            lead.product_slug,
+            lead.product_name
+          ])
+        ).entries()
+      ).sort(
+        (a, b) => a[1].localeCompare(b[1])
+      );
+
+      productFilter.innerHTML = `
+        <option value="">All Products</option>
+        ${
+          products.map(([slug, name]) => `
+            <option value="${escapeHtml(slug)}">
+              ${escapeHtml(name)}
+            </option>
+          `).join("")
+        }
+      `;
+
       operatorStatus.textContent =
         "Platform operator access verified.";
 
-      renderLeads(leads);
+      renderLeads(operatorLeads);
 
     } catch (error) {
       operatorStatus.textContent = error.message;
@@ -634,6 +678,22 @@
         '<p class="empty">Lead data is unavailable.</p>';
     }
   }
+
+
+  productFilter.addEventListener(
+    "change",
+    () => {
+      const selected = productFilter.value;
+
+      renderLeads(
+        selected
+          ? operatorLeads.filter(
+              lead => lead.product_slug === selected
+            )
+          : operatorLeads
+      );
+    }
+  );
 
 
   loadOperatorLeads();

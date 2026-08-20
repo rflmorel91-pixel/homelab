@@ -48,6 +48,9 @@ def test_platform_admin_can_list_leads(
     assert any(
         item["id"] == lead.id
         and item["email"] == "protected-lead@example.com"
+        and item["product_id"] == lead.product_id
+        and item["product_slug"] == "jobflow"
+        and item["product_name"] == "JobFlow"
         for item in payload
     )
 
