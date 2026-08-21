@@ -26,6 +26,7 @@ test = [
 [project.scripts]
 saas-create-product = "scripts.create_product:main"
 saas-alembic = "scripts.platform_alembic:main"
+saas-validate-product = "scripts.validate_product:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

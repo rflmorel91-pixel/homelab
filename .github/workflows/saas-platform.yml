@@ -1,0 +1,46 @@
+name: SaaS Platform CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "saas/jobflow/backend/**"
+      - "saas/jobflow/docs/developer/**"
+      - ".github/workflows/saas-platform.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "saas/jobflow/backend/**"
+      - "saas/jobflow/docs/developer/**"
+      - ".github/workflows/saas-platform.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  product-contract:
+    name: Product Contract Validation
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: saas/jobflow/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: saas/jobflow/backend/pyproject.toml
+
+      - name: Install platform
+        run: python -m pip install --editable .
+
+      - name: Validate installed products
+        run: saas-validate-product
