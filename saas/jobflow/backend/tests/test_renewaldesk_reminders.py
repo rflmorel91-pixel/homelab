@@ -57,6 +57,8 @@ def create_renewal_item(
         name="General Liability Insurance",
         renewal_date=date(2027, 2, 15),
         status="active",
+        owner_name="Renewal Owner",
+        owner_email="owner@example.test",
         reminder_days=30,
     )
 
@@ -471,7 +473,16 @@ def create_pending_delivery(
 def test_reminder_process_marks_delivery_sent(
     authenticated_client,
     db_session,
+    monkeypatch,
 ):
+    from app.products.renewaldesk import reminders_api
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        lambda delivery, item: None,
+    )
+
     client = authenticated_client
 
     tenant = create_renewaldesk_tenant(
@@ -518,7 +529,7 @@ def test_reminder_process_marks_failure(
 ):
     from app.products.renewaldesk import reminders_api
 
-    def fail_delivery(delivery):
+    def fail_delivery(delivery, item):
         raise RuntimeError("Delivery failed")
 
     monkeypatch.setattr(
@@ -607,7 +618,16 @@ def test_reminder_process_skips_sent_delivery(
 def test_reminder_process_is_tenant_scoped(
     authenticated_client,
     db_session,
+    monkeypatch,
 ):
+    from app.products.renewaldesk import reminders_api
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        lambda delivery, item: None,
+    )
+
     client = authenticated_client
 
     tenant_one = create_renewaldesk_tenant(
@@ -665,3 +685,153 @@ def test_reminder_process_is_tenant_scoped(
 
     assert delivery_one.status == "sent"
     assert delivery_two.status == "pending"
+
+
+def test_smtp_delivery_uses_owner_email(
+    monkeypatch,
+):
+    from app.products.renewaldesk import smtp_delivery
+
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_HOST",
+        "smtp.example.test",
+    )
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_PORT",
+        "587",
+    )
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_FROM_EMAIL",
+        "reminders@example.test",
+    )
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_USE_TLS",
+        "true",
+    )
+
+    sent_messages = []
+
+    class FakeSMTP:
+        def __init__(
+            self,
+            host,
+            port,
+            timeout,
+        ):
+            assert host == "smtp.example.test"
+            assert port == 587
+            assert timeout == 15
+
+        def __enter__(self):
+            return self
+
+        def __exit__(
+            self,
+            exc_type,
+            exc,
+            tb,
+        ):
+            return False
+
+        def starttls(self):
+            return None
+
+        def send_message(
+            self,
+            message,
+        ):
+            sent_messages.append(message)
+
+    monkeypatch.setattr(
+        smtp_delivery.smtplib,
+        "SMTP",
+        FakeSMTP,
+    )
+
+    item = RenewalItem(
+        tenant_id=1,
+        name="Business Insurance",
+        renewal_date=date(2027, 3, 1),
+        owner_name="Office Manager",
+        owner_email="owner@example.test",
+        reminder_days=30,
+    )
+
+    delivery = RenewalReminderDelivery(
+        tenant_id=1,
+        renewal_item_id=1,
+        channel="email",
+        status="pending",
+        scheduled_for=datetime(
+            2027,
+            1,
+            30,
+            9,
+            0,
+        ),
+    )
+
+    smtp_delivery.send_reminder_email(
+        delivery,
+        item,
+    )
+
+    assert len(sent_messages) == 1
+
+    message = sent_messages[0]
+
+    assert message["To"] == (
+        "owner@example.test"
+    )
+    assert message["From"] == (
+        "reminders@example.test"
+    )
+    assert "Business Insurance" in (
+        message["Subject"]
+    )
+
+
+def test_smtp_delivery_requires_owner_email(
+    monkeypatch,
+):
+    from app.products.renewaldesk import smtp_delivery
+
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_HOST",
+        "smtp.example.test",
+    )
+    monkeypatch.setenv(
+        "RENEWALDESK_SMTP_FROM_EMAIL",
+        "reminders@example.test",
+    )
+
+    item = RenewalItem(
+        tenant_id=1,
+        name="Business Insurance",
+        renewal_date=date(2027, 3, 1),
+        owner_email=None,
+        reminder_days=30,
+    )
+
+    delivery = RenewalReminderDelivery(
+        tenant_id=1,
+        renewal_item_id=1,
+        channel="email",
+        status="pending",
+        scheduled_for=datetime(
+            2027,
+            1,
+            30,
+            9,
+            0,
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no owner email",
+    ):
+        smtp_delivery.send_reminder_email(
+            delivery,
+            item,
+        )

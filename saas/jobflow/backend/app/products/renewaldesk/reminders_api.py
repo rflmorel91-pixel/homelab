@@ -14,6 +14,9 @@ from app.products.renewaldesk.schemas import (
     RenewalItemRead,
     RenewalReminderDeliveryRead,
 )
+from app.products.renewaldesk.smtp_delivery import (
+    send_reminder_email,
+)
 from app.tenant_context import get_current_tenant
 
 
@@ -75,8 +78,12 @@ def reminder_scheduled_for(
 
 def deliver_reminder(
     delivery: RenewalReminderDelivery,
+    item: RenewalItem,
 ) -> None:
-    return None
+    send_reminder_email(
+        delivery,
+        item,
+    )
 
 
 def process_pending_deliveries(
@@ -100,8 +107,25 @@ def process_pending_deliveries(
     processed = []
 
     for delivery in deliveries:
+        item = db.scalar(
+            select(RenewalItem).where(
+                RenewalItem.id
+                == delivery.renewal_item_id,
+                RenewalItem.tenant_id
+                == tenant_id,
+            )
+        )
+
         try:
-            deliver_reminder(delivery)
+            if item is None:
+                raise RuntimeError(
+                    "Renewal item not found"
+                )
+
+            deliver_reminder(
+                delivery,
+                item,
+            )
 
             delivery.status = "sent"
             delivery.sent_at = datetime.now()
