@@ -210,6 +210,11 @@ from app.products.{package}.{resource}s_api import (
             / "__init__.py"
         ).write_text("")
 
+        (
+            migrations_dir
+            / "__init__.py"
+        ).write_text("")
+
         model_class = resource_class
 
         (

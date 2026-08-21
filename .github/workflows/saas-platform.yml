@@ -59,3 +59,22 @@ jobs:
           saas-validate-product \
             factory-proof \
             --root "$factory_root"
+
+      - name: Validate installed standalone plugin
+        run: |
+          plugin_root="$(mktemp -d)"
+
+          saas-create-product \
+            external-proof \
+            "External Proof" \
+            --description "Installed plugin packaging proof." \
+            --with-resource record \
+            --standalone \
+            --root "$plugin_root"
+
+          python -m pip install \
+            --no-deps \
+            "$plugin_root/external-proof-product"
+
+          cd /tmp
+          saas-validate-product external-proof

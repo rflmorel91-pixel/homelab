@@ -124,6 +124,13 @@ def test_create_product_with_resource_generates_data_layer(
         / "versions"
     ).is_dir()
 
+    assert (
+        product_dir
+        / "migrations"
+        / "versions"
+        / "__init__.py"
+    ).is_file()
+
     definition = (
         product_dir / "definition.py"
     ).read_text()
@@ -295,6 +302,13 @@ def test_create_standalone_product_generates_installable_project(
         / "migrations"
         / "versions"
     ).is_dir()
+
+    assert (
+        product_dir
+        / "migrations"
+        / "versions"
+        / "__init__.py"
+    ).is_file()
 
     assert (
         project_dir / "pyproject.toml"
