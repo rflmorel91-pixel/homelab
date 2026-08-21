@@ -78,3 +78,29 @@ jobs:
 
           cd /tmp
           saas-validate-product external-proof
+
+      - name: Validate platform release wheel
+        run: |
+          release_root="$(mktemp -d)"
+
+          python -m pip wheel \
+            --no-deps \
+            --wheel-dir "$release_root/wheels" \
+            .
+
+          platform_wheel="$(
+            find "$release_root/wheels" \
+              -maxdepth 1 \
+              -name 'jobflow_saas_platform-*.whl' \
+              -print \
+              | head -1
+          )"
+
+          python -m venv "$release_root/venv"
+
+          "$release_root/venv/bin/python" \
+            -m pip install \
+            "$platform_wheel"
+
+          cd /tmp
+          "$release_root/venv/bin/saas-validate-product"
