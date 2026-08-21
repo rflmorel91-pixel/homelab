@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import sys
 
@@ -18,13 +19,9 @@ if str(SOURCE_BACKEND_ROOT) not in sys.path:
     )
 
 
-from app.platform import (
-    discover_product_migration_locations,
-    discover_products,
-    get_product,
-)
-from app.platform.installed_product_migrations import (
-    installed_product_migration_locations,
+os.environ.setdefault(
+    "JWT_SECRET",
+    "saas-alembic-tooling-secret-at-least-32-bytes",
 )
 
 
@@ -49,6 +46,13 @@ def build_config(
     *,
     root: Path | None = None,
 ) -> Config:
+    from app.platform import (
+        discover_product_migration_locations,
+    )
+    from app.platform.installed_product_migrations import (
+        installed_product_migration_locations,
+    )
+
     if root is None:
         root = workspace_root()
 
@@ -125,6 +129,12 @@ def get_product_version_path(
     *,
     root: Path | None = None,
 ) -> Path:
+    from app.platform import (
+        discover_product_migration_locations,
+        discover_products,
+        get_product,
+    )
+
     if root is None:
         root = workspace_root()
 
@@ -213,6 +223,30 @@ def main(
     if argv is None:
         argv = sys.argv[1:]
 
+    if argv in (
+        ["-h"],
+        ["--help"],
+        ["help"],
+    ):
+        print(
+            "Usage: saas-alembic "
+            "[--root PATH] "
+            "<command> [arguments...]"
+        )
+        print()
+        print("Commands:")
+        print("  heads")
+        print("  current")
+        print("  history [REV_RANGE]")
+        print("  upgrade REVISION")
+        print("  downgrade REVISION")
+        print(
+            "  revision --product SLUG "
+            "--autogenerate -m MESSAGE"
+        )
+        print("  check")
+        return 0
+
     root, argv = parse_root(argv)
 
     if not argv:
@@ -220,6 +254,14 @@ def main(
             "Usage: saas-alembic "
             "[--root PATH] "
             "<command> [arguments...]",
+            file=sys.stderr,
+        )
+        return 2
+
+    if not os.getenv("DATABASE_URL"):
+        print(
+            "ERROR: DATABASE_URL environment "
+            "variable is required",
             file=sys.stderr,
         )
         return 2

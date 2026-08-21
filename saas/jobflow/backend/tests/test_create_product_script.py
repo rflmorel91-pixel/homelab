@@ -364,6 +364,7 @@ def test_standalone_pyproject_declares_platform_dependency(
 ):
     from scripts.create_product import (
         create_standalone_product,
+        platform_package_version,
     )
 
     project_dir = create_standalone_product(
@@ -384,7 +385,8 @@ def test_standalone_pyproject_declares_platform_dependency(
     )
 
     assert (
-        '"jobflow-saas-platform==0.1.0"'
+        '"jobflow-saas-platform=='
+        f'{platform_package_version()}"'
         in pyproject
     )
 

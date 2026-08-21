@@ -1,7 +1,12 @@
 import argparse
+from importlib.metadata import (
+    PackageNotFoundError,
+    version as distribution_version,
+)
 from pathlib import Path
 import re
 import sys
+import tomllib
 
 
 SLUG_PATTERN = re.compile(
@@ -10,6 +15,30 @@ SLUG_PATTERN = re.compile(
 
 
 PLATFORM_CONTRACT_VERSION = 1
+
+
+def platform_package_version() -> str:
+    source_pyproject = (
+        Path(__file__).resolve().parents[1]
+        / "pyproject.toml"
+    )
+
+    if source_pyproject.is_file():
+        with source_pyproject.open("rb") as file:
+            configuration = tomllib.load(file)
+
+        return str(
+            configuration["project"]["version"]
+        )
+
+    try:
+        return distribution_version(
+            "jobflow-saas-platform"
+        )
+    except PackageNotFoundError as exc:
+        raise RuntimeError(
+            "Unable to determine platform package version"
+        ) from exc
 
 
 def python_package_name(slug: str) -> str:
@@ -633,7 +662,7 @@ version = "0.1.0"
 description = {description!r}
 requires-python = ">=3.14"
 dependencies = [
-    "jobflow-saas-platform==0.1.0",
+    "jobflow-saas-platform=={platform_package_version()}",
 ]
 
 [tool.setuptools.packages.find]
