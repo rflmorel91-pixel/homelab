@@ -223,3 +223,214 @@ def test_different_reminder_occurrences_are_allowed(
     ).all()
 
     assert len(stored) == 2
+
+
+REMINDER_QUEUE_URL = (
+    "/api/v1/products/renewaldesk/reminders/queue"
+)
+
+
+def test_reminder_queue_creates_pending_delivery(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 20)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Reminder Queue Tenant",
+        slug="reminder-queue-tenant",
+    )
+
+    item = RenewalItem(
+        tenant_id=tenant.id,
+        name="Queue Insurance",
+        renewal_date=date(2027, 2, 15),
+        status="active",
+        reminder_days=30,
+    )
+
+    db_session.add(item)
+    db_session.commit()
+    db_session.refresh(item)
+
+    response = client.post(
+        REMINDER_QUEUE_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert len(payload) == 1
+    assert payload[0]["renewal_item_id"] == item.id
+    assert payload[0]["channel"] == "email"
+    assert payload[0]["status"] == "pending"
+    assert payload[0]["scheduled_for"].startswith(
+        "2027-01-16T09:00:00"
+    )
+
+    stored = db_session.scalars(
+        select(RenewalReminderDelivery)
+        .where(
+            RenewalReminderDelivery.tenant_id
+            == tenant.id
+        )
+    ).all()
+
+    assert len(stored) == 1
+
+
+def test_reminder_queue_is_idempotent(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 20)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Idempotent Queue Tenant",
+        slug="idempotent-queue-tenant",
+    )
+
+    item = RenewalItem(
+        tenant_id=tenant.id,
+        name="Idempotent Insurance",
+        renewal_date=date(2027, 2, 15),
+        status="active",
+        reminder_days=30,
+    )
+
+    db_session.add(item)
+    db_session.commit()
+    db_session.refresh(item)
+
+    headers = client.auth_headers(tenant)
+
+    first = client.post(
+        REMINDER_QUEUE_URL,
+        headers=headers,
+    )
+
+    second = client.post(
+        REMINDER_QUEUE_URL,
+        headers=headers,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    assert first.json()[0]["id"] == (
+        second.json()[0]["id"]
+    )
+
+    stored = db_session.scalars(
+        select(RenewalReminderDelivery)
+        .where(
+            RenewalReminderDelivery.renewal_item_id
+            == item.id
+        )
+    ).all()
+
+    assert len(stored) == 1
+
+
+def test_reminder_queue_ignores_ineligible_items(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Queue Eligibility Tenant",
+        slug="queue-eligibility-tenant",
+    )
+
+    items = [
+        RenewalItem(
+            tenant_id=tenant.id,
+            name="Too Far Away",
+            renewal_date=date(2027, 4, 1),
+            status="active",
+            reminder_days=30,
+        ),
+        RenewalItem(
+            tenant_id=tenant.id,
+            name="Already Renewed",
+            renewal_date=date(2027, 1, 20),
+            status="renewed",
+            reminder_days=30,
+        ),
+        RenewalItem(
+            tenant_id=tenant.id,
+            name="Inactive",
+            renewal_date=date(2027, 1, 20),
+            status="inactive",
+            reminder_days=30,
+        ),
+    ]
+
+    db_session.add_all(items)
+    db_session.commit()
+
+    response = client.post(
+        REMINDER_QUEUE_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    stored = db_session.scalars(
+        select(RenewalReminderDelivery)
+        .where(
+            RenewalReminderDelivery.tenant_id
+            == tenant.id
+        )
+    ).all()
+
+    assert stored == []

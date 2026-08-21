@@ -95,3 +95,18 @@ class RenewalDashboard(BaseModel):
     upcoming: int
     inactive: int
     items: list[RenewalItemRead]
+
+
+class RenewalReminderDeliveryRead(BaseModel):
+    id: int
+    renewal_item_id: int
+    channel: str
+    status: str
+    scheduled_for: datetime
+    sent_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
