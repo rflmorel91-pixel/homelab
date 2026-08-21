@@ -255,9 +255,13 @@ def test_validator_runs_without_application_environment():
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/validate_product.py",
+            str(
+                backend_root
+                / "scripts"
+                / "validate_product.py"
+            ),
         ],
-        cwd=backend_root,
+        cwd=backend_root.parents[2],
         env=environment,
         capture_output=True,
         text=True,
@@ -270,3 +274,14 @@ def test_validator_runs_without_application_environment():
     assert "Validated 5 products." in (
         result.stdout
     )
+    assert (
+        "product=assettrack "
+        in result.stdout
+    )
+    assert (
+        "product=renewaldesk "
+        in result.stdout
+    )
+    assert result.stdout.count(
+        "migration_locations=1"
+    ) == 2

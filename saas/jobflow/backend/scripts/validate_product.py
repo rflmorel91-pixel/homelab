@@ -156,10 +156,10 @@ def main() -> int:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path.cwd(),
+        default=BACKEND_ROOT,
         help=(
             "Backend workspace root "
-            "(default: current directory)."
+            "(default: installed platform root)."
         ),
     )
 
