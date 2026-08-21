@@ -278,3 +278,47 @@ def test_provisioned_tenant_preserves_lead_product(
     assert tenant is not None
     assert tenant.product_id == proofvault.id
     assert tenant.product_id == lead.product_id
+
+
+def test_renewaldesk_public_pilot_request_is_product_owned(
+    raw_client,
+    db_session,
+):
+    from app.models import Product
+
+    response = raw_client.post(
+        "/api/v1/public/products/renewaldesk/leads",
+        json={
+            "business_name": "Renewal Test Office",
+            "contact_name": "Renewal Contact",
+            "email": "renewal-pilot@example.com",
+            "phone": "555-0199",
+            "service_type": "Professional Office",
+            "message": (
+                "We manage insurance, licenses, "
+                "and certification renewals."
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "received"
+
+    renewaldesk = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+
+    assert renewaldesk is not None
+
+    lead = db_session.get(
+        Lead,
+        response.json()["lead_id"],
+    )
+
+    assert lead is not None
+    assert lead.product_id == renewaldesk.id
+    assert lead.business_name == "Renewal Test Office"
+    assert lead.service_type == "Professional Office"
+    assert lead.status == "new"

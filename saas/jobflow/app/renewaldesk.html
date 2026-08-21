@@ -83,6 +83,134 @@
       background: #111827;
       color: white;
     }
+
+    .hero {
+      padding: 88px 24px 64px;
+      text-align: center;
+    }
+
+    .offer {
+      max-width: 760px;
+      margin: 40px auto 0;
+      padding: 32px;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      background: white;
+      text-align: left;
+      box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+    }
+
+    .offer h2,
+    .request h2 {
+      margin-top: 0;
+      font-size: 30px;
+    }
+
+    .price {
+      margin: 12px 0;
+      color: #111827;
+      font-size: 40px;
+      font-weight: bold;
+    }
+
+    .price span {
+      color: #6b7280;
+      font-size: 17px;
+      font-weight: normal;
+    }
+
+    .offer ul {
+      padding-left: 22px;
+    }
+
+    .offer-note {
+      color: #4b5563;
+      font-size: 15px;
+    }
+
+    .request {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 64px 24px 88px;
+    }
+
+    .request-intro {
+      color: #4b5563;
+    }
+
+    .lead-form {
+      display: grid;
+      gap: 16px;
+      margin-top: 28px;
+      text-align: left;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      font-weight: bold;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #9ca3af;
+      border-radius: 7px;
+      background: white;
+      color: #111827;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    .form-status {
+      min-height: 26px;
+      font-weight: bold;
+    }
+
+    .terms {
+      color: #4b5563;
+      font-size: 14px;
+    }
+
+    footer {
+      padding: 28px 24px;
+      background: #111827;
+      color: white;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .offer {
+        padding: 24px;
+      }
+    }
   </style>
 </head>
 
@@ -100,22 +228,224 @@
   </nav>
 </header>
 
-<main>
+<main class="hero">
   <h1>Never miss an important renewal.</h1>
 
   <p class="lead">
-    Track licenses, insurance policies,
-    certifications, contracts, and other
-    recurring deadlines in one place.
+    Track licenses, insurance policies, certifications,
+    contracts, subscriptions, and other recurring deadlines
+    in one organized workspace.
   </p>
 
-  <a
-    class="button primary"
-    href="/renewaldesk/app"
-  >
-    Open RenewalDesk
+  <a class="button primary" href="#pilot">
+    Request Pilot Access
   </a>
+
+  <section class="offer" aria-labelledby="offer-title">
+    <h2 id="offer-title">RenewalDesk 30-Day Pilot</h2>
+
+    <div class="price">
+      $99
+      <span>one-time pilot fee</span>
+    </div>
+
+    <p>
+      Get a private RenewalDesk workspace with assisted setup
+      and a structured end-of-pilot review.
+    </p>
+
+    <ul>
+      <li>One organization workspace</li>
+      <li>Renewal tracking and urgency dashboard</li>
+      <li>Ownership and configurable reminder timing</li>
+      <li>Email reminder delivery and history</li>
+      <li>Search, filtering, and record editing</li>
+      <li>Standard assisted onboarding</li>
+    </ul>
+
+    <p class="offer-note">
+      The pilot lasts 30 calendar days. There is no automatic
+      renewal or subscription commitment. Custom development
+      and guaranteed continuous availability are not included.
+      Access is subject to qualification and confirmed payment.
+    </p>
+  </section>
 </main>
+
+<section id="pilot" class="request">
+  <h2>Request RenewalDesk pilot access</h2>
+
+  <p class="request-intro">
+    Tell us about your organization and the renewals you need
+    to manage. Submitting this form is a request, not a purchase
+    or automatic account activation.
+  </p>
+
+  <form id="leadForm" class="lead-form">
+    <div class="form-grid">
+      <label>
+        Organization name
+        <input
+          id="leadBusinessName"
+          type="text"
+          autocomplete="organization"
+          required
+        >
+      </label>
+
+      <label>
+        Your name
+        <input
+          id="leadContactName"
+          type="text"
+          autocomplete="name"
+          required
+        >
+      </label>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        Email
+        <input
+          id="leadEmail"
+          type="email"
+          autocomplete="email"
+          required
+        >
+      </label>
+
+      <label>
+        Phone
+        <input
+          id="leadPhone"
+          type="tel"
+          autocomplete="tel"
+        >
+      </label>
+    </div>
+
+    <label>
+      Organization type
+      <select id="leadServiceType" required>
+        <option value="">Select an organization type</option>
+        <option value="Small Business">Small business</option>
+        <option value="Property Management">Property management</option>
+        <option value="Professional Office">Professional office</option>
+        <option value="Nonprofit">Nonprofit</option>
+        <option value="IT Services">IT services</option>
+        <option value="Consulting">Consulting</option>
+        <option value="Other">Other</option>
+      </select>
+    </label>
+
+    <label>
+      What renewals do you need to manage?
+      <textarea
+        id="leadMessage"
+        placeholder="For example: insurance policies, licenses, contracts, subscriptions, or certifications."
+      ></textarea>
+    </label>
+
+    <button
+      id="leadSubmit"
+      class="button primary"
+      type="submit"
+    >
+      Request Pilot Access
+    </button>
+
+    <p class="terms">
+      The pilot is a one-time $99 offer for 30 days.
+      It does not renew automatically.
+    </p>
+
+    <div
+      id="leadMessageStatus"
+      class="form-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+  </form>
+</section>
+
+<footer>
+  RenewalDesk
+</footer>
+
+<script>
+  const leadForm = document.getElementById("leadForm");
+  const leadSubmit = document.getElementById("leadSubmit");
+  const leadMessageStatus =
+    document.getElementById("leadMessageStatus");
+
+  leadForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    leadSubmit.disabled = true;
+    leadMessageStatus.textContent = "Submitting your request...";
+
+    try {
+      const response = await fetch(
+        "/api/v1/public/products/renewaldesk/leads",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            business_name:
+              document.getElementById(
+                "leadBusinessName"
+              ).value,
+            contact_name:
+              document.getElementById(
+                "leadContactName"
+              ).value,
+            email:
+              document.getElementById(
+                "leadEmail"
+              ).value,
+            phone:
+              document.getElementById(
+                "leadPhone"
+              ).value || null,
+            service_type:
+              document.getElementById(
+                "leadServiceType"
+              ).value,
+            message:
+              document.getElementById(
+                "leadMessage"
+              ).value || null
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const detail = typeof data.detail === "string"
+          ? data.detail
+          : "Unable to submit your request.";
+
+        throw new Error(detail);
+      }
+
+      leadForm.reset();
+
+      leadMessageStatus.textContent =
+        `Thanks! Your RenewalDesk pilot request #${data.lead_id} was received. We will follow up before any payment or account activation.`;
+
+    } catch (error) {
+      leadMessageStatus.textContent =
+        error.message || "Unable to submit your request.";
+
+    } finally {
+      leadSubmit.disabled = false;
+    }
+  });
+</script>
 
 </body>
 </html>
