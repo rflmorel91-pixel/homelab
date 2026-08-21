@@ -434,3 +434,234 @@ def test_reminder_queue_ignores_ineligible_items(
     ).all()
 
     assert stored == []
+
+
+REMINDER_PROCESS_URL = (
+    "/api/v1/products/renewaldesk/reminders/process"
+)
+
+
+def create_pending_delivery(
+    db_session,
+    tenant,
+    item,
+):
+    delivery = RenewalReminderDelivery(
+        tenant_id=tenant.id,
+        renewal_item_id=item.id,
+        channel="email",
+        status="pending",
+        scheduled_for=datetime(
+            2027,
+            1,
+            16,
+            9,
+            0,
+            0,
+        ),
+    )
+
+    db_session.add(delivery)
+    db_session.commit()
+    db_session.refresh(delivery)
+
+    return delivery
+
+
+def test_reminder_process_marks_delivery_sent(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Reminder Process Tenant",
+        slug="reminder-process-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert len(payload) == 1
+    assert payload[0]["id"] == delivery.id
+    assert payload[0]["status"] == "sent"
+    assert payload[0]["sent_at"] is not None
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "sent"
+    assert delivery.sent_at is not None
+
+
+def test_reminder_process_marks_failure(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    def fail_delivery(delivery):
+        raise RuntimeError("Delivery failed")
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        fail_delivery,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Reminder Failure Tenant",
+        slug="reminder-failure-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "failed"
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "failed"
+    assert delivery.sent_at is None
+
+
+def test_reminder_process_skips_sent_delivery(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Reminder Sent Tenant",
+        slug="reminder-sent-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.status = "sent"
+    delivery.sent_at = datetime(
+        2027,
+        1,
+        16,
+        9,
+        5,
+        0,
+    )
+
+    db_session.commit()
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_reminder_process_is_tenant_scoped(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    tenant_one = create_renewaldesk_tenant(
+        db_session,
+        name="Process Tenant One",
+        slug="process-tenant-one",
+    )
+
+    tenant_two = create_renewaldesk_tenant(
+        db_session,
+        name="Process Tenant Two",
+        slug="process-tenant-two",
+    )
+
+    item_one = create_renewal_item(
+        db_session,
+        tenant_one,
+    )
+
+    item_two = create_renewal_item(
+        db_session,
+        tenant_two,
+    )
+
+    delivery_one = create_pending_delivery(
+        db_session,
+        tenant_one,
+        item_one,
+    )
+
+    delivery_two = create_pending_delivery(
+        db_session,
+        tenant_two,
+        item_two,
+    )
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(
+            tenant_one
+        ),
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert [
+        delivery["id"]
+        for delivery in payload
+    ] == [delivery_one.id]
+
+    db_session.refresh(delivery_one)
+    db_session.refresh(delivery_two)
+
+    assert delivery_one.status == "sent"
+    assert delivery_two.status == "pending"

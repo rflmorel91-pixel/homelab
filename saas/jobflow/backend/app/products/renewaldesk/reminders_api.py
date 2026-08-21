@@ -73,6 +73,53 @@ def reminder_scheduled_for(
     )
 
 
+def deliver_reminder(
+    delivery: RenewalReminderDelivery,
+) -> None:
+    return None
+
+
+def process_pending_deliveries(
+    db: Session,
+    tenant_id: int,
+) -> list[RenewalReminderDelivery]:
+    deliveries = db.scalars(
+        select(RenewalReminderDelivery)
+        .where(
+            RenewalReminderDelivery.tenant_id
+            == tenant_id,
+            RenewalReminderDelivery.status
+            == "pending",
+        )
+        .order_by(
+            RenewalReminderDelivery.scheduled_for,
+            RenewalReminderDelivery.id,
+        )
+    ).all()
+
+    processed = []
+
+    for delivery in deliveries:
+        try:
+            deliver_reminder(delivery)
+
+            delivery.status = "sent"
+            delivery.sent_at = datetime.now()
+
+        except Exception:
+            delivery.status = "failed"
+            delivery.sent_at = None
+
+        processed.append(delivery)
+
+    db.commit()
+
+    for delivery in processed:
+        db.refresh(delivery)
+
+    return processed
+
+
 @router.get(
     "/candidates",
     response_model=list[RenewalItemRead],
@@ -140,3 +187,17 @@ def queue_reminder_deliveries(
         db.refresh(delivery)
 
     return deliveries
+
+
+@router.post(
+    "/process",
+    response_model=list[RenewalReminderDeliveryRead],
+)
+def process_reminder_deliveries(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    return process_pending_deliveries(
+        db,
+        tenant.id,
+    )
