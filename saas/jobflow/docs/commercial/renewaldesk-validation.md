@@ -1,8 +1,30 @@
 # RenewalDesk Customer Validation Plan
 
 Version: 1.0
-Status: Customer validation pending
+Status: Customer validation bypassed by documented operator assumption
 Last updated: 2026-08-21
+
+---
+
+## Operator Decision
+
+On 2026-08-21, the operator decided to proceed under the explicit
+assumption that a market need exists for RenewalDesk.
+
+The original validation thresholds remain documented below as the
+preferred evidence standard, but they are not being treated as a
+prerequisite for the current packaging experiment.
+
+This decision is a risk acceptance. It must not be described as
+customer validation or product-market fit.
+
+Commercial outcomes—including purchase, activation, real use,
+retention, and continuation—must remain distinguished from assumed
+demand.
+
+See:
+
+`renewaldesk-pilot-offer.md`
 
 ---
 
@@ -219,23 +241,28 @@ Allow additional engineering only when required to:
 
 Current position:
 
-Build → **Document** → Demonstrate → Customer Validation → Package → Sell
+Build → Document → Demonstrate → Customer Validation →
+**Package** → Sell
 
-Build is complete enough for validation.
+Customer validation was bypassed through an explicit operator
+assumption. The project must not present the assumed need as observed
+customer evidence.
 
-This document completes the initial documentation step. The project should now move to demonstration and customer conversations rather than additional speculative development.
+The current package is the one-time, 30-day RenewalDesk pilot defined
+in `renewaldesk-pilot-offer.md`.
 
 ---
 
 ## 10. Single Next Milestone
 
-Complete one RenewalDesk customer discovery interview that includes a short product demonstration, and record the evidence in the repository.
+Publish the RenewalDesk pilot offer on the existing landing page with a
+clear request-access action.
 
 Completion criteria:
 
-- A real prospect participates
-- Their current renewal workflow is documented
-- Problem severity and consequences are recorded
-- RenewalDesk is demonstrated
-- Product reaction and pilot interest are recorded
-- Assumptions are clearly separated from evidence
+- The offer states the one-time `$99` price
+- The offer states the 30-day duration
+- Included and excluded scope is clear
+- Automatic renewal is explicitly disabled
+- The page provides a request-access action
+- No recurring billing implementation is added
