@@ -24,6 +24,13 @@ Validate one product:
 The command validates Contract v1 definitions, routes, router scopes,
 models, and migration discovery without connecting to a database.
 
+## Platform Release Policy
+
+Platform package versioning, release gates, artifacts, rollback, and
+distribution rules are defined in:
+
+`platform-release-policy.md`
+
 ## Current Extension Status
 
 Supported:
