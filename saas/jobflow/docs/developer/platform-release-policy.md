@@ -361,6 +361,10 @@ Current distribution status:
 
 Internal source and wheel validation only.
 
+Current internal release record:
+
+`releases/saas-platform-v0.1.0.md`
+
 Current release readiness:
 
 - Contract validation automated
