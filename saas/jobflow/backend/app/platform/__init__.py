@@ -29,6 +29,10 @@ from app.platform.product_sync import (
     ProductSyncError,
     synchronize_products,
 )
+from app.platform.product_validation import (
+    ProductValidationError,
+    validate_product_definitions,
+)
 from app.platform.products import (
     PLATFORM_CONTRACT_VERSION,
     ProductDefinition,
@@ -37,6 +41,7 @@ from app.platform.products import (
     list_products,
     register_product,
 )
+
 
 __all__ = [
     "installed_product_packages",
@@ -54,6 +59,8 @@ __all__ = [
     "discover_product_migration_locations",
     "ProductSyncError",
     "synchronize_products",
+    "ProductValidationError",
+    "validate_product_definitions",
     "PLATFORM_CONTRACT_VERSION",
     "ProductDefinition",
     "ProductRegistry",

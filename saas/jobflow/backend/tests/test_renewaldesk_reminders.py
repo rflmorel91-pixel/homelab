@@ -708,6 +708,14 @@ def test_smtp_delivery_uses_owner_email(
         "RENEWALDESK_SMTP_USE_TLS",
         "true",
     )
+    monkeypatch.delenv(
+        "RENEWALDESK_SMTP_USERNAME",
+        raising=False,
+    )
+    monkeypatch.delenv(
+        "RENEWALDESK_SMTP_PASSWORD",
+        raising=False,
+    )
 
     sent_messages = []
 

@@ -324,6 +324,45 @@ Contract upgrades should be intentional developer actions.
 
 ---
 
+## Product Validation
+
+Contract v1 provides a pre-deployment product validator.
+
+From the backend directory, validate every discovered product:
+
+    .venv/bin/python scripts/validate_product.py
+
+Validate one product by persistent product slug:
+
+    .venv/bin/python scripts/validate_product.py renewaldesk
+
+The validator checks:
+
+- product discovery
+- Platform Contract version
+- unique landing and workspace routes
+- unique API prefixes
+- public and tenant router registration
+- router type and prefix validity
+- separation of public and tenant router scopes
+- product model discovery
+- product migration-location discovery
+
+Products without models or migrations may still be valid.
+
+The validator reports discovered capabilities without requiring a
+database connection or modifying data.
+
+A successful validation returns exit code `0`.
+
+A discovery or contract failure returns exit code `1` with a clear
+error.
+
+Platform releases should run the validator before the full automated
+test suite and migration checks.
+
+---
+
 ## Compatibility Testing
 
 Before releasing a platform change intended to remain Contract v1

@@ -11,6 +11,19 @@ The platform supports automatically discovered SaaS product packages
 with platform-owned routing composition, synchronization, lifecycle
 enforcement, and shared control-plane services.
 
+## Product Validation
+
+From the backend directory, validate all products:
+
+    .venv/bin/python scripts/validate_product.py
+
+Validate one product:
+
+    .venv/bin/python scripts/validate_product.py <product-slug>
+
+The command validates Contract v1 definitions, routes, router scopes,
+models, and migration discovery without connecting to a database.
+
 ## Current Extension Status
 
 Supported:
@@ -21,6 +34,7 @@ Supported:
 - database product synchronization
 - lifecycle enforcement
 - generated product scaffolding
+- pre-deployment product validation
 
 Now formalized:
 
