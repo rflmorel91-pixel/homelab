@@ -11,6 +11,9 @@ from app.products.renewaldesk.items_api import (
 from app.products.renewaldesk.dashboard_api import (
     router as dashboard_router,
 )
+from app.products.renewaldesk.reminders_api import (
+    router as reminders_router,
+)
 
 
 RENEWALDESK_PRODUCT = register_product(
@@ -30,6 +33,7 @@ RENEWALDESK_PRODUCT = register_product(
         tenant_routers=(
             items_router,
             dashboard_router,
+            reminders_router,
         ),
         description='Track recurring licenses, certifications, and renewal deadlines.',
     )

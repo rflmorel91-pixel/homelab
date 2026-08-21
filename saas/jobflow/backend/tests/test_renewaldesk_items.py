@@ -878,3 +878,244 @@ def test_jobflow_tenant_cannot_use_renewaldesk_dashboard(
     assert response.json()["detail"] == (
         "Tenant does not belong to this product"
     )
+
+
+REMINDER_CANDIDATES_URL = (
+    "/api/v1/products/renewaldesk/reminders/candidates"
+)
+
+
+def test_renewaldesk_lists_reminder_candidates(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "Reminder Candidate Tenant",
+        "reminder-candidate-tenant",
+    )
+
+    headers = client.auth_headers(tenant)
+
+    items = [
+        {
+            "name": "Expired License",
+            "renewal_date": "2027-01-10",
+            "reminder_days": 30,
+            "status": "active",
+        },
+        {
+            "name": "Boundary Insurance",
+            "renewal_date": "2027-02-14",
+            "reminder_days": 30,
+            "status": "active",
+        },
+        {
+            "name": "Renewal In Progress",
+            "renewal_date": "2027-01-25",
+            "reminder_days": 30,
+            "status": "renewal_in_progress",
+        },
+        {
+            "name": "Too Far Away",
+            "renewal_date": "2027-03-01",
+            "reminder_days": 30,
+            "status": "active",
+        },
+        {
+            "name": "Already Renewed",
+            "renewal_date": "2027-01-20",
+            "reminder_days": 30,
+            "status": "renewed",
+        },
+        {
+            "name": "Inactive Policy",
+            "renewal_date": "2027-01-20",
+            "reminder_days": 30,
+            "status": "inactive",
+        },
+        {
+            "name": "Archived Permit",
+            "renewal_date": "2027-01-20",
+            "reminder_days": 30,
+            "status": "archived",
+        },
+    ]
+
+    for item in items:
+        response = client.post(
+            ITEMS_URL,
+            headers=headers,
+            json=item,
+        )
+
+        assert response.status_code == 201
+
+    response = client.get(
+        REMINDER_CANDIDATES_URL,
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert [
+        item["name"]
+        for item in payload
+    ] == [
+        "Expired License",
+        "Renewal In Progress",
+        "Boundary Insurance",
+    ]
+
+
+def test_renewaldesk_reminder_candidates_are_tenant_scoped(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 15)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant_a = create_tenant(
+        db_session,
+        renewaldesk,
+        "Reminder Tenant A",
+        "reminder-tenant-a",
+    )
+
+    tenant_b = create_tenant(
+        db_session,
+        renewaldesk,
+        "Reminder Tenant B",
+        "reminder-tenant-b",
+    )
+
+    response = client.post(
+        ITEMS_URL,
+        headers=client.auth_headers(
+            tenant_a
+        ),
+        json={
+            "name": "Tenant A License",
+            "renewal_date": "2027-01-20",
+            "reminder_days": 30,
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        REMINDER_CANDIDATES_URL,
+        headers=client.auth_headers(
+            tenant_b
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_wrong_product_tenant_cannot_list_reminder_candidates(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    jobflow = get_product(
+        db_session,
+        "jobflow",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        jobflow,
+        "Wrong Product Reminder Tenant",
+        "wrong-product-reminder-tenant",
+    )
+
+    response = client.get(
+        REMINDER_CANDIDATES_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Tenant does not belong to this product"
+    )
+
+
+def test_suspended_tenant_cannot_list_reminder_candidates(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "Suspended Reminder Tenant",
+        "suspended-reminder-tenant",
+    )
+
+    tenant.status = "suspended"
+    db_session.commit()
+
+    response = client.get(
+        REMINDER_CANDIDATES_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Tenant is suspended"
+    )
