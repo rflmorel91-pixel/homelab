@@ -175,6 +175,19 @@
       color: #166534;
     }
 
+    .renewal-filters {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .renewal-result-count {
+      color: #6b7280;
+      font-size: 14px;
+      margin: 0 0 14px;
+    }
+
     .renewal-list {
       display: grid;
       gap: 12px;
@@ -221,6 +234,10 @@
       .toolbar {
         align-items: flex-start;
         flex-direction: column;
+      }
+
+      .renewal-filters {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -475,6 +492,53 @@
       <section class="panel">
         <h2>Renewals</h2>
 
+        <div class="renewal-filters">
+          <div>
+            <label for="renewalSearch">
+              Search
+            </label>
+            <input
+              id="renewalSearch"
+              type="search"
+              placeholder="Name, category, owner, notes"
+            >
+          </div>
+
+          <div>
+            <label for="renewalStatusFilter">
+              Status
+            </label>
+            <select id="renewalStatusFilter">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="renewal_in_progress">
+                Renewal In Progress
+              </option>
+              <option value="renewed">Renewed</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="renewalUrgencyFilter">
+              Urgency
+            </label>
+            <select id="renewalUrgencyFilter">
+              <option value="">All urgency</option>
+              <option value="expired">Expired</option>
+              <option value="due_soon">Due Soon</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <p
+          id="renewalResultCount"
+          class="renewal-result-count"
+        ></p>
+
         <div id="renewalList">
           <p class="empty">
             Loading renewals...
@@ -545,6 +609,26 @@
 
   const renewalList =
     document.getElementById("renewalList");
+
+  const renewalSearch =
+    document.getElementById(
+      "renewalSearch"
+    );
+
+  const renewalStatusFilter =
+    document.getElementById(
+      "renewalStatusFilter"
+    );
+
+  const renewalUrgencyFilter =
+    document.getElementById(
+      "renewalUrgencyFilter"
+    );
+
+  const renewalResultCount =
+    document.getElementById(
+      "renewalResultCount"
+    );
 
   const expiredCount =
     document.getElementById("expiredCount");
@@ -694,7 +778,7 @@
   function renderRenewals(items) {
     if (items.length === 0) {
       renewalList.innerHTML =
-        '<p class="empty">No renewals yet.</p>';
+        '<p class="empty">No matching renewals.</p>';
 
       return;
     }
@@ -772,6 +856,73 @@
   let dashboardItems = [];
 
 
+  function applyRenewalFilters() {
+    const query =
+      renewalSearch.value
+        .trim()
+        .toLowerCase();
+
+    const status =
+      renewalStatusFilter.value;
+
+    const urgency =
+      renewalUrgencyFilter.value;
+
+    const filteredItems =
+      dashboardItems.filter(item => {
+        const searchableText = [
+          item.name,
+          item.category,
+          item.owner_name,
+          item.notes
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        const matchesSearch =
+          !query ||
+          searchableText.includes(query);
+
+        const matchesStatus =
+          !status ||
+          item.status === status;
+
+        const matchesUrgency =
+          !urgency ||
+          item.renewal_state === urgency;
+
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesUrgency
+        );
+      });
+
+    renewalResultCount.textContent =
+      `${filteredItems.length} of ` +
+      `${dashboardItems.length} renewal(s)`;
+
+    renderRenewals(filteredItems);
+  }
+
+
+  renewalSearch.addEventListener(
+    "input",
+    applyRenewalFilters
+  );
+
+  renewalStatusFilter.addEventListener(
+    "change",
+    applyRenewalFilters
+  );
+
+  renewalUrgencyFilter.addEventListener(
+    "change",
+    applyRenewalFilters
+  );
+
+
   async function loadDashboard() {
     const data = await apiRequest(
       `${PRODUCT_BASE}/dashboard`
@@ -791,7 +942,7 @@
     inactiveCount.textContent =
       data.inactive;
 
-    renderRenewals(dashboardItems);
+    applyRenewalFilters();
   }
 
 
