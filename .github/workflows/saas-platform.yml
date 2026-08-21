@@ -44,3 +44,18 @@ jobs:
 
       - name: Validate installed products
         run: saas-validate-product
+
+      - name: Validate generated product round trip
+        run: |
+          factory_root="$(mktemp -d)"
+
+          saas-create-product \
+            factory-proof \
+            "Factory Proof" \
+            --description "CI product factory proof." \
+            --with-resource record \
+            --root "$factory_root"
+
+          saas-validate-product \
+            factory-proof \
+            --root "$factory_root"
