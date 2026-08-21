@@ -104,3 +104,54 @@ jobs:
 
           cd /tmp
           "$release_root/venv/bin/saas-validate-product"
+
+  backend-tests:
+    name: Backend Tests and Migration Check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: saas/jobflow/backend
+
+    env:
+      POSTGRES_PASSWORD: jobflow-ci-test-password
+      DATABASE_URL: postgresql+psycopg://jobflow:jobflow-ci-test-password@127.0.0.1:5433/jobflow_test
+      JWT_SECRET: jobflow-ci-jwt-secret-at-least-32-bytes
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jobflow_test
+          POSTGRES_USER: jobflow
+          POSTGRES_PASSWORD: jobflow-ci-test-password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U jobflow -d jobflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: saas/jobflow/backend/pyproject.toml
+
+      - name: Install platform and test dependencies
+        run: python -m pip install --editable ".[test]"
+
+      - name: Apply platform migrations
+        run: python scripts/platform_alembic.py upgrade head
+
+      - name: Run backend test suite
+        run: pytest -q
+
+      - name: Check migration drift
+        run: python scripts/platform_alembic.py check
