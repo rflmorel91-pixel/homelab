@@ -1119,3 +1119,61 @@ def test_suspended_tenant_cannot_list_reminder_candidates(
     assert response.json()["detail"] == (
         "Tenant is suspended"
     )
+
+
+def test_renewaldesk_item_supports_owner_email(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Owner Email Tenant",
+        "renewaldesk-owner-email-tenant",
+    )
+
+    headers = client.auth_headers(tenant)
+
+    create_response = client.post(
+        ITEMS_URL,
+        headers=headers,
+        json={
+            "name": "Business Insurance",
+            "renewal_date": "2027-03-01",
+            "owner_name": "Office Manager",
+            "owner_email": "office@example.com",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    payload = create_response.json()
+
+    assert payload["owner_email"] == (
+        "office@example.com"
+    )
+
+    item_id = payload["id"]
+
+    update_response = client.put(
+        f"{ITEMS_URL}/{item_id}",
+        headers=headers,
+        json={
+            "name": "Business Insurance",
+            "renewal_date": "2027-03-01",
+            "owner_name": "Operations Manager",
+            "owner_email": "ops@example.com",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["owner_email"] == (
+        "ops@example.com"
+    )

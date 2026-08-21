@@ -31,6 +31,10 @@ class RenewalItemBase(BaseModel):
     renewal_date: date
     status: RenewalStatus = "active"
     owner_name: str | None = None
+    owner_email: str | None = Field(
+        default=None,
+        max_length=320,
+    )
     reminder_days: int = Field(
         default=30,
         ge=0,

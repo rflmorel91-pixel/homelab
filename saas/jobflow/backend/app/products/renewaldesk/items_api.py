@@ -36,6 +36,7 @@ def create_renewal_item(
         renewal_date=item.renewal_date,
         status=item.status,
         owner_name=item.owner_name,
+        owner_email=item.owner_email,
         reminder_days=item.reminder_days,
         notes=item.notes,
     )
@@ -119,6 +120,7 @@ def update_renewal_item(
     item.renewal_date = update.renewal_date
     item.status = update.status
     item.owner_name = update.owner_name
+    item.owner_email = update.owner_email
     item.reminder_days = update.reminder_days
     item.notes = update.notes
 

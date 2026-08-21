@@ -53,6 +53,11 @@ class RenewalItem(Base):
         nullable=True,
     )
 
+    owner_email: Mapped[str | None] = mapped_column(
+        String(320),
+        nullable=True,
+    )
+
     reminder_days: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

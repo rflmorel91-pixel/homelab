@@ -484,6 +484,18 @@
           </div>
 
           <div>
+            <label for="renewalOwnerEmail">
+              Owner Email
+            </label>
+            <input
+              id="renewalOwnerEmail"
+              type="email"
+              maxlength="320"
+              autocomplete="email"
+            >
+          </div>
+
+          <div>
             <label for="reminderDays">
               Reminder Window (days)
             </label>
@@ -855,6 +867,16 @@
                    </span>`
                 : ""
             }
+
+            ${
+              item.owner_email
+                ? `<span>Email:
+                    ${escapeHtml(
+                      item.owner_email
+                    )}
+                   </span>`
+                : ""
+            }
           </div>
 
           ${
@@ -907,6 +929,7 @@
           item.name,
           item.category,
           item.owner_name,
+          item.owner_email,
           item.notes
         ]
           .filter(Boolean)
@@ -1067,6 +1090,10 @@
     ).value = item.owner_name || "";
 
     document.getElementById(
+      "renewalOwnerEmail"
+    ).value = item.owner_email || "";
+
+    document.getElementById(
       "reminderDays"
     ).value = String(
       item.reminder_days
@@ -1214,6 +1241,11 @@
         owner_name:
           document.getElementById(
             "renewalOwner"
+          ).value || null,
+
+        owner_email:
+          document.getElementById(
+            "renewalOwnerEmail"
           ).value || null,
 
         reminder_days:
