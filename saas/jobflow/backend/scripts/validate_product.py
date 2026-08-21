@@ -18,6 +18,10 @@ os.environ.setdefault(
     "DATABASE_URL",
     "sqlite+pysqlite:///:memory:",
 )
+os.environ.setdefault(
+    "JWT_SECRET",
+    "product-validator-local-secret-at-least-32-bytes",
+)
 
 
 from app.platform import (

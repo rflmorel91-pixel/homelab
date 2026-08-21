@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+import subprocess
+import sys
+
 from pathlib import Path
 
 from fastapi import APIRouter
@@ -232,3 +237,36 @@ def test_cli_validator_validates_real_product(
     assert "contract=1" in output
     assert "models=yes" in output
     assert "Validated 1 product." in output
+
+def test_validator_runs_without_application_environment():
+    backend_root = (
+        Path(__file__).resolve().parents[1]
+    )
+    environment = os.environ.copy()
+    environment.pop(
+        "DATABASE_URL",
+        None,
+    )
+    environment.pop(
+        "JWT_SECRET",
+        None,
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/validate_product.py",
+        ],
+        cwd=backend_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        result.stdout + result.stderr
+    )
+    assert "Validated 5 products." in (
+        result.stdout
+    )
