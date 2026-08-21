@@ -24,6 +24,15 @@ Validate one product:
 The command validates Contract v1 definitions, routes, router scopes,
 models, and migration discovery without connecting to a database.
 
+## Platform Developer Demonstration
+
+The verified standalone-product developer journey is documented in:
+
+`platform-developer-demonstration.md`
+
+Use this runbook to conduct and record an external developer
+demonstration before expanding the platform speculatively.
+
 ## Platform Release Policy
 
 Platform package versioning, release gates, artifacts, rollback, and
