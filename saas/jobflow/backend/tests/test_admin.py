@@ -1014,3 +1014,85 @@ def test_unauthenticated_user_cannot_view_product_detail(
     )
 
     assert response.status_code == 401
+
+
+
+def test_admin_overview_excludes_commercial_only_user(
+    client,
+    db_session,
+):
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+        User,
+    )
+
+    make_platform_admin(db_session)
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    client_tenant = Tenant(
+        product_id=product.id,
+        client_number=901,
+        name="Commercial Overview Test",
+        slug="commercial-overview-test",
+        status="active",
+    )
+
+    commercial_user = User(
+        email="commercial-overview@example.com",
+        display_name="Commercial Overview User",
+        password_hash="unused",
+        is_active=True,
+        is_platform_admin=False,
+    )
+
+    db_session.add_all([
+        client_tenant,
+        commercial_user,
+    ])
+    db_session.flush()
+
+    db_session.add(
+        TenantMembership(
+            tenant_id=client_tenant.id,
+            user_id=commercial_user.id,
+            role="owner",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/admin/overview"
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert all(
+        user["id"] != commercial_user.id
+        for user in payload["users"]
+    )
+
+    assert payload["counts"]["users"] == len(
+        payload["users"]
+    )
+
+    product_response = client.get(
+        f"/api/v1/admin/products/{product.id}"
+    )
+
+    assert product_response.status_code == 200
+
+    assert any(
+        user["user_id"] == commercial_user.id
+        and user["client_number"] == 901
+        for user in product_response.json()["users"]
+    )

@@ -105,9 +105,47 @@ def admin_overview(
         select(Product).order_by(Product.id)
     ).scalars().all()
 
-    users = db.execute(
+    all_users = db.execute(
         select(User).order_by(User.id)
     ).scalars().all()
+
+    commercial_user_ids = set(
+        db.scalars(
+            select(TenantMembership.user_id)
+            .join(
+                Tenant,
+                Tenant.id
+                == TenantMembership.tenant_id,
+            )
+            .where(
+                Tenant.client_number.is_not(None)
+            )
+        ).all()
+    )
+
+    validation_user_ids = set(
+        db.scalars(
+            select(TenantMembership.user_id)
+            .join(
+                Tenant,
+                Tenant.id
+                == TenantMembership.tenant_id,
+            )
+            .where(
+                Tenant.client_number.is_(None)
+            )
+        ).all()
+    )
+
+    users = [
+        user
+        for user in all_users
+        if (
+            user.is_platform_admin
+            or user.id not in commercial_user_ids
+            or user.id in validation_user_ids
+        )
+    ]
 
     tenants = db.execute(
         select(Tenant).order_by(Tenant.id)
@@ -129,9 +167,7 @@ def admin_overview(
             "products": db.scalar(
                 select(func.count()).select_from(Product)
             ),
-            "users": db.scalar(
-                select(func.count()).select_from(User)
-            ),
+            "users": len(users),
             "tenants": db.scalar(
                 select(func.count()).select_from(Tenant)
             ),
@@ -148,10 +184,9 @@ def admin_overview(
             "memberships": db.scalar(
                 select(func.count()).select_from(TenantMembership)
             ),
-            "active_users": db.scalar(
-                select(func.count())
-                .select_from(User)
-                .where(User.is_active.is_(True))
+            "active_users": sum(
+                user.is_active
+                for user in users
             ),
             "platform_admins": db.scalar(
                 select(func.count())
