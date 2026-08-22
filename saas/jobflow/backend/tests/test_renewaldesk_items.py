@@ -60,6 +60,18 @@ def test_renewaldesk_tenant_can_crud_items(
 
     headers = client.auth_headers(tenant)
 
+    from app.models import TenantMembership
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
     create_response = client.post(
         ITEMS_URL,
         headers=headers,
@@ -1177,3 +1189,136 @@ def test_renewaldesk_item_supports_owner_email(
     assert update_response.json()["owner_email"] == (
         "ops@example.com"
     )
+
+
+
+def test_renewaldesk_member_can_edit_but_cannot_delete(
+    authenticated_client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Member Tenant",
+        "renewaldesk-member-tenant",
+    )
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "member"
+    db_session.commit()
+
+    create_response = client.post(
+        ITEMS_URL,
+        headers=headers,
+        json={
+            "name": "Member Managed License",
+            "renewal_date": "2027-08-01",
+        },
+    )
+
+    assert create_response.status_code == 201
+    item_id = create_response.json()["id"]
+
+    update_response = client.put(
+        f"{ITEMS_URL}/{item_id}",
+        headers=headers,
+        json={
+            "name": "Member Updated License",
+            "renewal_date": "2027-09-01",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert (
+        update_response.json()["name"]
+        == "Member Updated License"
+    )
+
+    delete_response = client.delete(
+        f"{ITEMS_URL}/{item_id}",
+        headers=headers,
+    )
+
+    assert delete_response.status_code == 403
+    assert delete_response.json()["detail"] == (
+        "Tenant owner access required"
+    )
+
+    stored = db_session.get(
+        RenewalItem,
+        item_id,
+    )
+    assert stored is not None
+
+
+def test_renewaldesk_owner_can_delete_item(
+    authenticated_client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    client = authenticated_client
+
+    renewaldesk = get_product(
+        db_session,
+        "renewaldesk",
+    )
+
+    tenant = create_tenant(
+        db_session,
+        renewaldesk,
+        "RenewalDesk Owner Delete Tenant",
+        "renewaldesk-owner-delete-tenant",
+    )
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    create_response = client.post(
+        ITEMS_URL,
+        headers=headers,
+        json={
+            "name": "Owner Delete License",
+            "renewal_date": "2027-10-01",
+        },
+    )
+
+    assert create_response.status_code == 201
+    item_id = create_response.json()["id"]
+
+    delete_response = client.delete(
+        f"{ITEMS_URL}/{item_id}",
+        headers=headers,
+    )
+
+    assert delete_response.status_code == 204
+    assert db_session.get(
+        RenewalItem,
+        item_id,
+    ) is None

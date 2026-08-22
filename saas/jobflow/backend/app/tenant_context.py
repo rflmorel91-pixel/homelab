@@ -57,3 +57,38 @@ def get_current_tenant(
         )
 
     return tenant
+
+
+def get_current_tenant_membership(
+    tenant: Tenant = Depends(get_current_tenant),
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> TenantMembership:
+    membership = db.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id == user_id,
+        )
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=403,
+            detail="User is not a member of this tenant",
+        )
+
+    return membership
+
+
+def require_current_tenant_owner(
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+) -> TenantMembership:
+    if membership.role != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Tenant owner access required",
+        )
+
+    return membership

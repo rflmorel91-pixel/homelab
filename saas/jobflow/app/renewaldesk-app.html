@@ -597,6 +597,8 @@
   const PRODUCT_BASE =
     "/products/renewaldesk";
 
+  let clientRole = null;
+
   let tenantId =
     localStorage.getItem(
       "renewaldesk_tenant_id"
@@ -898,13 +900,19 @@
               Edit
             </button>
 
-            <button
-              type="button"
-              class="danger"
-              onclick="deleteRenewal(${item.id})"
-            >
-              Delete
-            </button>
+            ${
+              clientRole === "owner"
+                ? `
+                  <button
+                    type="button"
+                    class="danger"
+                    onclick="deleteRenewal(${item.id})"
+                  >
+                    Delete
+                  </button>
+                `
+                : ""
+            }
           </div>
         </article>
       `).join("") +
@@ -1177,6 +1185,9 @@
       tenantId
     );
 
+    clientRole =
+      client.role;
+
     clientContext.textContent =
       `Client #${client.client_number} · ${client.name} · ${client.role}`;
 
@@ -1231,6 +1242,7 @@
       }
 
       tenantId = null;
+      clientRole = null;
       clientContext.textContent = "";
 
       localStorage.removeItem(
@@ -1343,6 +1355,7 @@
       setAuthenticatedUI(true);
     } catch {
       tenantId = null;
+      clientRole = null;
 
       localStorage.removeItem(
         "renewaldesk_tenant_id"

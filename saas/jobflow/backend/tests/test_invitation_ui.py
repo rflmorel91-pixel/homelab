@@ -159,3 +159,18 @@ def test_client_invitation_lifecycle_is_manageable():
     assert "data-revoke-client-invitation" in page
     assert "revokeClientInvitation" in page
     assert "/user-invitations/${invitationId}/revoke" in page
+
+
+
+def test_renewaldesk_hides_delete_from_members():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk-app.html"
+    ).read_text()
+
+    assert "let clientRole = null" in page
+    assert "clientRole =" in page
+    assert 'clientRole === "owner"' in page
+    assert "client.role" in page
+    assert "onclick=\"deleteRenewal(" in page
