@@ -1300,14 +1300,127 @@
 
             <div class="renewal-meta">
               <span>${escapeHtml(member.email)}</span>
-              <span>${escapeHtml(member.role)}</span>
               <span>
                 ${member.is_active ? "Active" : "Inactive"}
               </span>
             </div>
+
+            <div
+              class="actions"
+              style="margin-top: 12px;"
+            >
+              <label>
+                Role
+
+                <select
+                  id="team-role-${member.membership_id}"
+                >
+                  <option
+                    value="member"
+                    ${
+                      member.role === "member"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    Member
+                  </option>
+
+                  <option
+                    value="owner"
+                    ${
+                      member.role === "owner"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    Owner
+                  </option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                class="secondary"
+                onclick="saveTeamMemberRole(
+                  ${member.membership_id}
+                )"
+              >
+                Save Role
+              </button>
+
+              <button
+                type="button"
+                class="danger"
+                onclick="removeTeamMember(
+                  ${member.membership_id}
+                )"
+              >
+                Remove
+              </button>
+            </div>
           </article>
         `).join("")
       : '<p class="empty">No team members.</p>';
+  }
+
+
+  async function saveTeamMemberRole(
+    membershipId
+  ) {
+    const role = document.getElementById(
+      `team-role-${membershipId}`
+    ).value;
+
+    try {
+      await apiRequest(
+        `/client/team/memberships/${membershipId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            role
+          })
+        }
+      );
+
+      showSuccess("Team member role updated.");
+
+      location.reload();
+
+    } catch (error) {
+      showError(error.message);
+      await loadClientTeam();
+    }
+  }
+
+
+  async function removeTeamMember(
+    membershipId
+  ) {
+    if (
+      !window.confirm(
+        "Remove this person from the client workspace?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/client/team/memberships/${membershipId}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      showSuccess("Team member removed.");
+
+      location.reload();
+
+    } catch (error) {
+      showError(error.message);
+      await loadClientTeam();
+    }
   }
 
 

@@ -99,6 +99,10 @@ class InvitationAccept(BaseModel):
     )
 
 
+class ClientMembershipUpdate(BaseModel):
+    role: Literal["owner", "member"]
+
+
 admin_router = APIRouter(
     prefix="/admin/user-invitations",
     tags=["Administration"],
@@ -645,6 +649,148 @@ def get_current_client_team(
             for membership, user in rows
         ],
     }
+
+
+@client_owner_router.put(
+    "/team/memberships/{membership_id}",
+)
+def update_current_client_membership(
+    membership_id: int,
+    payload: ClientMembershipUpdate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    operator_membership: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    membership = db.scalar(
+        select(TenantMembership).where(
+            TenantMembership.id == membership_id,
+            TenantMembership.tenant_id == tenant.id,
+        )
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Membership not found",
+        )
+
+    if (
+        membership.role == "owner"
+        and payload.role != "owner"
+    ):
+        owner_count = db.scalar(
+            select(func.count())
+            .select_from(TenantMembership)
+            .where(
+                TenantMembership.tenant_id == tenant.id,
+                TenantMembership.role == "owner",
+            )
+        )
+
+        if owner_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Client must retain at least one owner",
+            )
+
+    previous_role = membership.role
+    membership.role = payload.role
+
+    if previous_role != membership.role:
+        add_admin_audit(
+            db,
+            operator_user_id=operator_membership.user_id,
+            action="client_team.role_changed",
+            target_type="membership",
+            target_id=membership.id,
+            tenant_id=tenant.id,
+            before_data={
+                "role": previous_role,
+                "user_id": membership.user_id,
+            },
+            after_data={
+                "role": membership.role,
+                "user_id": membership.user_id,
+            },
+        )
+
+    db.commit()
+    db.refresh(membership)
+
+    return {
+        "membership_id": membership.id,
+        "user_id": membership.user_id,
+        "role": membership.role,
+    }
+
+
+@client_owner_router.delete(
+    "/team/memberships/{membership_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_current_client_membership(
+    membership_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    operator_membership: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    membership = db.scalar(
+        select(TenantMembership).where(
+            TenantMembership.id == membership_id,
+            TenantMembership.tenant_id == tenant.id,
+        )
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Membership not found",
+        )
+
+    if membership.role == "owner":
+        owner_count = db.scalar(
+            select(func.count())
+            .select_from(TenantMembership)
+            .where(
+                TenantMembership.tenant_id == tenant.id,
+                TenantMembership.role == "owner",
+            )
+        )
+
+        if owner_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Client must retain at least one owner",
+            )
+
+    audit_membership_id = membership.id
+    audit_user_id = membership.user_id
+    audit_role = membership.role
+
+    db.delete(membership)
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator_membership.user_id,
+        action="client_team.member_removed",
+        target_type="membership",
+        target_id=audit_membership_id,
+        tenant_id=tenant.id,
+        before_data={
+            "user_id": audit_user_id,
+            "role": audit_role,
+        },
+    )
+
+    db.commit()
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT
+    )
 
 
 @client_owner_router.post(

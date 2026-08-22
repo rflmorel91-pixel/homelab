@@ -1094,3 +1094,176 @@ def test_client_member_cannot_list_current_team(
     assert response.json()["detail"] == (
         "Tenant owner access required"
     )
+
+
+
+def test_client_owner_can_manage_current_team_membership(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+        User,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=957,
+        name="Managed Team Client",
+        slug="managed-team-client",
+        status="active",
+    )
+
+    teammate = User(
+        email="managed-teammate@example.com",
+        display_name="Managed Teammate",
+        password_hash="unused",
+        is_active=True,
+        is_platform_admin=False,
+    )
+
+    db_session.add_all([
+        tenant,
+        teammate,
+    ])
+    db_session.commit()
+    db_session.refresh(tenant)
+    db_session.refresh(teammate)
+
+    headers = client.auth_headers(tenant)
+
+    owner_membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id != teammate.id,
+        )
+    )
+    assert owner_membership is not None
+    owner_membership.role = "owner"
+
+    teammate_membership = TenantMembership(
+        tenant_id=tenant.id,
+        user_id=teammate.id,
+        role="member",
+    )
+    db_session.add(teammate_membership)
+    db_session.commit()
+    db_session.refresh(teammate_membership)
+
+    update_response = client.put(
+        (
+            "/api/v1/client/team/memberships/"
+            f"{teammate_membership.id}"
+        ),
+        headers=headers,
+        json={"role": "owner"},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["role"] == "owner"
+
+    delete_response = client.delete(
+        (
+            "/api/v1/client/team/memberships/"
+            f"{teammate_membership.id}"
+        ),
+        headers=headers,
+    )
+
+    assert delete_response.status_code == 204
+
+    membership_id = teammate_membership.id
+
+    db_session.expire_all()
+
+    assert (
+        db_session.get(
+            TenantMembership,
+            membership_id,
+        )
+        is None
+    )
+
+
+def test_client_owner_cannot_remove_or_demote_last_owner(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=958,
+        name="Last Owner Client",
+        slug="last-owner-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    endpoint = (
+        "/api/v1/client/team/memberships/"
+        f"{membership.id}"
+    )
+
+    demote_response = client.put(
+        endpoint,
+        headers=headers,
+        json={"role": "member"},
+    )
+
+    assert demote_response.status_code == 409
+    assert demote_response.json()["detail"] == (
+        "Client must retain at least one owner"
+    )
+
+    remove_response = client.delete(
+        endpoint,
+        headers=headers,
+    )
+
+    assert remove_response.status_code == 409
+    assert remove_response.json()["detail"] == (
+        "Client must retain at least one owner"
+    )

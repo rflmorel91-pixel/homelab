@@ -194,3 +194,23 @@ def test_renewaldesk_owner_can_manage_client_team():
     assert "loadClientTeam" in page
     assert 'clientRole !== "owner"' in page
     assert "revokeTeamInvitation" in page
+
+
+
+def test_renewaldesk_owner_can_manage_team_memberships():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk-app.html"
+    ).read_text()
+
+    assert "saveTeamMemberRole" in page
+    assert "removeTeamMember" in page
+    assert "Save Role" in page
+    assert (
+        "`/client/team/memberships/${membershipId}`"
+        in page
+    )
+    assert 'method: "PUT"' in page
+    assert 'method: "DELETE"' in page
+    assert "Client must retain at least one owner" not in page
