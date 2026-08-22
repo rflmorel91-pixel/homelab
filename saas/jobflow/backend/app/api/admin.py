@@ -135,6 +135,16 @@ def admin_overview(
             "tenants": db.scalar(
                 select(func.count()).select_from(Tenant)
             ),
+            "clients": db.scalar(
+                select(func.count())
+                .select_from(Tenant)
+                .where(Tenant.client_number.is_not(None))
+            ),
+            "validation_workspaces": db.scalar(
+                select(func.count())
+                .select_from(Tenant)
+                .where(Tenant.client_number.is_(None))
+            ),
             "memberships": db.scalar(
                 select(func.count()).select_from(TenantMembership)
             ),
@@ -160,6 +170,22 @@ def admin_overview(
                     select(func.count())
                     .select_from(Tenant)
                     .where(Tenant.product_id == product.id)
+                ),
+                "client_count": db.scalar(
+                    select(func.count())
+                    .select_from(Tenant)
+                    .where(
+                        Tenant.product_id == product.id,
+                        Tenant.client_number.is_not(None),
+                    )
+                ),
+                "validation_workspace_count": db.scalar(
+                    select(func.count())
+                    .select_from(Tenant)
+                    .where(
+                        Tenant.product_id == product.id,
+                        Tenant.client_number.is_(None),
+                    )
                 ),
                 "lead_count": db.scalar(
                     select(func.count())
@@ -239,6 +265,7 @@ def admin_tenant_detail(
         "tenant": {
             "id": tenant.id,
             "client_number": tenant.client_number,
+            "product_id": tenant.product_id,
             "name": tenant.name,
             "slug": tenant.slug,
             "status": tenant.status,

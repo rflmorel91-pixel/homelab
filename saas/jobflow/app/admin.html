@@ -765,7 +765,7 @@
         type="button"
         data-view="tenants"
       >
-        Tenants
+        Clients
       </button>
 
       <button
@@ -791,7 +791,7 @@
       </a>
 
       <a class="sidebar-link" href="/app">
-        Tenant Workspace
+        Client Workspace
       </a>
 
       <button
@@ -836,7 +836,7 @@
           <div>
             <h1>Overview</h1>
             <p>
-              Platform users, tenants, access, and operational state.
+              Products, clients, validation workspaces, and access.
             </p>
           </div>
         </div>
@@ -858,7 +858,7 @@
           </div>
 
           <div class="summary-card">
-            <span>Tenants</span>
+            <span>Clients</span>
             <strong id="tenantCount">-</strong>
           </div>
 
@@ -890,13 +890,29 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <h2>Tenants</h2>
-              <p>Current customer workspaces.</p>
+              <h2>Clients</h2>
+              <p>Commercial customers grouped by SaaS product.</p>
             </div>
           </div>
 
           <div
             id="overviewTenantList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Validation Workspaces</h2>
+              <p>
+                Internal demonstrations and pre-commercial environments.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="overviewValidationList"
             class="panel-body list"
           ></div>
         </section>
@@ -950,9 +966,9 @@
 
         <div class="page-header">
           <div>
-            <h1>Tenants</h1>
+            <h1>Clients</h1>
             <p>
-              Manage customer workspaces and membership access.
+              Manage product clients and their membership access.
             </p>
           </div>
         </div>
@@ -960,20 +976,36 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <h2>Tenant Directory</h2>
-              <p>Select a tenant to administer it.</p>
+              <h2>Client Directory</h2>
+              <p>Select a product client to administer it.</p>
             </div>
 
             <input
               id="tenantSearch"
               class="search-input"
               type="search"
-              placeholder="Search tenants..."
+              placeholder="Search clients and workspaces..."
             >
           </div>
 
           <div
             id="tenantList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Validation Workspaces</h2>
+              <p>
+                Internal workspaces that do not consume client numbers.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="validationTenantList"
             class="panel-body list"
           ></div>
         </section>
@@ -1335,42 +1367,99 @@
   }
 
 
-  function renderTenantRows(tenants) {
-    if (!tenants.length) {
-      return '<div class="empty">No tenants found.</div>';
+  function productForTenant(tenant) {
+    return state.overview.products.find(
+      product => product.id === tenant.product_id
+    );
+  }
+
+
+  function renderClientRows(clients) {
+    if (!clients.length) {
+      return '<div class="empty">No clients found.</div>';
     }
 
-    return tenants.map(tenant => `
-      <div class="list-row">
-        <div class="row-primary">
-          <strong>
-            ${escapeHtml(tenant.name)}
-          </strong>
+    return clients.map(client => {
+      const product = productForTenant(client);
 
-          <span>
-            ${escapeHtml(tenant.slug)}
-          </span>
-        </div>
+      return `
+        <div class="list-row">
+          <div class="row-primary">
+            <strong>
+              ${escapeHtml(
+                product ? product.name : "Product"
+              )}
+              · Client #${client.client_number}
+            </strong>
 
-        <div class="row-secondary">
-          ${
-            tenant.client_number
-              ? `Client #${tenant.client_number}`
-              : `Validation tenant · Internal #${tenant.id}`
-          }
-        </div>
+            <span>
+              ${escapeHtml(client.name)}
+              · ${escapeHtml(client.slug)}
+            </span>
+          </div>
 
-        <div class="row-actions">
-          <button
-            class="btn"
-            type="button"
-            data-open-tenant="${tenant.id}"
-          >
-            Manage
-          </button>
+          <div class="row-secondary">
+            Commercial client workspace
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="btn"
+              type="button"
+              data-open-tenant="${client.id}"
+            >
+              Manage Client
+            </button>
+          </div>
         </div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
+  }
+
+
+  function renderValidationWorkspaceRows(workspaces) {
+    if (!workspaces.length) {
+      return `
+        <div class="empty">
+          No validation workspaces found.
+        </div>
+      `;
+    }
+
+    return workspaces.map(workspace => {
+      const product = productForTenant(workspace);
+
+      return `
+        <div class="list-row">
+          <div class="row-primary">
+            <strong>
+              ${escapeHtml(workspace.name)}
+            </strong>
+
+            <span>
+              ${escapeHtml(
+                product ? product.name : "Product"
+              )}
+              · ${escapeHtml(workspace.slug)}
+            </span>
+          </div>
+
+          <div class="row-secondary">
+            Validation workspace · Internal #${workspace.id}
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="btn"
+              type="button"
+              data-open-tenant="${workspace.id}"
+            >
+              Manage Workspace
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
   }
 
 
@@ -1401,8 +1490,13 @@
           </span>
 
           <span>
-            ${product.tenant_count} tenant${
-              product.tenant_count === 1 ? "" : "s"
+            ${product.client_count} client${
+              product.client_count === 1 ? "" : "s"
+            }
+            ·
+            ${product.validation_workspace_count} validation
+            workspace${
+              product.validation_workspace_count === 1 ? "" : "s"
             }
             ·
             ${product.lead_count} lead${
@@ -1432,7 +1526,7 @@
 
     document.getElementById(
       "tenantCount"
-    ).textContent = data.counts.tenants;
+    ).textContent = data.counts.clients;
 
     document.getElementById(
       "membershipCount"
@@ -1452,10 +1546,25 @@
     ).innerHTML =
       renderProductRows(data.products);
 
+    const clients = data.tenants.filter(
+      tenant => tenant.client_number !== null
+    );
+
+    const validationWorkspaces = data.tenants.filter(
+      tenant => tenant.client_number === null
+    );
+
     document.getElementById(
       "overviewTenantList"
     ).innerHTML =
-      renderTenantRows(data.tenants);
+      renderClientRows(clients);
+
+    document.getElementById(
+      "overviewValidationList"
+    ).innerHTML =
+      renderValidationWorkspaceRows(
+        validationWorkspaces
+      );
 
     document.getElementById(
       "overviewUserList"
@@ -1474,15 +1583,38 @@
         .trim()
         .toLowerCase();
 
-    const tenants =
-      state.overview.tenants.filter(tenant =>
-        tenant.name.toLowerCase().includes(query)
-        || tenant.slug.toLowerCase().includes(query)
-      );
+    const matches =
+      state.overview.tenants.filter(tenant => {
+        const product = productForTenant(tenant);
+
+        return (
+          tenant.name.toLowerCase().includes(query)
+          || tenant.slug.toLowerCase().includes(query)
+          || (
+            product
+            && product.name.toLowerCase().includes(query)
+          )
+        );
+      });
+
+    const clients = matches.filter(
+      tenant => tenant.client_number !== null
+    );
+
+    const validationWorkspaces = matches.filter(
+      tenant => tenant.client_number === null
+    );
 
     document.getElementById(
       "tenantList"
-    ).innerHTML = renderTenantRows(tenants);
+    ).innerHTML = renderClientRows(clients);
+
+    document.getElementById(
+      "validationTenantList"
+    ).innerHTML =
+      renderValidationWorkspaceRows(
+        validationWorkspaces
+      );
   }
 
 
@@ -1801,16 +1933,30 @@
         <div class="detail-heading">
           <div>
             <h2>
-              ${escapeHtml(data.tenant.name)}
+              ${
+                data.tenant.client_number
+                  ? `${
+                      escapeHtml(
+                        (
+                          state.overview.products.find(
+                            product =>
+                              product.id
+                              === data.tenant.product_id
+                          ) || {name: "Product"}
+                        ).name
+                      )
+                    } · Client #${data.tenant.client_number}`
+                  : escapeHtml(data.tenant.name)
+              }
             </h2>
 
             <p>
-              ${escapeHtml(data.tenant.slug)}
-              · ${
+              ${
                 data.tenant.client_number
-                  ? `Client #${data.tenant.client_number}`
-                  : `Validation tenant · Internal #${data.tenant.id}`
+                  ? `Account: ${escapeHtml(data.tenant.name)}`
+                  : "Validation workspace"
               }
+              · ${escapeHtml(data.tenant.slug)}
             </p>
 
             <div style="margin-top: 10px;">
@@ -1848,7 +1994,11 @@
                     type="button"
                     data-suspend-tenant="${data.tenant.id}"
                   >
-                    Suspend Tenant
+                    ${
+                      data.tenant.client_number
+                        ? "Suspend Client"
+                        : "Suspend Workspace"
+                    }
                   </button>
                 `
                 : `
@@ -1857,7 +2007,11 @@
                     type="button"
                     data-reactivate-tenant="${data.tenant.id}"
                   >
-                    Reactivate Tenant
+                    ${
+                      data.tenant.client_number
+                        ? "Reactivate Client"
+                        : "Reactivate Workspace"
+                    }
                   </button>
                 `
             }
