@@ -222,10 +222,27 @@ def admin_overview(
                         Tenant.client_number.is_(None),
                     )
                 ),
-                "lead_count": db.scalar(
+                "active_lead_count": db.scalar(
                     select(func.count())
                     .select_from(Lead)
-                    .where(Lead.product_id == product.id)
+                    .where(
+                        Lead.product_id == product.id,
+                        Lead.status.in_(
+                            (
+                                "new",
+                                "contacted",
+                                "qualified",
+                            )
+                        ),
+                    )
+                ),
+                "converted_lead_count": db.scalar(
+                    select(func.count())
+                    .select_from(Lead)
+                    .where(
+                        Lead.product_id == product.id,
+                        Lead.status == "converted",
+                    )
                 ),
                 "created_at": product.created_at,
             }
@@ -334,11 +351,32 @@ def admin_product_detail(
         )
     ).all()
 
-    leads = db.scalars(
+    active_leads = db.scalars(
         select(Lead)
-        .where(Lead.product_id == product.id)
+        .where(
+            Lead.product_id == product.id,
+            Lead.status.in_(
+                (
+                    "new",
+                    "contacted",
+                    "qualified",
+                )
+            ),
+        )
         .order_by(
             Lead.created_at.desc(),
+            Lead.id.desc(),
+        )
+    ).all()
+
+    converted_leads = db.scalars(
+        select(Lead)
+        .where(
+            Lead.product_id == product.id,
+            Lead.status == "converted",
+        )
+        .order_by(
+            Lead.converted_at.desc(),
             Lead.id.desc(),
         )
     ).all()
@@ -360,7 +398,8 @@ def admin_product_detail(
         "counts": {
             "clients": len(clients),
             "users": len(product_user_ids),
-            "leads": len(leads),
+            "active_leads": len(active_leads),
+            "converted_records": len(converted_leads),
             "validation_workspaces":
                 len(validation_workspaces),
         },
@@ -391,7 +430,19 @@ def admin_product_detail(
             for membership, user, tenant
             in membership_rows
         ],
-        "leads": [
+        "active_leads": [
+            {
+                "id": lead.id,
+                "business_name": lead.business_name,
+                "contact_name": lead.contact_name,
+                "email": lead.email,
+                "service_type": lead.service_type,
+                "status": lead.status,
+                "created_at": lead.created_at,
+            }
+            for lead in active_leads
+        ],
+        "converted_history": [
             {
                 "id": lead.id,
                 "business_name": lead.business_name,
@@ -401,9 +452,10 @@ def admin_product_detail(
                 "status": lead.status,
                 "converted_tenant_id":
                     lead.converted_tenant_id,
+                "converted_at": lead.converted_at,
                 "created_at": lead.created_at,
             }
-            for lead in leads
+            for lead in converted_leads
         ],
         "validation_workspaces": [
             {

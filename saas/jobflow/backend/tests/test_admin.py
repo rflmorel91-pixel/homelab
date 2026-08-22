@@ -957,7 +957,8 @@ def test_platform_admin_can_view_product_detail(
     assert payload["product"]["slug"] == product.slug
     assert payload["counts"]["clients"] >= 1
     assert payload["counts"]["users"] >= 1
-    assert payload["counts"]["leads"] >= 0
+    assert payload["counts"]["active_leads"] >= 0
+    assert payload["counts"]["converted_records"] >= 0
     assert (
         payload["counts"]["validation_workspaces"]
         >= 0
@@ -1095,4 +1096,92 @@ def test_admin_overview_excludes_commercial_only_user(
         user["user_id"] == commercial_user.id
         and user["client_number"] == 901
         for user in product_response.json()["users"]
+    )
+
+
+
+def test_product_detail_separates_active_and_converted_leads(
+    client,
+    db_session,
+):
+    from app.models import Lead, Product, Tenant
+
+    make_platform_admin(db_session)
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    client_tenant = Tenant(
+        product_id=product.id,
+        client_number=991,
+        name="Lead Separation Client",
+        slug="lead-separation-client",
+        status="active",
+    )
+    db_session.add(client_tenant)
+    db_session.flush()
+
+    active_lead = Lead(
+        product_id=product.id,
+        business_name="Active Lead Test",
+        contact_name="Active Contact",
+        email="active-separation@example.com",
+        service_type="Renewal Management",
+        status="qualified",
+    )
+
+    converted_lead = Lead(
+        product_id=product.id,
+        business_name="Converted Lead Test",
+        contact_name="Converted Contact",
+        email="converted-separation@example.com",
+        service_type="Renewal Management",
+        status="converted",
+        converted_tenant_id=client_tenant.id,
+    )
+
+    db_session.add_all([
+        active_lead,
+        converted_lead,
+    ])
+    db_session.commit()
+    db_session.refresh(active_lead)
+    db_session.refresh(converted_lead)
+
+    response = client.get(
+        f"/api/v1/admin/products/{product.id}"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert any(
+        lead["id"] == active_lead.id
+        for lead in payload["active_leads"]
+    )
+    assert all(
+        lead["id"] != converted_lead.id
+        for lead in payload["active_leads"]
+    )
+
+    assert any(
+        lead["id"] == converted_lead.id
+        and lead["converted_tenant_id"]
+        == client_tenant.id
+        for lead in payload["converted_history"]
+    )
+    assert all(
+        lead["id"] != active_lead.id
+        for lead in payload["converted_history"]
+    )
+
+    assert payload["counts"]["active_leads"] == len(
+        payload["active_leads"]
+    )
+    assert payload["counts"]["converted_records"] == len(
+        payload["converted_history"]
     )

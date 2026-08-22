@@ -74,8 +74,13 @@ def test_admin_product_directory_opens_product_management():
     )
     assert "<h3>Clients</h3>" in page
     assert "<h3>Users</h3>" in page
-    assert "<h3>Leads</h3>" in page
+    assert "<h3>Active Leads</h3>" in page
+    assert "<h3>Converted History</h3>" in page
     assert "<h3>Validation Workspaces</h3>" in page
+    assert "data.active_leads" in page
+    assert "data.converted_history" in page
+    assert "data.counts.active_leads" in page
+    assert "data.counts.converted_records" in page
     assert "Manage Product Leads" in page
 
 

@@ -1509,9 +1509,11 @@
               product.validation_workspace_count === 1 ? "" : "s"
             }
             ·
-            ${product.lead_count} lead${
-              product.lead_count === 1 ? "" : "s"
+            ${product.active_lead_count} active lead${
+              product.active_lead_count === 1 ? "" : "s"
             }
+            ·
+            ${product.converted_lead_count} converted
           </span>
         </div>
 
@@ -1982,8 +1984,8 @@
             </div>
           `;
 
-      const leadRows = data.leads.length
-        ? data.leads.map(lead => `
+      const activeLeadRows = data.active_leads.length
+        ? data.active_leads.map(lead => `
             <div class="list-row">
               <div class="row-primary">
                 <strong>
@@ -2003,7 +2005,61 @@
               </div>
             </div>
           `).join("")
-        : '<div class="empty">No leads for this product.</div>';
+        : `
+            <div class="empty">
+              No active leads for this product.
+            </div>
+          `;
+
+      const convertedRows = data.converted_history.length
+        ? data.converted_history.map(lead => {
+            const client = data.clients.find(
+              item =>
+                item.id === lead.converted_tenant_id
+            );
+
+            const validationWorkspace =
+              data.validation_workspaces.find(
+                item =>
+                  item.id === lead.converted_tenant_id
+              );
+
+            const destination = client
+              ? `Client #${client.client_number} · ${
+                  escapeHtml(client.name)
+                }`
+              : validationWorkspace
+                ? `Validation Workspace · ${
+                    escapeHtml(validationWorkspace.name)
+                  }`
+                : "Converted destination unavailable";
+
+            return `
+              <div class="list-row">
+                <div class="row-primary">
+                  <strong>
+                    ${escapeHtml(lead.business_name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(lead.contact_name)}
+                    · ${escapeHtml(lead.email)}
+                  </span>
+                </div>
+
+                <div class="row-secondary">
+                  Lead #${lead.id}
+                  · ${escapeHtml(lead.service_type)}
+                  · ${destination}
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `
+            <div class="empty">
+              No converted records for this product.
+            </div>
+          `;
 
       const validationRows =
         data.validation_workspaces.length
@@ -2078,8 +2134,13 @@
           </div>
 
           <div class="detail-card">
-            <strong>${data.counts.leads}</strong>
-            <span>Leads</span>
+            <strong>${data.counts.active_leads}</strong>
+            <span>Active Leads</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.converted_records}</strong>
+            <span>Converted Records</span>
           </div>
 
           <div class="detail-card">
@@ -2100,9 +2161,9 @@
           ${userRows}
         </div>
 
-        <h3>Leads</h3>
+        <h3>Active Leads</h3>
         <div class="list">
-          ${leadRows}
+          ${activeLeadRows}
         </div>
 
         <div class="row-actions">
@@ -2112,6 +2173,11 @@
           >
             Manage Product Leads
           </a>
+        </div>
+
+        <h3>Converted History</h3>
+        <div class="list">
+          ${convertedRows}
         </div>
 
         <h3>Validation Workspaces</h3>
