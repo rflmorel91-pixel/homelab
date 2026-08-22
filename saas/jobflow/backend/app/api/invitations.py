@@ -408,6 +408,184 @@ def create_client_user_invitation(
     }
 
 
+def client_invitation_status(
+    invitation: UserInvitation,
+    now: datetime,
+) -> str:
+    if invitation.accepted_at is not None:
+        return "accepted"
+
+    if invitation.revoked_at is not None:
+        return "revoked"
+
+    if invitation.expires_at <= now:
+        return "expired"
+
+    return "pending"
+
+
+@client_admin_router.get(
+    "/{tenant_id}/user-invitations",
+)
+def list_client_user_invitations(
+    tenant_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    tenant = db.get(
+        Tenant,
+        tenant_id,
+    )
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Client not found",
+        )
+
+    if tenant.client_number is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Client invitations require a "
+                "commercial client workspace"
+            ),
+        )
+
+    invitations = db.scalars(
+        select(UserInvitation)
+        .where(
+            UserInvitation.tenant_id == tenant.id,
+        )
+        .order_by(
+            UserInvitation.created_at.desc(),
+            UserInvitation.id.desc(),
+        )
+    ).all()
+
+    now = utc_now_naive()
+
+    return {
+        "client": {
+            "id": tenant.id,
+            "client_number": tenant.client_number,
+            "name": tenant.name,
+            "slug": tenant.slug,
+        },
+        "invitations": [
+            {
+                "id": invitation.id,
+                "email": invitation.email,
+                "display_name":
+                    invitation.display_name,
+                "role": invitation.role,
+                "status":
+                    client_invitation_status(
+                        invitation,
+                        now,
+                    ),
+                "created_at": invitation.created_at,
+                "expires_at": invitation.expires_at,
+                "accepted_at": invitation.accepted_at,
+                "revoked_at": invitation.revoked_at,
+            }
+            for invitation in invitations
+        ],
+    }
+
+
+@client_admin_router.post(
+    "/{tenant_id}/user-invitations/"
+    "{invitation_id}/revoke",
+)
+def revoke_client_user_invitation(
+    tenant_id: int,
+    invitation_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    tenant = db.get(
+        Tenant,
+        tenant_id,
+    )
+
+    if (
+        tenant is None
+        or tenant.client_number is None
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Client not found",
+        )
+
+    invitation = db.scalar(
+        select(UserInvitation)
+        .where(
+            UserInvitation.id == invitation_id,
+            UserInvitation.tenant_id == tenant.id,
+        )
+        .with_for_update()
+    )
+
+    if invitation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Client invitation not found",
+        )
+
+    now = utc_now_naive()
+    current_status = client_invitation_status(
+        invitation,
+        now,
+    )
+
+    if current_status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only pending client invitations "
+                "can be revoked"
+            ),
+        )
+
+    invitation.revoked_at = now
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="client_user.invitation_revoked",
+        target_type="user_invitation",
+        target_id=invitation.id,
+        tenant_id=tenant.id,
+        before_data={
+            "status": "pending",
+        },
+        after_data={
+            "status": "revoked",
+            "email": invitation.email,
+            "role": invitation.role,
+            "client_number": tenant.client_number,
+            "revoked_at":
+                invitation.revoked_at.isoformat(),
+        },
+    )
+
+    db.commit()
+    db.refresh(invitation)
+
+    return {
+        "id": invitation.id,
+        "status": "revoked",
+        "revoked_at": invitation.revoked_at,
+    }
+
+
 @public_router.post("/accept")
 def accept_user_invitation(
     payload: InvitationAccept,

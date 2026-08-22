@@ -595,3 +595,152 @@ def test_cannot_create_duplicate_active_client_invitation(
         "An active invitation already exists "
         "for this client and email"
     )
+
+
+
+def test_platform_admin_lists_client_invitations_without_token(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, _ = create_commercial_client(
+        db_session
+    )
+
+    create_response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "Pending Member",
+            "email": "pending-member@example.com",
+            "role": "member",
+        },
+    )
+    assert create_response.status_code == 201
+
+    response = client.get(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+
+    payload = response.json()
+
+    assert len(payload["invitations"]) == 1
+
+    invitation = payload["invitations"][0]
+
+    assert invitation["email"] == "pending-member@example.com"
+    assert invitation["role"] == "member"
+    assert invitation["status"] == "pending"
+    assert "token" not in str(payload).lower()
+    assert "activation_path" not in str(payload)
+
+
+def test_platform_admin_revokes_pending_client_invitation(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, _ = create_commercial_client(
+        db_session
+    )
+
+    create_response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "Revoked Member",
+            "email": "revoked-member@example.com",
+            "role": "member",
+        },
+    )
+    assert create_response.status_code == 201
+
+    invitation_id = create_response.json()["id"]
+
+    response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            f"/user-invitations/{invitation_id}/revoke"
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "revoked"
+
+    invitation = db_session.get(
+        UserInvitation,
+        invitation_id,
+    )
+
+    assert invitation is not None
+    assert invitation.revoked_at is not None
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "client_user.invitation_revoked"
+        )
+    )
+
+    assert audit is not None
+    assert audit.tenant_id == tenant.id
+    assert "token" not in str(audit.after_data).lower()
+
+
+def test_revoked_client_invitation_cannot_be_accepted(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, _ = create_commercial_client(
+        db_session
+    )
+
+    create_response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "Blocked Member",
+            "email": "blocked-member@example.com",
+            "role": "member",
+        },
+    )
+    assert create_response.status_code == 201
+
+    token = token_from_activation_path(
+        create_response.json()["activation_path"]
+    )
+    invitation_id = create_response.json()["id"]
+
+    revoke_response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            f"/user-invitations/{invitation_id}/revoke"
+        )
+    )
+    assert revoke_response.status_code == 200
+
+    accept_response = client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": token,
+            "password": "revoked-client-password",
+        },
+    )
+
+    assert accept_response.status_code == 400
+    assert accept_response.json()["detail"] == (
+        "Invitation is invalid or expired"
+    )

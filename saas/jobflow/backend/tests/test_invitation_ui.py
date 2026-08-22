@@ -142,3 +142,20 @@ def test_commercial_client_uses_secure_user_invitation():
     assert "invitation.client.client_number" in page
     assert "data.tenant.client_number" in page
     assert "<h3>Add Internal Membership</h3>" in page
+
+
+
+def test_client_invitation_lifecycle_is_manageable():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "admin.html"
+    ).read_text()
+
+    assert "<h3>Client Invitations</h3>" in page
+    assert 'id="clientInvitationRows"' in page
+    assert "invitation.status" in page
+    assert "invitation.expires_at" in page
+    assert "data-revoke-client-invitation" in page
+    assert "revokeClientInvitation" in page
+    assert "/user-invitations/${invitationId}/revoke" in page

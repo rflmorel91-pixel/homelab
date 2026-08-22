@@ -2148,6 +2148,66 @@
 
       state.currentTenantId = tenantId;
 
+      const invitationData =
+        data.tenant.client_number
+          ? await apiRequest(
+              `/admin/tenants/${tenantId}/user-invitations`
+            )
+          : {invitations: []};
+
+      const invitationRows =
+        invitationData.invitations.length
+          ? invitationData.invitations.map(
+              invitation => `
+                <div class="row">
+                  <div>
+                    <strong>
+                      ${escapeHtml(invitation.display_name)}
+                    </strong>
+
+                    <div class="row-secondary">
+                      ${escapeHtml(invitation.email)}
+                    </div>
+
+                    <div class="row-secondary">
+                      ${escapeHtml(invitation.role)}
+                      · ${escapeHtml(invitation.status)}
+                      · Expires:
+                      ${escapeHtml(
+                        new Date(
+                          invitation.expires_at
+                        ).toLocaleString()
+                      )}
+                    </div>
+                  </div>
+
+                  <div class="row-actions">
+                    ${
+                      invitation.status === "pending"
+                        ? `
+                          <button
+                            class="btn danger"
+                            type="button"
+                            data-revoke-client-invitation="${
+                              invitation.id
+                            }"
+                            data-tenant-id="${tenantId}"
+                          >
+                            Revoke
+                          </button>
+                        `
+                        : ""
+                    }
+                  </div>
+                </div>
+              `
+            ).join("")
+          : `
+            <div class="empty">
+              No client invitations.
+            </div>
+          `;
+
       const memberUserIds =
         new Set(
           data.memberships.map(
@@ -2245,6 +2305,15 @@
                 id="clientInvitationExpiration"
                 class="row-secondary"
               ></div>
+            </div>
+
+            <h3>Client Invitations</h3>
+
+            <div
+              id="clientInvitationRows"
+              class="list"
+            >
+              ${invitationRows}
             </div>
           `
           : `
@@ -2615,6 +2684,42 @@
   }
 
 
+  async function revokeClientInvitation(
+    tenantId,
+    invitationId
+  ) {
+    if (
+      !window.confirm(
+        "Revoke this pending client invitation?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        (
+          `/admin/tenants/${tenantId}`
+          + `/user-invitations/${invitationId}/revoke`
+        ),
+        {
+          method: "POST",
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        "Client invitation revoked.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+
   async function addMembership() {
     const userId =
       document.getElementById(
@@ -2840,6 +2945,24 @@
 
       if (copyClientInvitationButton) {
         await copyClientInvitation();
+        return;
+      }
+
+      const revokeClientInvitationButton =
+        event.target.closest(
+          "[data-revoke-client-invitation]"
+        );
+
+      if (revokeClientInvitationButton) {
+        await revokeClientInvitation(
+          Number(
+            revokeClientInvitationButton.dataset.tenantId
+          ),
+          Number(
+            revokeClientInvitationButton.dataset
+              .revokeClientInvitation
+          )
+        );
         return;
       }
 
