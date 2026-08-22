@@ -289,6 +289,66 @@
       background: white;
     }
 
+
+    .invitation-form {
+      display: grid;
+      grid-template-columns:
+        minmax(180px, 1fr)
+        minmax(240px, 1.4fr)
+        auto;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .invitation-form label {
+      display: grid;
+      gap: 6px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .invitation-form input,
+    .invitation-link-row input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: white;
+      color: var(--text);
+    }
+
+    .invitation-result {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      background: #f0fdf4;
+    }
+
+    .invitation-result p {
+      margin: 5px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .invitation-link-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 800px) {
+      .invitation-form {
+        grid-template-columns: 1fr;
+      }
+
+      .invitation-link-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .list {
       display: grid;
     }
@@ -939,6 +999,87 @@
             </p>
           </div>
         </div>
+
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Invite User</h2>
+              <p>
+                Create a secure, single-use platform activation link.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <form
+              id="inviteUserForm"
+              class="invitation-form"
+            >
+              <label>
+                Display name
+                <input
+                  id="invitationDisplayName"
+                  type="text"
+                  maxlength="200"
+                  autocomplete="off"
+                  required
+                >
+              </label>
+
+              <label>
+                Email
+                <input
+                  id="invitationEmail"
+                  type="email"
+                  maxlength="320"
+                  autocomplete="off"
+                  required
+                >
+              </label>
+
+              <button
+                class="btn primary"
+                type="submit"
+              >
+                Create Invitation
+              </button>
+            </form>
+
+            <div
+              id="invitationResult"
+              class="invitation-result hidden"
+            >
+              <strong>Activation link created</strong>
+
+              <p>
+                Share this link only with the intended user.
+                It is displayed once and expires after 72 hours.
+              </p>
+
+              <div class="invitation-link-row">
+                <input
+                  id="invitationActivationLink"
+                  type="text"
+                  readonly
+                >
+
+                <button
+                  id="copyInvitationLinkButton"
+                  class="btn"
+                  type="button"
+                >
+                  Copy Link
+                </button>
+              </div>
+
+              <div
+                id="invitationExpiration"
+                class="row-secondary"
+              ></div>
+            </div>
+          </div>
+        </section>
 
         <section class="panel">
           <div class="panel-header">
@@ -2270,6 +2411,127 @@
   );
 
 
+
+  async function createUserInvitation(event) {
+    event.preventDefault();
+
+    const displayName =
+      document.getElementById(
+        "invitationDisplayName"
+      ).value.trim();
+
+    const email =
+      document.getElementById(
+        "invitationEmail"
+      ).value.trim();
+
+    const result =
+      document.getElementById(
+        "invitationResult"
+      );
+
+    result.classList.add("hidden");
+    setStatus("Creating secure invitation...");
+
+    try {
+      const invitation =
+        await apiRequest(
+          "/admin/user-invitations",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              display_name: displayName,
+              email,
+            }),
+          }
+        );
+
+      const activationUrl =
+        `${window.location.origin}${
+          invitation.activation_path
+        }`;
+
+      document.getElementById(
+        "invitationActivationLink"
+      ).value = activationUrl;
+
+      document.getElementById(
+        "invitationExpiration"
+      ).textContent =
+        `Expires: ${
+          new Date(
+            invitation.expires_at
+          ).toLocaleString()
+        }`;
+
+      result.classList.remove("hidden");
+
+      document.getElementById(
+        "invitationDisplayName"
+      ).value = "";
+
+      document.getElementById(
+        "invitationEmail"
+      ).value = "";
+
+      setStatus(
+        "Invitation created. Share the activation link securely.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(
+        error.message,
+        "error"
+      );
+    }
+  }
+
+
+  async function copyInvitationLink() {
+    const input =
+      document.getElementById(
+        "invitationActivationLink"
+      );
+
+    try {
+      await navigator.clipboard.writeText(
+        input.value
+      );
+
+      setStatus(
+        "Activation link copied.",
+        "success"
+      );
+
+    } catch {
+      input.focus();
+      input.select();
+
+      setStatus(
+        "Copy was blocked. The activation link is selected.",
+        "error"
+      );
+    }
+  }
+
+
+  document.getElementById(
+    "inviteUserForm"
+  ).addEventListener(
+    "submit",
+    createUserInvitation
+  );
+
+
+  document.getElementById(
+    "copyInvitationLinkButton"
+  ).addEventListener(
+    "click",
+    copyInvitationLink
+  );
+
+
   function auditActionLabel(action) {
     const labels = {
       "membership.created":
@@ -2286,6 +2548,8 @@
         "Platform admin granted",
       "user.platform_admin_revoked":
         "Platform admin revoked",
+      "user.invitation_created":
+        "User invitation created",
     };
 
     return labels[action] || action;

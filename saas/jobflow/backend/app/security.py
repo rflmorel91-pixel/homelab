@@ -1,3 +1,6 @@
+from hashlib import sha256
+from secrets import token_urlsafe
+
 from pwdlib import PasswordHash
 
 
@@ -10,6 +13,17 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
+
+
+def hash_invitation_token(token: str) -> str:
+    return sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_invitation_token() -> tuple[str, str]:
+    token = token_urlsafe(32)
+
+    return token, hash_invitation_token(token)
+
 
 from datetime import datetime, timedelta, timezone
 import os
