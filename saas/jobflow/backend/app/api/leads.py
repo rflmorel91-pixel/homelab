@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -42,6 +42,7 @@ router = APIRouter(
 def build_lead_read(
     lead: Lead,
     product: Product,
+    converted_client_number: int | None = None,
 ) -> LeadRead:
     return LeadRead(
         id=lead.id,
@@ -56,6 +57,7 @@ def build_lead_read(
         message=lead.message,
         status=lead.status,
         converted_tenant_id=lead.converted_tenant_id,
+        converted_client_number=converted_client_number,
         converted_at=lead.converted_at,
         created_at=lead.created_at,
     )
@@ -103,10 +105,15 @@ def list_leads(
         select(
             Lead,
             Product,
+            Tenant.client_number,
         )
         .join(
             Product,
             Product.id == Lead.product_id,
+        )
+        .outerjoin(
+            Tenant,
+            Tenant.id == Lead.converted_tenant_id,
         )
         .order_by(
             Lead.created_at.desc(),
@@ -118,8 +125,9 @@ def list_leads(
         build_lead_read(
             lead,
             product,
+            converted_client_number,
         )
-        for lead, product in rows
+        for lead, product, converted_client_number in rows
     ]
 
 
@@ -172,9 +180,19 @@ def update_lead(
             detail="Lead product is unavailable",
         )
 
+    converted_client_number = None
+
+    if db_lead.converted_tenant_id is not None:
+        converted_client_number = db.scalar(
+            select(Tenant.client_number).where(
+                Tenant.id == db_lead.converted_tenant_id
+            )
+        )
+
     return build_lead_read(
         db_lead,
         product,
+        converted_client_number,
     )
 
 
@@ -259,8 +277,32 @@ def provision_lead(
     converted_at = datetime.now(timezone.utc)
 
     try:
+        locked_product = db.scalar(
+            select(Product)
+            .where(Product.id == lead.product_id)
+            .with_for_update()
+        )
+
+        if locked_product is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Lead product is unavailable",
+            )
+
+        next_client_number = db.scalar(
+            select(
+                func.coalesce(
+                    func.max(Tenant.client_number),
+                    0,
+                ) + 1
+            ).where(
+                Tenant.product_id == lead.product_id
+            )
+        )
+
         tenant = Tenant(
             product_id=lead.product_id,
+            client_number=next_client_number,
             name=lead.business_name,
             slug=payload.tenant_slug,
             status="active",
@@ -292,6 +334,7 @@ def provision_lead(
                     "owner_user_id": owner.id,
                     "tenant_name": tenant.name,
                     "tenant_slug": tenant.slug,
+                    "client_number": tenant.client_number,
                     "status": tenant.status,
                 },
             )
@@ -312,6 +355,7 @@ def provision_lead(
         "converted_at": lead.converted_at,
         "tenant": {
             "id": tenant.id,
+            "client_number": tenant.client_number,
             "name": tenant.name,
             "slug": tenant.slug,
             "status": tenant.status,

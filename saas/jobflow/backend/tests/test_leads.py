@@ -357,6 +357,7 @@ def test_platform_admin_can_provision_qualified_lead(
     payload = response.json()
 
     assert payload["lead_id"] == lead.id
+    assert payload["tenant"]["client_number"] == 1
     assert payload["tenant"]["name"] == lead.business_name
     assert payload["tenant"]["slug"] == "lead-test-services"
     assert payload["tenant"]["status"] == "active"
@@ -370,6 +371,17 @@ def test_platform_admin_can_provision_qualified_lead(
         payload["tenant"]["id"],
     )
     assert tenant is not None
+    assert tenant.client_number == 1
+
+    listed_leads = client.get("/api/v1/leads/")
+    assert listed_leads.status_code == 200
+
+    listed_lead = next(
+        item
+        for item in listed_leads.json()
+        if item["id"] == lead.id
+    )
+    assert listed_lead["converted_client_number"] == 1
 
     updated_lead = db_session.get(Lead, lead.id)
     assert updated_lead is not None
@@ -397,6 +409,7 @@ def test_platform_admin_can_provision_qualified_lead(
     assert audit.tenant_id == tenant.id
     assert audit.after_data["lead_id"] == lead.id
     assert audit.after_data["owner_user_id"] == owner.id
+    assert audit.after_data["client_number"] == 1
 
 
 def test_only_qualified_lead_can_be_provisioned(

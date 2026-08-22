@@ -1353,7 +1353,11 @@
         </div>
 
         <div class="row-secondary">
-          Tenant #${tenant.id}
+          ${
+            tenant.client_number
+              ? `Client #${tenant.client_number}`
+              : `Validation tenant · Internal #${tenant.id}`
+          }
         </div>
 
         <div class="row-actions">
@@ -1802,7 +1806,11 @@
 
             <p>
               ${escapeHtml(data.tenant.slug)}
-              · Tenant #${data.tenant.id}
+              · ${
+                data.tenant.client_number
+                  ? `Client #${data.tenant.client_number}`
+                  : `Validation tenant · Internal #${data.tenant.id}`
+              }
             </p>
 
             <div style="margin-top: 10px;">

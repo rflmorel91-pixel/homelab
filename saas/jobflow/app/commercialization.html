@@ -410,14 +410,24 @@
         && lead.converted_tenant_id
           ? `
             <div class="lead-actions">
-              <strong>Provisioned Tenant</strong>
+              <strong>
+                ${
+                  lead.converted_client_number
+                    ? `Client #${lead.converted_client_number}`
+                    : "Provisioned validation tenant"
+                }
+              </strong>
 
               <div>
                 ${escapeHtml(lead.business_name)}
               </div>
 
-              <div>
-                Tenant #${lead.converted_tenant_id}
+              <div class="meta">
+                ${
+                  lead.converted_client_number
+                    ? `${escapeHtml(lead.product_name)} client`
+                    : `Internal tenant #${lead.converted_tenant_id}`
+                }
               </div>
 
               ${
@@ -439,7 +449,7 @@
                 <a
                   href="/admin?tenant=${lead.converted_tenant_id}"
                 >
-                  Manage Tenant
+                  Manage Client
                 </a>
               </div>
             </div>

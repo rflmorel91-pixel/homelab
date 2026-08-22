@@ -1,6 +1,12 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -8,6 +14,14 @@ from app.database import Base
 
 class Tenant(Base):
     __tablename__ = "tenants"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "product_id",
+            "client_number",
+            name="uq_tenants_product_client_number",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -17,6 +31,11 @@ class Tenant(Base):
         ForeignKey("products.id"),
         nullable=False,
         index=True,
+    )
+
+    client_number: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
     name: Mapped[str] = mapped_column(

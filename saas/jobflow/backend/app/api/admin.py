@@ -184,6 +184,7 @@ def admin_overview(
         "tenants": [
             {
                 "id": tenant.id,
+                "client_number": tenant.client_number,
                 "product_id": tenant.product_id,
                 "name": tenant.name,
                 "slug": tenant.slug,
@@ -237,6 +238,7 @@ def admin_tenant_detail(
     return {
         "tenant": {
             "id": tenant.id,
+            "client_number": tenant.client_number,
             "name": tenant.name,
             "slug": tenant.slug,
             "status": tenant.status,
@@ -314,6 +316,7 @@ def admin_suspend_tenant(
 
     return {
         "id": tenant.id,
+        "client_number": tenant.client_number,
         "name": tenant.name,
         "slug": tenant.slug,
         "status": tenant.status,
@@ -372,6 +375,7 @@ def admin_reactivate_tenant(
 
     return {
         "id": tenant.id,
+        "client_number": tenant.client_number,
         "name": tenant.name,
         "slug": tenant.slug,
         "status": tenant.status,

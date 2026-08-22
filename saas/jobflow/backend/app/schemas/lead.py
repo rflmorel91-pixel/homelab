@@ -52,6 +52,7 @@ class LeadRead(BaseModel):
     message: str | None
     status: str
     converted_tenant_id: int | None = None
+    converted_client_number: int | None = None
     converted_at: datetime | None = None
     created_at: datetime
 
@@ -78,6 +79,7 @@ class LeadProvisionRequest(BaseModel):
 
 class ProvisionedTenantRead(BaseModel):
     id: int
+    client_number: int
     name: str
     slug: str
     status: str
