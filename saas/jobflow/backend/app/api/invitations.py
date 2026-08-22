@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.api.admin import add_admin_audit
 from app.database import get_db
+from app.tenant_context import (
+    get_current_tenant,
+    require_current_tenant_owner,
+)
 from app.models import (
     Lead,
     Product,
@@ -104,6 +108,12 @@ admin_router = APIRouter(
 client_admin_router = APIRouter(
     prefix="/admin/tenants",
     tags=["Administration"],
+)
+
+
+client_owner_router = APIRouter(
+    prefix="/client",
+    tags=["Client Team"],
 )
 
 
@@ -584,6 +594,152 @@ def revoke_client_user_invitation(
         "status": "revoked",
         "revoked_at": invitation.revoked_at,
     }
+
+
+@client_owner_router.get("/team")
+def get_current_client_team(
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    rows = db.execute(
+        select(
+            TenantMembership,
+            User,
+        )
+        .join(
+            User,
+            User.id == TenantMembership.user_id,
+        )
+        .where(
+            TenantMembership.tenant_id == tenant.id,
+        )
+        .order_by(
+            TenantMembership.role.desc(),
+            User.display_name,
+            User.id,
+        )
+    ).all()
+
+    return {
+        "client": {
+            "id": tenant.id,
+            "client_number": tenant.client_number,
+            "name": tenant.name,
+            "slug": tenant.slug,
+        },
+        "members": [
+            {
+                "membership_id": membership.id,
+                "user_id": user.id,
+                "display_name": user.display_name,
+                "email": user.email,
+                "role": membership.role,
+                "is_active": user.is_active,
+            }
+            for membership, user in rows
+        ],
+    }
+
+
+@client_owner_router.post(
+    "/user-invitations",
+    status_code=status.HTTP_201_CREATED,
+)
+def create_current_client_user_invitation(
+    payload: ClientInvitationCreate,
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    operator = db.get(
+        User,
+        membership.user_id,
+    )
+
+    if operator is None or not operator.is_active:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
+    return create_client_user_invitation(
+        tenant_id=tenant.id,
+        payload=payload,
+        response=response,
+        db=db,
+        operator=operator,
+    )
+
+
+@client_owner_router.get(
+    "/user-invitations",
+)
+def list_current_client_user_invitations(
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    operator = db.get(
+        User,
+        _.user_id,
+    )
+
+    if operator is None or not operator.is_active:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
+    return list_client_user_invitations(
+        tenant_id=tenant.id,
+        response=response,
+        db=db,
+        _=operator,
+    )
+
+
+@client_owner_router.post(
+    "/user-invitations/{invitation_id}/revoke",
+)
+def revoke_current_client_user_invitation(
+    invitation_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    operator = db.get(
+        User,
+        membership.user_id,
+    )
+
+    if operator is None or not operator.is_active:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
+    return revoke_client_user_invitation(
+        tenant_id=tenant.id,
+        invitation_id=invitation_id,
+        response=response,
+        db=db,
+        operator=operator,
+    )
 
 
 @public_router.post("/accept")

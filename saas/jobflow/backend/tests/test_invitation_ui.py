@@ -174,3 +174,23 @@ def test_renewaldesk_hides_delete_from_members():
     assert 'clientRole === "owner"' in page
     assert "client.role" in page
     assert "onclick=\"deleteRenewal(" in page
+
+
+
+def test_renewaldesk_owner_can_manage_client_team():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk-app.html"
+    ).read_text()
+
+    assert 'id="teamPanel"' in page
+    assert 'id="teamInvitationForm"' in page
+    assert 'id="teamMemberList"' in page
+    assert 'id="teamInvitationList"' in page
+    assert 'id="teamActivationLink"' in page
+    assert '"/client/team"' in page
+    assert '"/client/user-invitations"' in page
+    assert "loadClientTeam" in page
+    assert 'clientRole !== "owner"' in page
+    assert "revokeTeamInvitation" in page

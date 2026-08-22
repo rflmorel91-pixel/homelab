@@ -744,3 +744,353 @@ def test_revoked_client_invitation_cannot_be_accepted(
     assert accept_response.json()["detail"] == (
         "Invitation is invalid or expired"
     )
+
+
+
+def test_client_owner_can_create_current_client_invitation(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+        UserInvitation,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=951,
+        name="Owner Invitation Client",
+        slug="owner-invitation-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/client/user-invitations",
+        headers=headers,
+        json={
+            "email": "owner-created@example.com",
+            "display_name": "Owner Created User",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["client"]["id"] == tenant.id
+    assert payload["client"]["client_number"] == 951
+    assert payload["role"] == "member"
+    assert payload["activation_path"].startswith(
+        "/accept-invitation#token="
+    )
+
+    invitation = db_session.scalar(
+        select(UserInvitation).where(
+            UserInvitation.tenant_id == tenant.id,
+            UserInvitation.email
+            == "owner-created@example.com",
+        )
+    )
+
+    assert invitation is not None
+    assert invitation.role == "member"
+    assert (
+        invitation.created_by_user_id
+        == membership.user_id
+    )
+
+
+def test_client_member_cannot_manage_invitations(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=952,
+        name="Member Invitation Client",
+        slug="member-invitation-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+    assert membership.role == "member"
+
+    create_response = client.post(
+        "/api/v1/client/user-invitations",
+        headers=headers,
+        json={
+            "email": "member-created@example.com",
+            "display_name": "Member Created User",
+            "role": "member",
+        },
+    )
+
+    assert create_response.status_code == 403
+    assert create_response.json()["detail"] == (
+        "Tenant owner access required"
+    )
+
+    list_response = client.get(
+        "/api/v1/client/user-invitations",
+        headers=headers,
+    )
+
+    assert list_response.status_code == 403
+    assert list_response.json()["detail"] == (
+        "Tenant owner access required"
+    )
+
+
+def test_client_owner_invitation_is_scoped_to_header_tenant(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+        UserInvitation,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=953,
+        name="Scoped Owner Client",
+        slug="scoped-owner-client",
+        status="active",
+    )
+
+    other_tenant = Tenant(
+        product_id=product.id,
+        client_number=954,
+        name="Other Client",
+        slug="other-owner-client",
+        status="active",
+    )
+
+    db_session.add_all([
+        tenant,
+        other_tenant,
+    ])
+    db_session.commit()
+    db_session.refresh(tenant)
+    db_session.refresh(other_tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/client/user-invitations",
+        headers=headers,
+        json={
+            "email": "scoped-owner@example.com",
+            "display_name": "Scoped Owner User",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 201
+
+    invitation = db_session.scalar(
+        select(UserInvitation).where(
+            UserInvitation.email
+            == "scoped-owner@example.com",
+        )
+    )
+
+    assert invitation is not None
+    assert invitation.tenant_id == tenant.id
+    assert invitation.tenant_id != other_tenant.id
+
+
+
+def test_client_owner_can_list_current_team(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=955,
+        name="Owner Team Client",
+        slug="owner-team-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+
+    membership.role = "owner"
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/client/team",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["client"]["id"] == tenant.id
+    assert payload["client"]["client_number"] == 955
+
+    assert any(
+        member["membership_id"] == membership.id
+        and member["role"] == "owner"
+        for member in payload["members"]
+    )
+
+
+def test_client_member_cannot_list_current_team(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+    )
+
+    client = authenticated_client
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=956,
+        name="Member Team Client",
+        slug="member-team-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    headers = client.auth_headers(tenant)
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id
+        )
+    )
+    assert membership is not None
+    assert membership.role == "member"
+
+    response = client.get(
+        "/api/v1/client/team",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Tenant owner access required"
+    )

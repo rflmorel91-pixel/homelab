@@ -391,6 +391,99 @@
       </button>
     </section>
 
+    <section
+      id="teamPanel"
+      class="panel"
+      style="display: none;"
+    >
+      <h2>Team</h2>
+
+      <p>
+        Invite people to collaborate in this RenewalDesk
+        client workspace.
+      </p>
+
+      <form id="teamInvitationForm">
+        <div>
+          <label for="teamDisplayName">
+            Display Name
+          </label>
+
+          <input
+            id="teamDisplayName"
+            maxlength="200"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="teamEmail">
+            Email
+          </label>
+
+          <input
+            id="teamEmail"
+            type="email"
+            maxlength="320"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="teamRole">
+            Role
+          </label>
+
+          <select id="teamRole">
+            <option value="member">Member</option>
+            <option value="owner">Owner</option>
+          </select>
+        </div>
+
+        <button type="submit">
+          Create Invitation
+        </button>
+      </form>
+
+      <div
+        id="teamActivationPanel"
+        class="success"
+        style="display: none; margin-top: 16px;"
+      >
+        <strong>Client activation link created</strong>
+
+        <p>
+          Share this link only with the intended client user.
+          It is displayed once.
+        </p>
+
+        <input
+          id="teamActivationLink"
+          type="text"
+          readonly
+        >
+
+        <button
+          id="copyTeamActivationLink"
+          type="button"
+          class="secondary"
+          style="margin-top: 8px;"
+        >
+          Copy Link
+        </button>
+      </div>
+
+      <h3>Members</h3>
+      <div id="teamMemberList">
+        <p class="empty">Loading team...</p>
+      </div>
+
+      <h3>Invitations</h3>
+      <div id="teamInvitationList">
+        <p class="empty">Loading invitations...</p>
+      </div>
+    </section>
+
     <div class="workspace-grid">
 
       <section class="panel">
@@ -627,6 +720,46 @@
 
   const clientContext =
     document.getElementById("clientContext");
+
+  const teamPanel =
+    document.getElementById("teamPanel");
+
+  const teamInvitationForm =
+    document.getElementById(
+      "teamInvitationForm"
+    );
+
+  const teamDisplayName =
+    document.getElementById("teamDisplayName");
+
+  const teamEmail =
+    document.getElementById("teamEmail");
+
+  const teamRole =
+    document.getElementById("teamRole");
+
+  const teamMemberList =
+    document.getElementById("teamMemberList");
+
+  const teamInvitationList =
+    document.getElementById(
+      "teamInvitationList"
+    );
+
+  const teamActivationPanel =
+    document.getElementById(
+      "teamActivationPanel"
+    );
+
+  const teamActivationLink =
+    document.getElementById(
+      "teamActivationLink"
+    );
+
+  const copyTeamActivationLink =
+    document.getElementById(
+      "copyTeamActivationLink"
+    );
 
   const errorMessage =
     document.getElementById("errorMessage");
@@ -1157,6 +1290,118 @@
   }
 
 
+  function renderTeamMembers(members) {
+    teamMemberList.innerHTML = members.length
+      ? members.map(member => `
+          <article class="renewal-card">
+            <h3>
+              ${escapeHtml(member.display_name)}
+            </h3>
+
+            <div class="renewal-meta">
+              <span>${escapeHtml(member.email)}</span>
+              <span>${escapeHtml(member.role)}</span>
+              <span>
+                ${member.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </article>
+        `).join("")
+      : '<p class="empty">No team members.</p>';
+  }
+
+
+  function renderTeamInvitations(invitations) {
+    teamInvitationList.innerHTML = invitations.length
+      ? invitations.map(invitation => `
+          <article class="renewal-card">
+            <h3>
+              ${escapeHtml(invitation.display_name)}
+            </h3>
+
+            <div class="renewal-meta">
+              <span>${escapeHtml(invitation.email)}</span>
+              <span>${escapeHtml(invitation.role)}</span>
+              <span>${escapeHtml(invitation.status)}</span>
+            </div>
+
+            ${
+              invitation.status === "pending"
+                ? `
+                  <button
+                    type="button"
+                    class="danger"
+                    onclick="revokeTeamInvitation(
+                      ${invitation.id}
+                    )"
+                  >
+                    Revoke
+                  </button>
+                `
+                : ""
+            }
+          </article>
+        `).join("")
+      : '<p class="empty">No client invitations.</p>';
+  }
+
+
+  async function loadClientTeam() {
+    if (clientRole !== "owner") {
+      teamPanel.style.display = "none";
+      return;
+    }
+
+    const [
+      team,
+      invitationData
+    ] = await Promise.all([
+      apiRequest("/client/team"),
+      apiRequest("/client/user-invitations")
+    ]);
+
+    renderTeamMembers(team.members);
+    renderTeamInvitations(
+      invitationData.invitations
+    );
+
+    teamPanel.style.display = "block";
+  }
+
+
+  async function revokeTeamInvitation(
+    invitationId
+  ) {
+    if (
+      !window.confirm(
+        "Revoke this pending client invitation?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/client/user-invitations/${
+          invitationId
+        }/revoke`,
+        {
+          method: "POST"
+        }
+      );
+
+      showSuccess(
+        "Client invitation revoked."
+      );
+
+      await loadClientTeam();
+
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+
+
   async function discoverRenewalDeskAccess() {
     const access = await apiRequest(
       "/auth/products/renewaldesk/access"
@@ -1190,6 +1435,8 @@
 
     clientContext.textContent =
       `Client #${client.client_number} · ${client.name} · ${client.role}`;
+
+    await loadClientTeam();
 
     return client;
   }
@@ -1364,6 +1611,67 @@
       setAuthenticatedUI(false);
     }
   }
+
+
+  teamInvitationForm.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      try {
+        teamActivationPanel.style.display =
+          "none";
+
+        const invitation = await apiRequest(
+          "/client/user-invitations",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              display_name:
+                teamDisplayName.value.trim(),
+              email:
+                teamEmail.value.trim(),
+              role:
+                teamRole.value
+            })
+          }
+        );
+
+        teamActivationLink.value =
+          `${window.location.origin}${
+            invitation.activation_path
+          }`;
+
+        teamActivationPanel.style.display =
+          "block";
+
+        teamInvitationForm.reset();
+
+        showSuccess(
+          "Client invitation created."
+        );
+
+        await loadClientTeam();
+
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+  );
+
+
+  copyTeamActivationLink.addEventListener(
+    "click",
+    async () => {
+      await navigator.clipboard.writeText(
+        teamActivationLink.value
+      );
+
+      showSuccess(
+        "Activation link copied."
+      );
+    }
+  );
 
 
   initialize();
