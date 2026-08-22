@@ -2170,6 +2170,112 @@
             `).join("")
           : '<option value="">No eligible users</option>';
 
+      const membershipControl =
+        data.tenant.client_number
+          ? `
+            <h3>Invite Client User</h3>
+
+            <p class="row-secondary">
+              Create a secure activation link tied to
+              Client #${data.tenant.client_number}.
+              The link is displayed once and expires after 72 hours.
+            </p>
+
+            <div class="membership-form">
+              <input
+                id="clientInvitationName"
+                type="text"
+                placeholder="Full name"
+                autocomplete="name"
+              >
+
+              <input
+                id="clientInvitationEmail"
+                type="email"
+                placeholder="Email address"
+                autocomplete="email"
+              >
+
+              <select id="clientInvitationRole">
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+
+              <button
+                id="createClientInvitationButton"
+                class="btn primary"
+                type="button"
+              >
+                Create Invitation
+              </button>
+            </div>
+
+            <div
+              id="clientInvitationResult"
+              class="invitation-result hidden"
+            >
+              <strong>Client activation link created</strong>
+
+              <p>
+                Share this link only with the intended client user.
+              </p>
+
+              <div class="invitation-link-row">
+                <input
+                  id="clientInvitationActivationLink"
+                  type="text"
+                  readonly
+                >
+
+                <button
+                  id="copyClientInvitationButton"
+                  class="btn"
+                  type="button"
+                >
+                  Copy Link
+                </button>
+              </div>
+
+              <div
+                id="clientInvitationContext"
+                class="row-secondary"
+              ></div>
+
+              <div
+                id="clientInvitationExpiration"
+                class="row-secondary"
+              ></div>
+            </div>
+          `
+          : `
+            <h3>Add Internal Membership</h3>
+
+            <p class="row-secondary">
+              Assign an existing platform or internal user to this
+              validation workspace.
+            </p>
+
+            <div class="membership-form">
+              <select id="newMembershipUser">
+                <option value="">Select user</option>
+                ${userOptions}
+              </select>
+
+              <select id="newMembershipRole">
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+
+              <button
+                id="addMembershipButton"
+                class="btn primary"
+                type="button"
+              >
+                Add Membership
+              </button>
+            </div>
+          `;
+
       const membershipRows =
         data.memberships.length
           ? data.memberships.map(
@@ -2279,27 +2385,7 @@
           </div>
         </div>
 
-        <h3>Add Membership</h3>
-
-        <div class="membership-form">
-          <select id="newMembershipUser">
-            <option value="">Select user</option>
-            ${userOptions}
-          </select>
-
-          <select id="newMembershipRole">
-            <option value="member">Member</option>
-            <option value="owner">Owner</option>
-          </select>
-
-          <button
-            id="addMembershipButton"
-            class="btn primary"
-            type="button"
-          >
-            Add Membership
-          </button>
-        </div>
+        ${membershipControl}
 
         <h3>Memberships</h3>
 
@@ -2393,6 +2479,138 @@
 
     } catch (error) {
       setStatus(error.message, "error");
+    }
+  }
+
+
+  async function createClientInvitation() {
+    const displayName =
+      document.getElementById(
+        "clientInvitationName"
+      ).value.trim();
+
+    const email =
+      document.getElementById(
+        "clientInvitationEmail"
+      ).value.trim();
+
+    const role =
+      document.getElementById(
+        "clientInvitationRole"
+      ).value;
+
+    if (!displayName || !email) {
+      setStatus(
+        "Enter the client user's name and email.",
+        "error"
+      );
+      return;
+    }
+
+    const result =
+      document.getElementById(
+        "clientInvitationResult"
+      );
+
+    result.classList.add("hidden");
+    setStatus("Creating secure client invitation...");
+
+    try {
+      const invitation =
+        await apiRequest(
+          (
+            `/admin/tenants/${state.currentTenantId}`
+            + "/user-invitations"
+          ),
+          {
+            method: "POST",
+            body: JSON.stringify({
+              display_name: displayName,
+              email,
+              role,
+            }),
+          }
+        );
+
+      const activationUrl =
+        `${window.location.origin}${
+          invitation.activation_path
+        }`;
+
+      document.getElementById(
+        "clientInvitationActivationLink"
+      ).value = activationUrl;
+
+      document.getElementById(
+        "clientInvitationContext"
+      ).textContent =
+        `${invitation.product.name} · `
+        + `Client #${invitation.client.client_number} · `
+        + `${invitation.client.name} · `
+        + `${invitation.display_name} · `
+        + `${invitation.role}`;
+
+      document.getElementById(
+        "clientInvitationExpiration"
+      ).textContent =
+        `Expires: ${
+          new Date(
+            invitation.expires_at
+          ).toLocaleString()
+        }`;
+
+      result.classList.remove("hidden");
+
+      document.getElementById(
+        "clientInvitationName"
+      ).value = "";
+
+      document.getElementById(
+        "clientInvitationEmail"
+      ).value = "";
+
+      setStatus(
+        "Secure client invitation created.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+
+  async function copyClientInvitation() {
+    const input =
+      document.getElementById(
+        "clientInvitationActivationLink"
+      );
+
+    if (!input || !input.value) {
+      setStatus(
+        "No client activation link is available.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        input.value
+      );
+
+      setStatus(
+        "Client activation link copied.",
+        "success"
+      );
+
+    } catch {
+      input.select();
+
+      setStatus(
+        "Copy the selected activation link.",
+        "success"
+      );
     }
   }
 
@@ -2602,6 +2820,26 @@
             reactivateTenantButton.dataset.reactivateTenant
           )
         );
+        return;
+      }
+
+      const clientInvitationButton =
+        event.target.closest(
+          "#createClientInvitationButton"
+        );
+
+      if (clientInvitationButton) {
+        await createClientInvitation();
+        return;
+      }
+
+      const copyClientInvitationButton =
+        event.target.closest(
+          "#copyClientInvitationButton"
+        );
+
+      if (copyClientInvitationButton) {
+        await copyClientInvitation();
         return;
       }
 

@@ -1,6 +1,11 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -8,6 +13,25 @@ from app.database import Base
 
 class UserInvitation(Base):
     __tablename__ = "user_invitations"
+
+    __table_args__ = (
+        CheckConstraint(
+            """
+            (
+                lead_id IS NOT NULL
+                AND tenant_id IS NULL
+                AND role IS NULL
+            )
+            OR
+            (
+                lead_id IS NULL
+                AND tenant_id IS NOT NULL
+                AND role IN ('owner', 'member')
+            )
+            """,
+            name="ck_user_invitations_single_target",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -31,10 +55,21 @@ class UserInvitation(Base):
         index=True,
     )
 
-    lead_id: Mapped[int] = mapped_column(
+    lead_id: Mapped[int | None] = mapped_column(
         ForeignKey("leads.id"),
-        nullable=False,
+        nullable=True,
         index=True,
+    )
+
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id"),
+        nullable=True,
+        index=True,
+    )
+
+    role: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
     )
 
     created_by_user_id: Mapped[int] = mapped_column(

@@ -113,3 +113,32 @@ def test_renewaldesk_displays_discovered_client_context():
     assert "${client.role}" in page
     assert "clientContext.textContent" in page
     assert "tenant_id}" not in page
+
+
+
+def test_commercial_client_uses_secure_user_invitation():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "admin.html"
+    ).read_text()
+
+    assert "<h3>Invite Client User</h3>" in page
+    assert 'id="clientInvitationName"' in page
+    assert 'id="clientInvitationEmail"' in page
+    assert 'id="clientInvitationRole"' in page
+    assert 'id="createClientInvitationButton"' in page
+    assert 'id="clientInvitationResult"' in page
+    assert 'id="copyClientInvitationButton"' in page
+    assert (
+        '"/user-invitations"'
+        in page
+    )
+    assert (
+        "`/admin/tenants/${state.currentTenantId}`"
+        in page
+    )
+    assert "invitation.activation_path" in page
+    assert "invitation.client.client_number" in page
+    assert "data.tenant.client_number" in page
+    assert "<h3>Add Internal Membership</h3>" in page

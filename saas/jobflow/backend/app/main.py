@@ -6,6 +6,7 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.invitations import (
     admin_router as invitation_admin_router,
+    client_admin_router as invitation_client_admin_router,
     public_router as invitation_public_router,
 )
 from app.api.leads import router as leads_router
@@ -71,6 +72,11 @@ app.include_router(
 
 app.include_router(
     invitation_admin_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    invitation_client_admin_router,
     prefix="/api/v1",
 )
 

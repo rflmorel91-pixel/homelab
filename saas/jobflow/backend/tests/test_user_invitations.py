@@ -7,6 +7,8 @@ from app.models import (
     AdminAuditLog,
     Lead,
     Product,
+    Tenant,
+    TenantMembership,
     User,
     UserInvitation,
 )
@@ -400,3 +402,196 @@ def test_invitation_rejects_short_password(
     )
 
     assert response.status_code == 422
+
+
+
+def create_commercial_client(db_session):
+    product = db_session.scalar(
+        select(Product).order_by(Product.id)
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=1,
+        name="Invited Client",
+        slug="invited-client",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    return tenant, product
+
+
+def test_platform_admin_creates_client_user_invitation(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, product = create_commercial_client(
+        db_session
+    )
+
+    response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "Client Member",
+            "email": "CLIENT.MEMBER@example.com",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["product"]["id"] == product.id
+    assert payload["client"]["id"] == tenant.id
+    assert payload["client"]["client_number"] == 1
+    assert payload["email"] == "client.member@example.com"
+    assert payload["role"] == "member"
+    assert payload["activation_path"].startswith(
+        "/accept-invitation#token="
+    )
+
+    invitation = db_session.get(
+        UserInvitation,
+        payload["id"],
+    )
+
+    assert invitation is not None
+    assert invitation.lead_id is None
+    assert invitation.tenant_id == tenant.id
+    assert invitation.role == "member"
+
+
+def test_client_invitation_acceptance_creates_membership(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, _ = create_commercial_client(
+        db_session
+    )
+
+    create_response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "New Client Owner",
+            "email": "new-owner@example.com",
+            "role": "owner",
+        },
+    )
+    assert create_response.status_code == 201
+
+    token = token_from_activation_path(
+        create_response.json()["activation_path"]
+    )
+
+    accept_response = client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": token,
+            "password": "secure-client-password",
+        },
+    )
+
+    assert accept_response.status_code == 200
+
+    payload = accept_response.json()
+
+    assert payload["status"] == "activated"
+    assert payload["client"]["id"] == tenant.id
+    assert payload["client"]["client_number"] == 1
+    assert payload["client"]["role"] == "owner"
+
+    user = db_session.scalar(
+        select(User).where(
+            User.email == "new-owner@example.com"
+        )
+    )
+    assert user is not None
+    assert verify_password(
+        "secure-client-password",
+        user.password_hash,
+    )
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id == user.id,
+        )
+    )
+
+    assert membership is not None
+    assert membership.role == "owner"
+
+
+def test_cannot_invite_user_to_validation_workspace(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+
+    tenant = db_session.scalar(
+        select(Tenant).where(
+            Tenant.client_number.is_(None)
+        )
+    )
+    assert tenant is not None
+
+    response = client.post(
+        (
+            f"/api/v1/admin/tenants/{tenant.id}"
+            "/user-invitations"
+        ),
+        json={
+            "display_name": "Invalid Invite",
+            "email": "invalid@example.com",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Client invitations require a "
+        "commercial client workspace"
+    )
+
+
+def test_cannot_create_duplicate_active_client_invitation(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant, _ = create_commercial_client(
+        db_session
+    )
+
+    path = (
+        f"/api/v1/admin/tenants/{tenant.id}"
+        "/user-invitations"
+    )
+    request = {
+        "display_name": "Duplicate Invite",
+        "email": "duplicate@example.com",
+        "role": "member",
+    }
+
+    first = client.post(path, json=request)
+    second = client.post(path, json=request)
+
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert second.json()["detail"] == (
+        "An active invitation already exists "
+        "for this client and email"
+    )
