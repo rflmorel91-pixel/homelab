@@ -361,12 +361,22 @@
             throw new Error(detail);
           }
 
+          const payload =
+            await response.json();
+
           form.reset();
           form.classList.add("hidden");
+
+          continueLink.href =
+            `${payload.product.landing_route}?activated=1`;
+
+          continueLink.textContent =
+            `Continue to ${payload.product.name}`;
+
           continueLink.classList.add("visible");
 
           showStatus(
-            "Your platform account is active. Continue to your product sign-in page.",
+            `Your account is active. Continue to ${payload.product.name}.`,
             "success"
           );
 

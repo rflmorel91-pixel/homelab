@@ -216,6 +216,22 @@
 
 <body>
 
+<div
+  id="activationNotice"
+  role="status"
+  style="
+    display: none;
+    padding: 14px 24px;
+    background: #dcfce7;
+    color: #166534;
+    text-align: center;
+    font-weight: bold;
+  "
+>
+  Your RenewalDesk account is active.
+  Sign in to open your workspace.
+</div>
+
 <header>
   <nav>
     <a class="brand" href="/renewaldesk">
@@ -374,6 +390,23 @@
 </footer>
 
 <script>
+  const landingParameters =
+    new URLSearchParams(window.location.search);
+
+  if (
+    landingParameters.get("activated") === "1"
+  ) {
+    document.getElementById(
+      "activationNotice"
+    ).style.display = "block";
+
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname
+    );
+  }
+
   const leadForm = document.getElementById("leadForm");
   const leadSubmit = document.getElementById("leadSubmit");
   const leadMessageStatus =

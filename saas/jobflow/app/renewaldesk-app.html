@@ -334,18 +334,6 @@
         >
       </div>
 
-      <div>
-        <label for="loginTenantId">
-          RenewalDesk Tenant ID
-        </label>
-        <input
-          id="loginTenantId"
-          type="number"
-          min="1"
-          required
-        >
-      </div>
-
       <button type="submit">
         Sign In
       </button>
@@ -614,9 +602,6 @@
 
   const loginPassword =
     document.getElementById("loginPassword");
-
-  const loginTenantId =
-    document.getElementById("loginTenantId");
 
   const logoutButton =
     document.getElementById("logoutButton");
@@ -1145,6 +1130,35 @@
   }
 
 
+  async function discoverRenewalDeskAccess() {
+    const access = await apiRequest(
+      "/auth/products/renewaldesk/access"
+    );
+
+    if (access.clients.length === 0) {
+      throw new Error(
+        "Your account does not have active RenewalDesk client access."
+      );
+    }
+
+    if (access.clients.length > 1) {
+      throw new Error(
+        "Your account has access to multiple RenewalDesk clients. Client selection is required."
+      );
+    }
+
+    tenantId =
+      String(access.clients[0].tenant_id);
+
+    localStorage.setItem(
+      "renewaldesk_tenant_id",
+      tenantId
+    );
+
+    return access.clients[0];
+  }
+
+
   loginForm.addEventListener(
     "submit",
     async event => {
@@ -1162,14 +1176,7 @@
           }
         );
 
-        tenantId =
-          loginTenantId.value;
-
-        localStorage.setItem(
-          "renewaldesk_tenant_id",
-          tenantId
-        );
-
+        await discoverRenewalDeskAccess();
         await loadDashboard();
 
         loginForm.reset();
@@ -1305,9 +1312,16 @@
     }
 
     try {
+      await discoverRenewalDeskAccess();
       await loadDashboard();
       setAuthenticatedUI(true);
     } catch {
+      tenantId = null;
+
+      localStorage.removeItem(
+        "renewaldesk_tenant_id"
+      );
+
       setAuthenticatedUI(false);
     }
   }

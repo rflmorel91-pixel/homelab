@@ -54,3 +54,45 @@ def test_nginx_routes_and_limits_invitation_acceptance():
         "location = /accept-invitation"
         in configuration
     )
+
+
+
+def test_activation_continues_to_linked_product_landing():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "accept-invitation.html"
+    ).read_text()
+
+    assert "payload.product.landing_route" in page
+    assert "payload.product.name" in page
+    assert "?activated=1" in page
+
+
+def test_renewaldesk_landing_handles_activation_return():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk.html"
+    ).read_text()
+
+    assert 'id="activationNotice"' in page
+    assert 'get("activated") === "1"' in page
+    assert 'href="/renewaldesk/app"' in page
+
+
+def test_renewaldesk_discovers_client_access():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk-app.html"
+    ).read_text()
+
+    assert (
+        '"/auth/products/renewaldesk/access"'
+        in page
+    )
+    assert "access.clients[0].tenant_id" in page
+    assert "discoverRenewalDeskAccess" in page
+    assert "loginTenantId" not in page
+    assert "RenewalDesk Tenant ID" not in page

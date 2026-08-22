@@ -242,7 +242,14 @@ def test_invitation_acceptance_creates_login_user(
     )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "activated"
+
+    payload = response.json()
+
+    assert payload["status"] == "activated"
+    assert payload["product"]["id"] == lead.product_id
+    assert payload["product"]["slug"] == "jobflow"
+    assert payload["product"]["landing_route"] == "/"
+    assert payload["product"]["workspace_route"] == "/app"
     assert response.headers["cache-control"] == "no-store"
 
     user = db_session.scalar(

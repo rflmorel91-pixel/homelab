@@ -14,6 +14,7 @@ from app.models import (
     UserInvitation,
 )
 from app.operator_context import get_current_operator
+from app.platform import get_product
 from app.security import (
     create_invitation_token,
     hash_invitation_token,
@@ -236,6 +237,34 @@ def accept_user_invitation(
             detail="A user with this email already exists",
         )
 
+    lead = db.get(
+        Lead,
+        invitation.lead_id,
+    )
+
+    if lead is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invitation lead is unavailable",
+        )
+
+    product = db.get(
+        Product,
+        lead.product_id,
+    )
+
+    definition = (
+        get_product(product.slug)
+        if product is not None
+        else None
+    )
+
+    if product is None or definition is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invitation product is unavailable",
+        )
+
     user = User(
         email=invitation.email,
         display_name=invitation.display_name,
@@ -254,6 +283,13 @@ def accept_user_invitation(
 
     return {
         "status": "activated",
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "slug": product.slug,
+            "landing_route": definition.landing_route,
+            "workspace_route": definition.workspace_route,
+        },
         "user": {
             "id": user.id,
             "email": user.email,
