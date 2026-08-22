@@ -234,6 +234,156 @@ def admin_overview(
     }
 
 
+@router.get("/products/{product_id}")
+def admin_product_detail(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    product = db.get(
+        Product,
+        product_id,
+    )
+
+    if product is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found",
+        )
+
+    clients = db.scalars(
+        select(Tenant)
+        .where(
+            Tenant.product_id == product.id,
+            Tenant.client_number.is_not(None),
+        )
+        .order_by(
+            Tenant.client_number,
+            Tenant.id,
+        )
+    ).all()
+
+    validation_workspaces = db.scalars(
+        select(Tenant)
+        .where(
+            Tenant.product_id == product.id,
+            Tenant.client_number.is_(None),
+        )
+        .order_by(Tenant.id)
+    ).all()
+
+    membership_rows = db.execute(
+        select(
+            TenantMembership,
+            User,
+            Tenant,
+        )
+        .join(
+            Tenant,
+            Tenant.id == TenantMembership.tenant_id,
+        )
+        .join(
+            User,
+            User.id == TenantMembership.user_id,
+        )
+        .where(
+            Tenant.product_id == product.id,
+            Tenant.client_number.is_not(None),
+        )
+        .order_by(
+            Tenant.client_number,
+            User.display_name,
+            User.id,
+        )
+    ).all()
+
+    leads = db.scalars(
+        select(Lead)
+        .where(Lead.product_id == product.id)
+        .order_by(
+            Lead.created_at.desc(),
+            Lead.id.desc(),
+        )
+    ).all()
+
+    product_user_ids = {
+        user.id
+        for _, user, _ in membership_rows
+    }
+
+    return {
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "slug": product.slug,
+            "status": product.status,
+            "workspace_key": product.workspace_key,
+            "created_at": product.created_at,
+        },
+        "counts": {
+            "clients": len(clients),
+            "users": len(product_user_ids),
+            "leads": len(leads),
+            "validation_workspaces":
+                len(validation_workspaces),
+        },
+        "clients": [
+            {
+                "id": tenant.id,
+                "client_number": tenant.client_number,
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "status": tenant.status,
+                "suspended_at": tenant.suspended_at,
+                "created_at": tenant.created_at,
+            }
+            for tenant in clients
+        ],
+        "users": [
+            {
+                "user_id": user.id,
+                "email": user.email,
+                "display_name": user.display_name,
+                "is_active": user.is_active,
+                "client_id": tenant.id,
+                "client_number": tenant.client_number,
+                "client_name": tenant.name,
+                "role": membership.role,
+                "membership_id": membership.id,
+            }
+            for membership, user, tenant
+            in membership_rows
+        ],
+        "leads": [
+            {
+                "id": lead.id,
+                "business_name": lead.business_name,
+                "contact_name": lead.contact_name,
+                "email": lead.email,
+                "service_type": lead.service_type,
+                "status": lead.status,
+                "converted_tenant_id":
+                    lead.converted_tenant_id,
+                "created_at": lead.created_at,
+            }
+            for lead in leads
+        ],
+        "validation_workspaces": [
+            {
+                "id": tenant.id,
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "status": tenant.status,
+                "suspended_at": tenant.suspended_at,
+                "created_at": tenant.created_at,
+            }
+            for tenant in validation_workspaces
+        ],
+    }
+
+
 @router.get("/tenants/{tenant_id}")
 def admin_tenant_detail(
     tenant_id: int,

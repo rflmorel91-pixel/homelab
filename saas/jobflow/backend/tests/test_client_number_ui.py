@@ -46,3 +46,26 @@ def test_admin_separates_clients_from_validation_workspaces():
     )
     assert "Manage Client" in page
     assert "Manage Workspace" in page
+
+
+def test_admin_product_directory_opens_product_management():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "admin.html"
+    ).read_text()
+
+    assert 'id="productDetailPanel"' in page
+    assert 'id="productDetail"' in page
+    assert 'data-open-product="${product.id}"' in page
+    assert "Manage Product" in page
+    assert "async function openProduct(productId)" in page
+    assert (
+        "`/admin/products/${productId}`"
+        in page
+    )
+    assert "<h3>Clients</h3>" in page
+    assert "<h3>Users</h3>" in page
+    assert "<h3>Leads</h3>" in page
+    assert "<h3>Validation Workspaces</h3>" in page
+    assert "Manage Product Leads" in page

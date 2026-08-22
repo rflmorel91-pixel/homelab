@@ -960,6 +960,16 @@
           ></div>
         </section>
 
+        <section
+          id="productDetailPanel"
+          class="panel hidden"
+        >
+          <div
+            id="productDetail"
+            class="panel-body"
+          ></div>
+        </section>
+
       </section>
 
       <section id="tenantsView" class="hidden">
@@ -1202,6 +1212,7 @@
 
   const state = {
     overview: null,
+    currentProductId: null,
     currentTenantId: null,
     currentUserId: null,
   };
@@ -1503,6 +1514,16 @@
               product.lead_count === 1 ? "" : "s"
             }
           </span>
+        </div>
+
+        <div class="row-actions">
+          <button
+            class="btn"
+            type="button"
+            data-open-product="${product.id}"
+          >
+            Manage Product
+          </button>
         </div>
       </div>
     `).join("");
@@ -1882,6 +1903,240 @@
       </div>
     `;
   }
+
+  async function openProduct(productId) {
+    try {
+      setStatus("Loading product...");
+
+      const data = await apiRequest(
+        `/admin/products/${productId}`
+      );
+
+      state.currentProductId = productId;
+
+      const clientRows = data.clients.length
+        ? data.clients.map(client => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(data.product.name)}
+                  · Client #${client.client_number}
+                </strong>
+
+                <span>
+                  ${escapeHtml(client.name)}
+                  · ${escapeHtml(client.slug)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                ${escapeHtml(client.status)}
+              </div>
+
+              <div class="row-actions">
+                <button
+                  class="btn"
+                  type="button"
+                  data-open-tenant="${client.id}"
+                >
+                  Manage Client
+                </button>
+              </div>
+            </div>
+          `).join("")
+        : '<div class="empty">No clients.</div>';
+
+      const userRows = data.users.length
+        ? data.users.map(user => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(user.display_name)}
+                </strong>
+
+                <span>
+                  ${escapeHtml(user.email)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                Client #${user.client_number}
+                · ${escapeHtml(user.client_name)}
+                · ${escapeHtml(user.role)}
+                · ${user.is_active ? "Active" : "Inactive"}
+              </div>
+
+              <div class="row-actions">
+                <button
+                  class="btn"
+                  type="button"
+                  data-open-user="${user.user_id}"
+                >
+                  View User
+                </button>
+              </div>
+            </div>
+          `).join("")
+        : `
+            <div class="empty">
+              No users have access to this product's clients.
+            </div>
+          `;
+
+      const leadRows = data.leads.length
+        ? data.leads.map(lead => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(lead.business_name)}
+                </strong>
+
+                <span>
+                  ${escapeHtml(lead.contact_name)}
+                  · ${escapeHtml(lead.email)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                Lead #${lead.id}
+                · ${escapeHtml(lead.service_type)}
+                · ${escapeHtml(lead.status)}
+              </div>
+            </div>
+          `).join("")
+        : '<div class="empty">No leads for this product.</div>';
+
+      const validationRows =
+        data.validation_workspaces.length
+          ? data.validation_workspaces.map(workspace => `
+              <div class="list-row">
+                <div class="row-primary">
+                  <strong>
+                    ${escapeHtml(workspace.name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(workspace.slug)}
+                  </span>
+                </div>
+
+                <div class="row-secondary">
+                  Validation workspace
+                  · ${escapeHtml(workspace.status)}
+                </div>
+
+                <div class="row-actions">
+                  <button
+                    class="btn"
+                    type="button"
+                    data-open-tenant="${workspace.id}"
+                  >
+                    Manage Workspace
+                  </button>
+                </div>
+              </div>
+            `).join("")
+          : `
+              <div class="empty">
+                No validation workspaces.
+              </div>
+            `;
+
+      document.getElementById(
+        "productDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${escapeHtml(data.product.name)}
+            </h2>
+
+            <p>
+              ${escapeHtml(data.product.slug)}
+              · workspace
+              ${escapeHtml(data.product.workspace_key)}
+            </p>
+          </div>
+
+          <span class="badge ${
+            data.product.status === "active"
+              ? "success"
+              : ""
+          }">
+            ${escapeHtml(data.product.status)}
+          </span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>${data.counts.clients}</strong>
+            <span>Clients</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.users}</strong>
+            <span>Users</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.leads}</strong>
+            <span>Leads</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>
+              ${data.counts.validation_workspaces}
+            </strong>
+            <span>Validation Workspaces</span>
+          </div>
+        </div>
+
+        <h3>Clients</h3>
+        <div class="list">
+          ${clientRows}
+        </div>
+
+        <h3>Users</h3>
+        <div class="list">
+          ${userRows}
+        </div>
+
+        <h3>Leads</h3>
+        <div class="list">
+          ${leadRows}
+        </div>
+
+        <div class="row-actions">
+          <a
+            class="btn"
+            href="/commercialization"
+          >
+            Manage Product Leads
+          </a>
+        </div>
+
+        <h3>Validation Workspaces</h3>
+        <div class="list">
+          ${validationRows}
+        </div>
+      `;
+
+      document.getElementById(
+        "productDetailPanel"
+      ).classList.remove("hidden");
+
+      showView("products");
+
+      setStatus(
+        `${data.product.name} management loaded.`,
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
 
   async function openTenant(tenantId) {
     try {
@@ -2280,6 +2535,16 @@
           await loadActivity();
         }
 
+        return;
+      }
+
+      const productButton =
+        event.target.closest("[data-open-product]");
+
+      if (productButton) {
+        await openProduct(
+          Number(productButton.dataset.openProduct)
+        );
         return;
       }
 
@@ -2990,6 +3255,7 @@
       }
 
       state.overview = null;
+      state.currentProductId = null;
       state.currentTenantId = null;
       state.currentUserId = null;
 

@@ -918,3 +918,99 @@ def test_non_platform_admin_cannot_suspend_tenant(
     )
 
     assert response.status_code == 403
+
+
+def test_platform_admin_can_view_product_detail(
+    client,
+    db_session,
+):
+    from app.models import Product, Tenant
+
+    make_platform_admin(db_session)
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "jobflow"
+        )
+    )
+    assert product is not None
+
+    tenant = db_session.scalar(
+        select(Tenant).where(
+            Tenant.product_id == product.id
+        )
+    )
+    assert tenant is not None
+
+    tenant.client_number = 1
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/admin/products/{product.id}"
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["product"]["id"] == product.id
+    assert payload["product"]["slug"] == product.slug
+    assert payload["counts"]["clients"] >= 1
+    assert payload["counts"]["users"] >= 1
+    assert payload["counts"]["leads"] >= 0
+    assert (
+        payload["counts"]["validation_workspaces"]
+        >= 0
+    )
+
+    assert any(
+        item["id"] == tenant.id
+        and item["client_number"] == 1
+        for item in payload["clients"]
+    )
+
+    assert any(
+        item["client_id"] == tenant.id
+        and item["client_number"] == 1
+        and item["role"] in {"owner", "member"}
+        for item in payload["users"]
+    )
+
+    assert all(
+        item["client_number"] is not None
+        for item in payload["clients"]
+    )
+
+
+def test_admin_product_detail_returns_404(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+
+    response = client.get(
+        "/api/v1/admin/products/999999"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+
+def test_non_platform_admin_cannot_view_product_detail(
+    client,
+):
+    response = client.get(
+        "/api/v1/admin/products/1"
+    )
+
+    assert response.status_code == 403
+
+
+def test_unauthenticated_user_cannot_view_product_detail(
+    raw_client,
+):
+    response = raw_client.get(
+        "/api/v1/admin/products/1"
+    )
+
+    assert response.status_code == 401
