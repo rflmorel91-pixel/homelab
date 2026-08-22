@@ -69,3 +69,25 @@ def test_admin_product_directory_opens_product_management():
     assert "<h3>Leads</h3>" in page
     assert "<h3>Validation Workspaces</h3>" in page
     assert "Manage Product Leads" in page
+
+
+
+def test_admin_uses_shared_platform_branding():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "admin.html"
+    ).read_text()
+
+    assert (
+        "<title>FieldLookers Platform Administration</title>"
+        in page
+    )
+    assert page.count("<strong>FieldLookers</strong>") == 2
+    assert "Lead Commercialization" in page
+    assert ">Platform Users<" not in page
+    assert "Platform Users" in page
+    assert 'href="/app"' not in page
+    assert "Client Workspace" not in page
+    assert "<strong>JobFlow</strong>" not in page
+    assert "<title>JobFlow Administration</title>" not in page
