@@ -12,6 +12,7 @@ from app.models import (
     Tenant,
     TenantMembership,
     User,
+    UserInvitation,
 )
 from app.operator_context import get_current_operator
 from app.schemas.lead import (
@@ -223,6 +224,24 @@ def provision_lead(
         raise HTTPException(
             status_code=409,
             detail="Owner user must be active",
+        )
+
+    accepted_invitation = db.scalar(
+        select(UserInvitation).where(
+            UserInvitation.lead_id == lead.id,
+            UserInvitation.accepted_user_id == owner.id,
+            UserInvitation.accepted_at.is_not(None),
+            UserInvitation.revoked_at.is_(None),
+        )
+    )
+
+    if accepted_invitation is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Owner must accept the invitation "
+                "for this lead before provisioning"
+            ),
         )
 
     existing_tenant = db.scalar(

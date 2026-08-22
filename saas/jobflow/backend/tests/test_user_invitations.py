@@ -2,12 +2,18 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.models import AdminAuditLog, User, UserInvitation
+from app.api.invitations import utc_now_naive
+from app.models import (
+    AdminAuditLog,
+    Lead,
+    Product,
+    User,
+    UserInvitation,
+)
 from app.security import (
     hash_invitation_token,
     verify_password,
 )
-from app.api.invitations import utc_now_naive
 
 
 def make_platform_admin(db_session):
@@ -24,35 +30,71 @@ def make_platform_admin(db_session):
     return user
 
 
+def create_lead(
+    db_session,
+    *,
+    status="qualified",
+    email="invited.user@example.com",
+):
+    product = db_session.scalar(
+        select(Product).order_by(Product.id)
+    )
+    assert product is not None
+
+    lead = Lead(
+        product_id=product.id,
+        business_name="Invited Business",
+        contact_name="Invited User",
+        email=email,
+        phone=None,
+        service_type="Pilot",
+        message=None,
+        status=status,
+    )
+    db_session.add(lead)
+    db_session.commit()
+    db_session.refresh(lead)
+
+    return lead, product
+
+
 def create_invitation(client, db_session):
     make_platform_admin(db_session)
+    lead, product = create_lead(db_session)
 
     response = client.post(
         "/api/v1/admin/user-invitations",
         json={
-            "email": " Invited.User@Example.com ",
-            "display_name": " Invited User ",
+            "lead_id": lead.id,
         },
     )
 
     assert response.status_code == 201
 
-    return response
+    return response, lead, product
 
 
 def token_from_activation_path(path):
     return path.split("token=", 1)[1]
 
 
-def test_platform_admin_creates_hashed_invitation(
+def test_platform_admin_creates_lead_linked_hashed_invitation(
     client,
     db_session,
 ):
-    response = create_invitation(client, db_session)
+    response, lead, product = create_invitation(
+        client,
+        db_session,
+    )
     body = response.json()
 
-    assert body["email"] == "invited.user@example.com"
-    assert body["display_name"] == "Invited User"
+    assert body["lead"]["id"] == lead.id
+    assert body["lead"]["business_name"] == lead.business_name
+    assert body["product"]["id"] == product.id
+    assert body["product"]["name"] == product.name
+    assert body["product"]["slug"] == product.slug
+    assert body["email"] == lead.email
+    assert body["display_name"] == lead.contact_name
     assert response.headers["cache-control"] == "no-store"
 
     assert body["activation_path"].startswith(
@@ -69,6 +111,7 @@ def test_platform_admin_creates_hashed_invitation(
         body["id"],
     )
     assert invitation is not None
+    assert invitation.lead_id == lead.id
     assert invitation.token_hash == hash_invitation_token(token)
     assert invitation.token_hash != token
     assert invitation.accepted_at is None
@@ -81,24 +124,27 @@ def test_platform_admin_creates_hashed_invitation(
         )
     )
     assert audit is not None
+    assert audit.after_data["lead_id"] == lead.id
+    assert audit.after_data["product_id"] == product.id
+    assert audit.after_data["product_slug"] == product.slug
     assert "token" not in str(audit.after_data).lower()
 
 
 def test_non_platform_admin_cannot_create_invitation(
     client,
+    db_session,
 ):
+    lead, _ = create_lead(db_session)
+
     response = client.post(
         "/api/v1/admin/user-invitations",
-        json={
-            "email": "blocked@example.com",
-            "display_name": "Blocked User",
-        },
+        json={"lead_id": lead.id},
     )
 
     assert response.status_code == 403
 
 
-def test_cannot_invite_existing_user(
+def test_cannot_invite_unknown_lead(
     client,
     db_session,
 ):
@@ -106,10 +152,48 @@ def test_cannot_invite_existing_user(
 
     response = client.post(
         "/api/v1/admin/user-invitations",
-        json={
-            "email": "default-test-user@example.com",
-            "display_name": "Existing User",
-        },
+        json={"lead_id": 999999},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Lead not found"
+
+
+def test_cannot_invite_unqualified_lead(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    lead, _ = create_lead(
+        db_session,
+        status="contacted",
+    )
+
+    response = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": lead.id},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Invitation requires a qualified, "
+        "unprovisioned lead"
+    )
+
+
+def test_cannot_invite_existing_user(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    lead, _ = create_lead(
+        db_session,
+        email="default-test-user@example.com",
+    )
+
+    response = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": lead.id},
     )
 
     assert response.status_code == 409
@@ -119,17 +203,21 @@ def test_cannot_create_duplicate_active_invitation(
     client,
     db_session,
 ):
-    create_invitation(client, db_session)
+    response, lead, _ = create_invitation(
+        client,
+        db_session,
+    )
+    assert response.status_code == 201
 
-    response = client.post(
+    duplicate = client.post(
         "/api/v1/admin/user-invitations",
-        json={
-            "email": "invited.user@example.com",
-            "display_name": "Invited User",
-        },
+        json={"lead_id": lead.id},
     )
 
-    assert response.status_code == 409
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == (
+        "An active invitation already exists for this lead"
+    )
 
 
 def test_invitation_acceptance_creates_login_user(
@@ -137,7 +225,7 @@ def test_invitation_acceptance_creates_login_user(
     raw_client,
     db_session,
 ):
-    invitation_response = create_invitation(
+    invitation_response, lead, _ = create_invitation(
         client,
         db_session,
     )
@@ -159,7 +247,7 @@ def test_invitation_acceptance_creates_login_user(
 
     user = db_session.scalar(
         select(User).where(
-            User.email == "invited.user@example.com"
+            User.email == lead.email
         )
     )
     assert user is not None
@@ -172,8 +260,7 @@ def test_invitation_acceptance_creates_login_user(
 
     invitation = db_session.scalar(
         select(UserInvitation).where(
-            UserInvitation.email
-            == "invited.user@example.com"
+            UserInvitation.lead_id == lead.id
         )
     )
     assert invitation is not None
@@ -195,7 +282,7 @@ def test_invitation_is_single_use(
     raw_client,
     db_session,
 ):
-    invitation_response = create_invitation(
+    invitation_response, _, _ = create_invitation(
         client,
         db_session,
     )
@@ -225,7 +312,7 @@ def test_expired_invitation_is_rejected(
     raw_client,
     db_session,
 ):
-    invitation_response = create_invitation(
+    invitation_response, _, _ = create_invitation(
         client,
         db_session,
     )
@@ -258,7 +345,7 @@ def test_revoked_invitation_is_rejected(
     raw_client,
     db_session,
 ):
-    invitation_response = create_invitation(
+    invitation_response, _, _ = create_invitation(
         client,
         db_session,
     )
@@ -289,7 +376,7 @@ def test_invitation_rejects_short_password(
     raw_client,
     db_session,
 ):
-    invitation_response = create_invitation(
+    invitation_response, _, _ = create_invitation(
         client,
         db_session,
     )

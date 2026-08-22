@@ -309,6 +309,7 @@
     }
 
     .invitation-form input,
+    .invitation-form select,
     .invitation-link-row input {
       width: 100%;
       border: 1px solid var(--border);
@@ -1006,7 +1007,7 @@
             <div>
               <h2>Invite User</h2>
               <p>
-                Create a secure, single-use platform activation link.
+                Invite the customer attached to a qualified product lead.
               </p>
             </div>
           </div>
@@ -1017,26 +1018,23 @@
               class="invitation-form"
             >
               <label>
-                Display name
-                <input
-                  id="invitationDisplayName"
-                  type="text"
-                  maxlength="200"
-                  autocomplete="off"
+                Qualified lead
+                <select
+                  id="invitationLeadId"
                   required
                 >
+                  <option value="">
+                    Loading qualified leads...
+                  </option>
+                </select>
               </label>
 
-              <label>
-                Email
-                <input
-                  id="invitationEmail"
-                  type="email"
-                  maxlength="320"
-                  autocomplete="off"
-                  required
-                >
-              </label>
+              <div
+                id="invitationLeadContext"
+                class="row-secondary"
+              >
+                Product and customer identity are derived from the lead.
+              </div>
 
               <button
                 class="btn primary"
@@ -1072,6 +1070,11 @@
                   Copy Link
                 </button>
               </div>
+
+              <div
+                id="invitationProductContext"
+                class="row-secondary"
+              ></div>
 
               <div
                 id="invitationExpiration"
@@ -2412,18 +2415,67 @@
 
 
 
+  async function loadInvitationLeadOptions() {
+    const select =
+      document.getElementById(
+        "invitationLeadId"
+      );
+
+    const leads = await apiRequest("/leads/");
+
+    const qualifiedLeads = leads.filter(
+      lead =>
+        lead.status === "qualified"
+        && !lead.converted_tenant_id
+    );
+
+    if (qualifiedLeads.length === 0) {
+      select.innerHTML = `
+        <option value="">
+          No qualified, unprovisioned leads
+        </option>
+      `;
+      select.disabled = true;
+      return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = `
+      <option value="">
+        Select a qualified lead
+      </option>
+      ${
+        qualifiedLeads.map(lead => `
+          <option value="${lead.id}">
+            ${escapeHtml(lead.product_name)}
+            · ${escapeHtml(lead.business_name)}
+            · ${escapeHtml(lead.contact_name)}
+          </option>
+        `).join("")
+      }
+    `;
+  }
+
+
   async function createUserInvitation(event) {
     event.preventDefault();
 
-    const displayName =
+    const leadId = Number(
       document.getElementById(
-        "invitationDisplayName"
-      ).value.trim();
+        "invitationLeadId"
+      ).value
+    );
 
-    const email =
-      document.getElementById(
-        "invitationEmail"
-      ).value.trim();
+    if (
+      !Number.isInteger(leadId)
+      || leadId <= 0
+    ) {
+      setStatus(
+        "Select a qualified lead.",
+        "error"
+      );
+      return;
+    }
 
     const result =
       document.getElementById(
@@ -2440,8 +2492,7 @@
           {
             method: "POST",
             body: JSON.stringify({
-              display_name: displayName,
-              email,
+              lead_id: leadId,
             }),
           }
         );
@@ -2456,6 +2507,14 @@
       ).value = activationUrl;
 
       document.getElementById(
+        "invitationProductContext"
+      ).textContent =
+        `Product: ${invitation.product.name} `
+        + `(${invitation.product.slug}) · `
+        + `Lead #${invitation.lead.id} · `
+        + `${invitation.lead.business_name}`;
+
+      document.getElementById(
         "invitationExpiration"
       ).textContent =
         `Expires: ${
@@ -2467,15 +2526,12 @@
       result.classList.remove("hidden");
 
       document.getElementById(
-        "invitationDisplayName"
-      ).value = "";
-
-      document.getElementById(
-        "invitationEmail"
+        "invitationLeadId"
       ).value = "";
 
       setStatus(
-        "Invitation created. Share the activation link securely.",
+        "Lead-linked invitation created. "
+        + "Share the activation link securely.",
         "success"
       );
 
@@ -2782,7 +2838,10 @@
 
   async function initializeAdmin() {
     try {
-      await refreshOverview();
+      await Promise.all([
+        refreshOverview(),
+        loadInvitationLeadOptions(),
+      ]);
 
       showAdminShell();
 

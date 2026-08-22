@@ -291,6 +291,39 @@ def create_owner_user(
     return user
 
 
+def accept_owner_invitation(
+    db_session,
+    *,
+    lead,
+    owner,
+    operator,
+):
+    from app.models import UserInvitation
+    from app.security import hash_invitation_token
+    from datetime import timedelta
+    from app.api.invitations import utc_now_naive
+
+    now = utc_now_naive()
+
+    invitation = UserInvitation(
+        lead_id=lead.id,
+        email=owner.email,
+        display_name=owner.display_name,
+        token_hash=hash_invitation_token(
+            f"accepted-invitation-{lead.id}-{owner.id}"
+        ),
+        created_by_user_id=operator.id,
+        accepted_user_id=owner.id,
+        expires_at=now + timedelta(hours=72),
+        accepted_at=now,
+    )
+    db_session.add(invitation)
+    db_session.commit()
+    db_session.refresh(invitation)
+
+    return invitation
+
+
 def test_platform_admin_can_provision_qualified_lead(
     client,
     db_session,
@@ -304,6 +337,12 @@ def test_platform_admin_can_provision_qualified_lead(
     operator = make_platform_admin(db_session)
     lead = make_qualified_lead(client, db_session)
     owner = create_owner_user(db_session)
+    accept_owner_invitation(
+        db_session,
+        lead=lead,
+        owner=owner,
+        operator=operator,
+    )
 
     response = client.post(
         f"/api/v1/leads/{lead.id}/provision",
@@ -387,9 +426,15 @@ def test_lead_cannot_be_provisioned_twice(
     client,
     db_session,
 ):
-    make_platform_admin(db_session)
+    operator = make_platform_admin(db_session)
     lead = make_qualified_lead(client, db_session)
     owner = create_owner_user(db_session)
+    accept_owner_invitation(
+        db_session,
+        lead=lead,
+        owner=owner,
+        operator=operator,
+    )
 
     first = client.post(
         f"/api/v1/leads/{lead.id}/provision",
@@ -412,6 +457,29 @@ def test_lead_cannot_be_provisioned_twice(
     assert (
         second.json()["detail"]
         == "Lead has already been provisioned"
+    )
+
+
+def test_provision_rejects_owner_without_lead_invitation(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    lead = make_qualified_lead(client, db_session)
+    owner = create_owner_user(db_session)
+
+    response = client.post(
+        f"/api/v1/leads/{lead.id}/provision",
+        json={
+            "owner_user_id": owner.id,
+            "tenant_slug": "uninvited-owner",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Owner must accept the invitation "
+        "for this lead before provisioning"
     )
 
 
@@ -464,9 +532,15 @@ def test_provision_rejects_duplicate_tenant_slug(
 ):
     from app.models import Tenant
 
-    make_platform_admin(db_session)
+    operator = make_platform_admin(db_session)
     lead = make_qualified_lead(client, db_session)
     owner = create_owner_user(db_session)
+    accept_owner_invitation(
+        db_session,
+        lead=lead,
+        owner=owner,
+        operator=operator,
+    )
 
     tenant = Tenant(
 

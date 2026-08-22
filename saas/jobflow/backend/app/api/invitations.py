@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.api.admin import add_admin_audit
 from app.database import get_db
-from app.models import User, UserInvitation
+from app.models import (
+    Lead,
+    Product,
+    User,
+    UserInvitation,
+)
 from app.operator_context import get_current_operator
 from app.security import (
     create_invitation_token,
@@ -24,48 +29,9 @@ def utc_now_naive() -> datetime:
 
 
 class InvitationCreate(BaseModel):
-    email: str = Field(
-        min_length=3,
-        max_length=320,
+    lead_id: int = Field(
+        gt=0,
     )
-    display_name: str = Field(
-        min_length=1,
-        max_length=200,
-    )
-
-    @field_validator("email")
-    @classmethod
-    def normalize_email(cls, value: str) -> str:
-        normalized = value.strip().lower()
-
-        if (
-            normalized.count("@") != 1
-            or any(character.isspace() for character in normalized)
-        ):
-            raise ValueError("Enter a valid email address")
-
-        local_part, domain = normalized.split("@", 1)
-
-        if (
-            not local_part
-            or not domain
-            or "." not in domain
-            or domain.startswith(".")
-            or domain.endswith(".")
-        ):
-            raise ValueError("Enter a valid email address")
-
-        return normalized
-
-    @field_validator("display_name")
-    @classmethod
-    def normalize_display_name(cls, value: str) -> str:
-        normalized = value.strip()
-
-        if not normalized:
-            raise ValueError("Display name is required")
-
-        return normalized
 
 
 class InvitationAccept(BaseModel):
@@ -103,9 +69,46 @@ def create_user_invitation(
 ):
     response.headers["Cache-Control"] = "no-store"
 
+    lead = db.get(
+        Lead,
+        payload.lead_id,
+    )
+
+    if lead is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Lead not found",
+        )
+
+    if (
+        lead.status != "qualified"
+        or lead.converted_tenant_id is not None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Invitation requires a qualified, "
+                "unprovisioned lead"
+            ),
+        )
+
+    product = db.get(
+        Product,
+        lead.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Lead product is unavailable",
+        )
+
+    email = lead.email.strip().lower()
+    display_name = lead.contact_name.strip()
+
     existing_user = db.scalar(
         select(User).where(
-            func.lower(User.email) == payload.email,
+            func.lower(User.email) == email,
         )
     )
 
@@ -119,7 +122,7 @@ def create_user_invitation(
 
     active_invitation = db.scalar(
         select(UserInvitation).where(
-            func.lower(UserInvitation.email) == payload.email,
+            UserInvitation.lead_id == lead.id,
             UserInvitation.accepted_at.is_(None),
             UserInvitation.revoked_at.is_(None),
             UserInvitation.expires_at > now,
@@ -129,14 +132,18 @@ def create_user_invitation(
     if active_invitation is not None:
         raise HTTPException(
             status_code=409,
-            detail="An active invitation already exists",
+            detail=(
+                "An active invitation already exists "
+                "for this lead"
+            ),
         )
 
     token, token_hash = create_invitation_token()
 
     invitation = UserInvitation(
-        email=payload.email,
-        display_name=payload.display_name,
+        lead_id=lead.id,
+        email=email,
+        display_name=display_name,
         token_hash=token_hash,
         created_by_user_id=operator.id,
         expires_at=(
@@ -155,6 +162,9 @@ def create_user_invitation(
         target_type="user_invitation",
         target_id=invitation.id,
         after_data={
+            "lead_id": lead.id,
+            "product_id": product.id,
+            "product_slug": product.slug,
             "email": invitation.email,
             "display_name": invitation.display_name,
             "expires_at": invitation.expires_at.isoformat(),
@@ -166,6 +176,15 @@ def create_user_invitation(
 
     return {
         "id": invitation.id,
+        "lead": {
+            "id": lead.id,
+            "business_name": lead.business_name,
+        },
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "slug": product.slug,
+        },
         "email": invitation.email,
         "display_name": invitation.display_name,
         "expires_at": invitation.expires_at,

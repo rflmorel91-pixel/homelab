@@ -25,7 +25,13 @@ def test_admin_invitation_form_uses_platform_api():
     ).read_text()
 
     assert 'id="inviteUserForm"' in page
+    assert 'id="invitationLeadId"' in page
     assert '"/admin/user-invitations"' in page
+    assert '"lead_id": leadId' not in page
+    assert "lead_id: leadId" in page
+    assert 'apiRequest("/leads/")' in page
+    assert "lead.status === \"qualified\"" in page
+    assert "invitation.product.name" in page
     assert "invitation.activation_path" in page
 
 

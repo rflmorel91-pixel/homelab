@@ -31,6 +31,12 @@ class UserInvitation(Base):
         index=True,
     )
 
+    lead_id: Mapped[int] = mapped_column(
+        ForeignKey("leads.id"),
+        nullable=False,
+        index=True,
+    )
+
     created_by_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
         nullable=False,

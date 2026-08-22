@@ -260,6 +260,29 @@ def test_provisioned_tenant_preserves_lead_product(
     db_session.commit()
     db_session.refresh(lead)
 
+    from datetime import timedelta
+
+    from app.api.invitations import utc_now_naive
+    from app.models import UserInvitation
+    from app.security import hash_invitation_token
+
+    now = utc_now_naive()
+
+    invitation = UserInvitation(
+        lead_id=lead.id,
+        email=owner.email,
+        display_name=owner.display_name,
+        token_hash=hash_invitation_token(
+            "proofvault-accepted-owner-invitation"
+        ),
+        created_by_user_id=operator.id,
+        accepted_user_id=owner.id,
+        expires_at=now + timedelta(hours=72),
+        accepted_at=now,
+    )
+    db_session.add(invitation)
+    db_session.commit()
+
     response = client.post(
         f"/api/v1/leads/{lead.id}/provision",
         json={
