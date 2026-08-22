@@ -71,24 +71,37 @@ def lead_provisioning_options(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_operator),
 ):
-    users = db.scalars(
-        select(User)
-        .where(User.is_active.is_(True))
+    rows = db.execute(
+        select(
+            UserInvitation,
+            User,
+        )
+        .join(
+            User,
+            User.id
+            == UserInvitation.accepted_user_id,
+        )
+        .where(
+            UserInvitation.lead_id.is_not(None),
+            UserInvitation.accepted_at.is_not(None),
+            UserInvitation.revoked_at.is_(None),
+            User.is_active.is_(True),
+        )
         .order_by(
-            User.display_name,
-            User.email,
-            User.id,
+            UserInvitation.accepted_at.desc(),
+            UserInvitation.id.desc(),
         )
     ).all()
 
     return {
         "owners": [
             {
+                "lead_id": invitation.lead_id,
                 "user_id": user.id,
                 "email": user.email,
                 "display_name": user.display_name,
             }
-            for user in users
+            for invitation, user in rows
         ],
     }
 

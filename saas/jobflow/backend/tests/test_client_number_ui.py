@@ -34,6 +34,12 @@ def test_commercialization_displays_client_number():
     assert "Internal tenant #" not in page
     assert "Tenant Workspace" not in page
     assert "Provision Tenant" not in page
+    assert "Accepted Owner" in page
+    assert "Awaiting owner activation" in page
+    assert "acceptedOwner.user_id" in page
+    assert "owner.lead_id === lead.id" in page
+    assert "Select initial tenant owner" not in page
+    assert 'id="owner-${lead.id}"' not in page
 
 
 def test_admin_separates_clients_from_validation_workspaces():

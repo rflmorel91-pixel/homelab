@@ -101,6 +101,7 @@ class LeadProvisionRead(BaseModel):
 
 
 class ProvisioningOwnerRead(BaseModel):
+    lead_id: int
     user_id: int
     email: str
     display_name: str

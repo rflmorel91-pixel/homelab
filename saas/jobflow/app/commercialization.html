@@ -335,13 +335,10 @@
         `
       ).join("");
 
-      const ownerOptions =
-        provisioningOwners.map(owner => `
-          <option value="${owner.user_id}">
-            ${escapeHtml(owner.display_name)}
-            (${escapeHtml(owner.email)})
-          </option>
-        `).join("");
+      const acceptedOwner =
+        provisioningOwners.find(
+          owner => owner.lead_id === lead.id
+        );
 
       const provisioning =
         lead.status === "qualified"
@@ -349,33 +346,50 @@
             <div class="lead-actions">
               <strong>Provision Client</strong>
 
-              <div style="margin-top: 8px;">
-                <select id="owner-${lead.id}">
-                  <option value="">
-                    Select initial tenant owner
-                  </option>
-                  ${ownerOptions}
-                </select>
-              </div>
+              ${
+                acceptedOwner
+                  ? `
+                    <div style="margin-top: 8px;">
+                      <strong>Accepted Owner</strong>
 
-              <div style="margin-top: 8px;">
-                <input
-                  id="slug-${lead.id}"
-                  type="text"
-                  value="${escapeHtml(
-                    slugify(lead.business_name)
-                  )}"
-                  placeholder="client-workspace-slug"
-                >
-              </div>
+                      <div>
+                        ${escapeHtml(
+                          acceptedOwner.display_name
+                        )}
+                        ·
+                        ${escapeHtml(
+                          acceptedOwner.email
+                        )}
+                      </div>
+                    </div>
 
-              <div style="margin-top: 8px;">
-                <button
-                  onclick="provisionLead(${lead.id})"
-                >
-                  Provision Client
-                </button>
-              </div>
+                    <div style="margin-top: 8px;">
+                      <input
+                        id="slug-${lead.id}"
+                        type="text"
+                        value="${escapeHtml(
+                          slugify(lead.business_name)
+                        )}"
+                        placeholder="client-workspace-slug"
+                      >
+                    </div>
+
+                    <div style="margin-top: 8px;">
+                      <button
+                        onclick="provisionLead(${lead.id})"
+                      >
+                        Provision Client
+                      </button>
+                    </div>
+                  `
+                  : `
+                    <div class="meta" style="margin-top: 8px;">
+                      Awaiting owner activation. Create and
+                      accept the lead invitation before
+                      provisioning this client.
+                    </div>
+                  `
+              }
             </div>
           `
           : "";
@@ -576,15 +590,25 @@
 
 
   async function provisionLead(leadId) {
-    const ownerSelect =
-      document.getElementById(`owner-${leadId}`);
+    const acceptedOwner =
+      provisioningOwners.find(
+        owner => owner.lead_id === leadId
+      );
 
     const slugInput =
       document.getElementById(`slug-${leadId}`);
 
-    if (!ownerSelect || !ownerSelect.value) {
+    if (!acceptedOwner) {
       operatorStatus.textContent =
-        "Select an initial tenant owner.";
+        "The lead owner must activate their account before provisioning.";
+
+      operatorStatus.className = "error";
+      return;
+    }
+
+    if (!slugInput) {
+      operatorStatus.textContent =
+        "Client provisioning is unavailable.";
 
       operatorStatus.className = "error";
       return;
@@ -595,7 +619,7 @@
 
     if (!tenantSlug) {
       operatorStatus.textContent =
-        "Tenant slug is required.";
+        "Client workspace slug is required.";
 
       operatorStatus.className = "error";
       return;
@@ -603,7 +627,7 @@
 
     if (
       !window.confirm(
-        "Provision this qualified lead as a tenant?"
+        "Provision this qualified lead as a client?"
       )
     ) {
       return;
@@ -611,7 +635,7 @@
 
     try {
       operatorStatus.textContent =
-        "Provisioning tenant...";
+        "Provisioning client...";
 
       await apiRequest(
         `/leads/${leadId}/provision`,
@@ -622,14 +646,14 @@
           },
           body: JSON.stringify({
             owner_user_id:
-              Number(ownerSelect.value),
+              acceptedOwner.user_id,
             tenant_slug: tenantSlug
           })
         }
       );
 
       operatorStatus.textContent =
-        "Tenant provisioned successfully.";
+        "Client provisioned successfully.";
 
       operatorStatus.className = "";
 

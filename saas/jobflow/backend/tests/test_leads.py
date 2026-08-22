@@ -613,15 +613,28 @@ def test_unauthenticated_user_cannot_provision_lead(
     assert response.status_code == 401
 
 
-def test_platform_admin_can_list_provisioning_owners(
+def test_provisioning_options_include_only_accepted_lead_owner(
     client,
     db_session,
 ):
     operator = make_platform_admin(db_session)
+    lead = make_qualified_lead(client, db_session)
 
     owner = create_owner_user(
         db_session,
         email="provision-option@example.com",
+    )
+
+    unrelated = create_owner_user(
+        db_session,
+        email="unrelated-option@example.com",
+    )
+
+    accept_owner_invitation(
+        db_session,
+        lead=lead,
+        owner=owner,
+        operator=operator,
     )
 
     response = client.get(
@@ -633,28 +646,42 @@ def test_platform_admin_can_list_provisioning_owners(
     owners = response.json()["owners"]
 
     assert any(
-        item["user_id"] == owner.id
+        item["lead_id"] == lead.id
+        and item["user_id"] == owner.id
         and item["email"]
         == "provision-option@example.com"
         for item in owners
     )
 
-    assert any(
-        item["user_id"] == operator.id
+    assert all(
+        item["user_id"] != unrelated.id
+        for item in owners
+    )
+
+    assert all(
+        item["user_id"] != operator.id
         for item in owners
     )
 
 
-def test_inactive_user_is_not_provisioning_owner_option(
+def test_inactive_accepted_owner_is_not_provisioning_option(
     client,
     db_session,
 ):
-    make_platform_admin(db_session)
+    operator = make_platform_admin(db_session)
+    lead = make_qualified_lead(client, db_session)
 
     inactive = create_owner_user(
         db_session,
         email="inactive-option@example.com",
         active=False,
+    )
+
+    accept_owner_invitation(
+        db_session,
+        lead=lead,
+        owner=inactive,
+        operator=operator,
     )
 
     response = client.get(
