@@ -163,8 +163,8 @@
       <div class="meta">Pilot acquisition and customer development</div>
     </div>
 
-    <a class="button button-light" href="/app">
-      Tenant Workspace
+    <a class="button button-light" href="/admin">
+      Platform Administration
     </a>
   </div>
 </header>
@@ -347,7 +347,7 @@
         lead.status === "qualified"
           ? `
             <div class="lead-actions">
-              <strong>Provision Tenant</strong>
+              <strong>Provision Client</strong>
 
               <div style="margin-top: 8px;">
                 <select id="owner-${lead.id}">
@@ -365,7 +365,7 @@
                   value="${escapeHtml(
                     slugify(lead.business_name)
                   )}"
-                  placeholder="tenant-slug"
+                  placeholder="client-workspace-slug"
                 >
               </div>
 
@@ -373,7 +373,7 @@
                 <button
                   onclick="provisionLead(${lead.id})"
                 >
-                  Provision Tenant
+                  Provision Client
                 </button>
               </div>
             </div>
@@ -414,7 +414,7 @@
                 ${
                   lead.converted_client_number
                     ? `Client #${lead.converted_client_number}`
-                    : "Provisioned validation tenant"
+                    : "Validation Workspace"
                 }
               </strong>
 
@@ -426,7 +426,7 @@
                 ${
                   lead.converted_client_number
                     ? `${escapeHtml(lead.product_name)} client`
-                    : `Internal tenant #${lead.converted_tenant_id}`
+                    : `Internal Workspace #${lead.converted_tenant_id}`
                 }
               </div>
 
@@ -449,7 +449,11 @@
                 <a
                   href="/admin?tenant=${lead.converted_tenant_id}"
                 >
-                  Manage Client
+                  ${
+                    lead.converted_client_number
+                      ? "Manage Client"
+                      : "Manage Workspace"
+                  }
                 </a>
               </div>
             </div>

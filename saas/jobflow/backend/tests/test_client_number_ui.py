@@ -25,7 +25,15 @@ def test_commercialization_displays_client_number():
 
     assert "lead.converted_client_number" in page
     assert "Client #${lead.converted_client_number}" in page
+    assert "Validation Workspace" in page
+    assert "Internal Workspace #" in page
     assert "Manage Client" in page
+    assert "Manage Workspace" in page
+    assert "Provision Client" in page
+    assert "Provisioned validation tenant" not in page
+    assert "Internal tenant #" not in page
+    assert "Tenant Workspace" not in page
+    assert "Provision Tenant" not in page
 
 
 def test_admin_separates_clients_from_validation_workspaces():
