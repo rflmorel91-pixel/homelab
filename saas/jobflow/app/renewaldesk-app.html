@@ -272,7 +272,15 @@
 <main>
 
   <div class="toolbar">
-    <strong>Renewal Workspace</strong>
+    <div>
+      <strong>Renewal Workspace</strong>
+
+      <span
+        id="clientContext"
+        class="badge"
+        style="display: none;"
+      ></span>
+    </div>
 
     <div class="actions">
       <span
@@ -615,6 +623,9 @@
   const healthStatus =
     document.getElementById("healthStatus");
 
+  const clientContext =
+    document.getElementById("clientContext");
+
   const errorMessage =
     document.getElementById("errorMessage");
 
@@ -684,6 +695,14 @@
 
     logoutButton.style.display =
       isAuthenticated ? "block" : "none";
+
+    clientContext.style.display =
+      (
+        isAuthenticated
+        && clientContext.textContent
+      )
+        ? "inline-block"
+        : "none";
   }
 
 
@@ -1147,15 +1166,21 @@
       );
     }
 
+    const client =
+      access.clients[0];
+
     tenantId =
-      String(access.clients[0].tenant_id);
+      String(client.tenant_id);
 
     localStorage.setItem(
       "renewaldesk_tenant_id",
       tenantId
     );
 
-    return access.clients[0];
+    clientContext.textContent =
+      `Client #${client.client_number} · ${client.name} · ${client.role}`;
+
+    return client;
   }
 
 
@@ -1206,6 +1231,7 @@
       }
 
       tenantId = null;
+      clientContext.textContent = "";
 
       localStorage.removeItem(
         "renewaldesk_tenant_id"

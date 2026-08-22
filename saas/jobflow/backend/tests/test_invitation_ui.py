@@ -92,7 +92,24 @@ def test_renewaldesk_discovers_client_access():
         '"/auth/products/renewaldesk/access"'
         in page
     )
-    assert "access.clients[0].tenant_id" in page
+    assert "const client =" in page
+    assert "client.tenant_id" in page
     assert "discoverRenewalDeskAccess" in page
     assert "loginTenantId" not in page
     assert "RenewalDesk Tenant ID" not in page
+
+
+
+def test_renewaldesk_displays_discovered_client_context():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "renewaldesk-app.html"
+    ).read_text()
+
+    assert 'id="clientContext"' in page
+    assert "Client #${client.client_number}" in page
+    assert "${client.name}" in page
+    assert "${client.role}" in page
+    assert "clientContext.textContent" in page
+    assert "tenant_id}" not in page
