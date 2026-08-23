@@ -14,7 +14,7 @@ from app.products.renewaldesk.reminders_api import (
 @dataclass
 class ReminderCycleSummary:
     dry_run: bool
-    tenant_count: int = 0
+    client_count: int = 0
     candidate_count: int = 0
     tracked_delivery_count: int = 0
     processed_count: int = 0
@@ -23,7 +23,7 @@ class ReminderCycleSummary:
     failed_count: int = 0
 
 
-def active_renewaldesk_tenants(
+def active_renewaldesk_clients(
     db: Session,
 ) -> list[Tenant]:
     return db.scalars(
@@ -36,6 +36,7 @@ def active_renewaldesk_tenants(
             Product.slug == "renewaldesk",
             Product.status == "active",
             Tenant.status == "active",
+            Tenant.client_number.is_not(None),
         )
         .order_by(
             Tenant.client_number,
@@ -53,10 +54,10 @@ def run_reminder_cycle(
         dry_run=dry_run,
     )
 
-    tenants = active_renewaldesk_tenants(db)
-    summary.tenant_count = len(tenants)
+    clients = active_renewaldesk_clients(db)
+    summary.client_count = len(clients)
 
-    for tenant in tenants:
+    for tenant in clients:
         candidates = get_reminder_candidates(
             db,
             tenant,

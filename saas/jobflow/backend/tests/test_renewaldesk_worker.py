@@ -44,12 +44,14 @@ def create_tenant(
     name,
     slug,
     status="active",
+    client_number=1,
 ):
     tenant = Tenant(
         product_id=product.id,
         name=name,
         slug=slug,
         status=status,
+        client_number=client_number,
     )
 
     db_session.add(tenant)
@@ -120,7 +122,7 @@ def test_worker_dry_run_does_not_write_or_send(
     )
 
     assert summary.dry_run is True
-    assert summary.tenant_count == 1
+    assert summary.client_count == 1
     assert summary.candidate_count == 1
     assert summary.tracked_delivery_count == 0
     assert summary.processed_count == 0
@@ -176,7 +178,7 @@ def test_worker_cycle_queues_and_sends_due_item(
     )
 
     assert summary.dry_run is False
-    assert summary.tenant_count == 1
+    assert summary.client_count == 1
     assert summary.candidate_count == 1
     assert summary.tracked_delivery_count == 1
     assert summary.processed_count == 1
@@ -242,7 +244,7 @@ def test_worker_summary_reports_scheduled_retry(
         db_session,
     )
 
-    assert summary.tenant_count == 1
+    assert summary.client_count == 1
     assert summary.candidate_count == 1
     assert summary.tracked_delivery_count == 1
     assert summary.processed_count == 1
@@ -288,6 +290,56 @@ def test_worker_cli_help_needs_no_database():
     assert result.returncode == 0
     assert "--dry-run" in result.stdout
     assert result.stderr == ""
+
+
+def test_worker_ignores_validation_workspace(
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    product = create_product(
+        db_session,
+        name="RenewalDesk",
+        slug="renewaldesk",
+    )
+
+    workspace = create_tenant(
+        db_session,
+        product,
+        name="Validation Workspace",
+        slug="validation-workspace",
+        client_number=None,
+    )
+
+    create_due_item(
+        db_session,
+        workspace,
+    )
+
+    delivered = []
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        lambda delivery, item: delivered.append(
+            delivery.id
+        ),
+    )
+
+    summary = run_reminder_cycle(
+        db_session,
+    )
+
+    assert summary.client_count == 0
+    assert summary.candidate_count == 0
+    assert summary.tracked_delivery_count == 0
+    assert summary.processed_count == 0
+    assert delivered == []
+
+    assert db_session.scalars(
+        select(RenewalReminderDelivery)
+    ).all() == []
 
 
 def test_worker_ignores_inactive_and_wrong_product_tenants(
@@ -347,7 +399,7 @@ def test_worker_ignores_inactive_and_wrong_product_tenants(
         db_session,
     )
 
-    assert summary.tenant_count == 0
+    assert summary.client_count == 0
     assert summary.candidate_count == 0
     assert summary.processed_count == 0
     assert delivered == []

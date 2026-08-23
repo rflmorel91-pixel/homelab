@@ -27,7 +27,7 @@ def parse_args():
         "--dry-run",
         action="store_true",
         help=(
-            "Inspect active tenants and candidates "
+            "Inspect active clients and candidates "
             "without writing or sending."
         ),
     )
