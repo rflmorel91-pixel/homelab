@@ -511,9 +511,18 @@ def create_pending_delivery(
         channel="email",
         status="pending",
         scheduled_for=datetime(
-            2027,
+            2020,
             1,
-            16,
+            1,
+            9,
+            0,
+            0,
+        ),
+        recipient_email=item.owner_email,
+        next_attempt_at=datetime(
+            2020,
+            1,
+            1,
             9,
             0,
             0,
@@ -576,6 +585,11 @@ def test_reminder_process_marks_delivery_sent(
     db_session.refresh(delivery)
 
     assert delivery.status == "sent"
+    assert delivery.attempt_count == 1
+    assert delivery.last_attempt_at is not None
+    assert delivery.processing_started_at is None
+    assert delivery.next_attempt_at is None
+    assert delivery.last_error is None
     assert delivery.sent_at is not None
 
 
@@ -620,12 +634,264 @@ def test_reminder_process_marks_failure(
     )
 
     assert response.status_code == 200
+    assert (
+        response.json()[0]["status"]
+        == "retry_scheduled"
+    )
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "retry_scheduled"
+    assert delivery.attempt_count == 1
+    assert delivery.last_attempt_at is not None
+    assert delivery.next_attempt_at is not None
+    assert delivery.processing_started_at is None
+    assert delivery.last_error == (
+        "RuntimeError: Delivery failed"
+    )
+    assert delivery.failed_at is None
+    assert delivery.sent_at is None
+
+
+def test_reminder_process_marks_terminal_failure(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    def fail_delivery(delivery, item):
+        raise RuntimeError("Permanent failure")
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        fail_delivery,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Terminal Failure Tenant",
+        slug="terminal-failure-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.attempt_count = 3
+    db_session.commit()
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
     assert response.json()[0]["status"] == "failed"
 
     db_session.refresh(delivery)
 
     assert delivery.status == "failed"
+    assert delivery.attempt_count == 4
+    assert delivery.next_attempt_at is None
+    assert delivery.processing_started_at is None
+    assert delivery.last_error == (
+        "RuntimeError: Permanent failure"
+    )
+    assert delivery.failed_at is not None
     assert delivery.sent_at is None
+
+
+def test_reminder_process_skips_future_delivery(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Future Delivery Tenant",
+        slug="future-delivery-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.scheduled_for = datetime(
+        2099,
+        1,
+        1,
+        9,
+        0,
+        0,
+    )
+    delivery.next_attempt_at = delivery.scheduled_for
+    db_session.commit()
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "pending"
+    assert delivery.attempt_count == 0
+    assert delivery.sent_at is None
+
+
+def test_due_retry_is_claimed_and_sent(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    monkeypatch.setattr(
+        reminders_api,
+        "deliver_reminder",
+        lambda delivery, item: None,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Due Retry Tenant",
+        slug="due-retry-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.status = "retry_scheduled"
+    delivery.attempt_count = 1
+    delivery.last_error = (
+        "RuntimeError: Initial failure"
+    )
+    delivery.next_attempt_at = datetime(
+        2020,
+        1,
+        1,
+        10,
+        0,
+        0,
+    )
+    db_session.commit()
+
+    response = client.post(
+        REMINDER_PROCESS_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "sent"
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "sent"
+    assert delivery.attempt_count == 2
+    assert delivery.last_attempt_at is not None
+    assert delivery.next_attempt_at is None
+    assert delivery.processing_started_at is None
+    assert delivery.last_error is None
+    assert delivery.failed_at is None
+    assert delivery.sent_at is not None
+
+
+def test_claim_due_deliveries_skips_locked_row(
+    db_session,
+):
+    from app.database import SessionLocal
+    from app.products.renewaldesk import reminders_api
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Locked Delivery Tenant",
+        slug="locked-delivery-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    lock_session = SessionLocal()
+    worker_session = SessionLocal()
+
+    try:
+        locked_delivery = lock_session.scalar(
+            select(RenewalReminderDelivery)
+            .where(
+                RenewalReminderDelivery.id
+                == delivery.id
+            )
+            .with_for_update()
+        )
+
+        assert locked_delivery is not None
+
+        claimed = (
+            reminders_api.claim_due_deliveries(
+                worker_session,
+                tenant.id,
+            )
+        )
+
+        assert claimed == []
+
+    finally:
+        worker_session.rollback()
+        worker_session.close()
+        lock_session.rollback()
+        lock_session.close()
+
+    db_session.expire_all()
+
+    stored = db_session.get(
+        RenewalReminderDelivery,
+        delivery.id,
+    )
+
+    assert stored is not None
+    assert stored.status == "pending"
+    assert stored.attempt_count == 0
+    assert stored.processing_started_at is None
 
 
 def test_reminder_process_skips_sent_delivery(
