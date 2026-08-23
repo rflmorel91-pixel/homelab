@@ -343,17 +343,13 @@ def list_reminder_candidates(
     )
 
 
-@router.post(
-    "/queue",
-    response_model=list[RenewalReminderDeliveryRead],
-)
-def queue_reminder_deliveries(
-    db: Session = Depends(get_db),
-    tenant: Tenant = Depends(get_current_tenant),
-):
+def queue_reminder_deliveries_for_tenant(
+    db: Session,
+    tenant_id: int,
+) -> list[RenewalReminderDelivery]:
     candidates = get_reminder_candidates(
         db,
-        tenant.id,
+        tenant_id,
     )
 
     deliveries = []
@@ -380,7 +376,7 @@ def queue_reminder_deliveries(
             continue
 
         delivery = RenewalReminderDelivery(
-            tenant_id=tenant.id,
+            tenant_id=tenant_id,
             renewal_item_id=item.id,
             channel="email",
             status="pending",
@@ -398,6 +394,20 @@ def queue_reminder_deliveries(
         db.refresh(delivery)
 
     return deliveries
+
+
+@router.post(
+    "/queue",
+    response_model=list[RenewalReminderDeliveryRead],
+)
+def queue_reminder_deliveries(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    return queue_reminder_deliveries_for_tenant(
+        db,
+        tenant.id,
+    )
 
 
 @router.post(
