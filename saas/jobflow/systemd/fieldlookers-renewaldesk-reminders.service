@@ -7,5 +7,6 @@ After=docker.service
 Type=oneshot
 User=rflmorel
 WorkingDirectory=/home/rflmorel/homelab/saas/jobflow
+EnvironmentFile=-/etc/fieldlookers/renewaldesk-reminders.env
 ExecStart=/home/rflmorel/homelab/saas/jobflow/scripts/run-renewaldesk-reminder-cycle.sh
 TimeoutStartSec=10min

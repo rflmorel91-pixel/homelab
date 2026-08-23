@@ -159,3 +159,22 @@ Rules are stored in:
 Prometheus alert rules provide alert state and Grafana
 visibility. External notification delivery requires an
 Alertmanager or Grafana notification contact point.
+
+## Uptime Kuma Notifications
+
+The systemd service reads the protected Push URL from:
+
+    /etc/fieldlookers/renewaldesk-reminders.env
+
+The file is owned by root, readable by the `rflmorel`
+service group, and is not stored in Git.
+
+Production cycles send `status=up` after success and
+`status=down` after worker failure. The wrapper removes any
+query parameters from Kuma's copied Push URL before adding
+the authoritative status and message values.
+
+Dry runs never send Kuma heartbeats.
+
+The Push monitor uses a 900-second heartbeat interval so a
+missing cycle becomes Down after 15 minutes.

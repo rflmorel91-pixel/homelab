@@ -133,3 +133,36 @@ def test_wrapper_publishes_prometheus_metrics():
         "fieldlookers-renewaldesk-reminders.prom"
         in script
     )
+
+def test_wrapper_publishes_uptime_kuma_heartbeat():
+    script = WRAPPER.read_text()
+
+    assert (
+        'PUSH_URL="${FIELDLOOKERS_'
+        'REMINDER_PUSH_URL:-}"'
+        in script
+    )
+    assert "publish_push() {" in script
+    assert '"status=${status}"' in script
+    assert '"msg=${message}"' in script
+    assert 'endpoint="${PUSH_URL%%\\?*}"' in script
+    assert '"${endpoint}"' in script
+    assert (
+        "RenewalDesk Client reminder cycle succeeded"
+        in script
+    )
+    assert (
+        "RenewalDesk Client reminder cycle failed "
+        "with exit ${status}"
+        in script
+    )
+
+
+def test_service_reads_protected_push_environment():
+    service = SERVICE.read_text()
+
+    assert (
+        "EnvironmentFile=-/etc/fieldlookers/"
+        "renewaldesk-reminders.env"
+        in service
+    )

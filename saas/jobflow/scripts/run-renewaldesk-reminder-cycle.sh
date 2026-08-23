@@ -26,6 +26,8 @@ METRICS_FILE="$(
 "fieldlookers-renewaldesk-reminders.prom}"
 )"
 
+PUSH_URL="${FIELDLOOKERS_REMINDER_PUSH_URL:-}"
+
 mkdir -p "${RUNTIME_DIR}"
 
 publish_metrics() {
@@ -49,6 +51,35 @@ publish_metrics() {
   then
     printf '%s\n' \
       "Warning: reminder metrics could not be published." \
+      >&2
+  fi
+}
+
+publish_push() {
+  local status="$1"
+  local message="$2"
+  local endpoint
+
+  if [[ -z "${PUSH_URL}" ]]; then
+    return
+  fi
+
+  endpoint="${PUSH_URL%%\?*}"
+
+  if ! curl \
+    --fail \
+    --silent \
+    --show-error \
+    --max-time 15 \
+    --get \
+    --data-urlencode "status=${status}" \
+    --data-urlencode "msg=${message}" \
+    --data-urlencode "ping=" \
+    "${endpoint}" \
+    > /dev/null
+  then
+    printf '%s\n' \
+      "Warning: Uptime Kuma heartbeat failed." \
       >&2
   fi
 }
@@ -111,6 +142,10 @@ if output="$(
 
   publish_metrics "success" 0
 
+  publish_push \
+    "up" \
+    "RenewalDesk Client reminder cycle succeeded"
+
   exit 0
 else
   status=$?
@@ -134,6 +169,10 @@ else
     "${FAILURE_FILE}"
 
   publish_metrics "failure" "${status}"
+
+  publish_push \
+    "down" \
+    "RenewalDesk Client reminder cycle failed with exit ${status}"
 
   exit "${status}"
 fi
