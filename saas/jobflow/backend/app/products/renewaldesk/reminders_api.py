@@ -5,6 +5,7 @@ from datetime import (
     timedelta,
     timezone,
 )
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import and_, or_, select
@@ -50,11 +51,28 @@ def utc_now_naive() -> datetime:
     )
 
 
+def tenant_local_today(
+    tenant: Tenant,
+    *,
+    now: datetime | None = None,
+) -> date:
+    current = (
+        now
+        if now is not None
+        else datetime.now(timezone.utc)
+    )
+
+    return current.astimezone(
+        ZoneInfo(tenant.timezone_name)
+    ).date()
+
+
 def get_reminder_candidates(
     db: Session,
-    tenant_id: int,
+    tenant: Tenant,
 ) -> list[RenewalItem]:
-    today = date.today()
+    today = tenant_local_today(tenant)
+    tenant_id = tenant.id
 
     result = db.execute(
         select(RenewalItem)
@@ -88,15 +106,23 @@ def get_reminder_candidates(
 
 def reminder_scheduled_for(
     item: RenewalItem,
+    timezone_name: str,
 ) -> datetime:
     reminder_date = (
         item.renewal_date
         - timedelta(days=item.reminder_days)
     )
 
-    return datetime.combine(
+    local_scheduled_for = datetime.combine(
         reminder_date,
         time(hour=9),
+        tzinfo=ZoneInfo(timezone_name),
+    )
+
+    return local_scheduled_for.astimezone(
+        timezone.utc
+    ).replace(
+        tzinfo=None
     )
 
 
@@ -339,7 +365,7 @@ def list_reminder_candidates(
 ):
     return get_reminder_candidates(
         db,
-        tenant.id,
+        tenant,
     )
 
 
@@ -347,16 +373,22 @@ def queue_reminder_deliveries_for_tenant(
     db: Session,
     tenant_id: int,
 ) -> list[RenewalReminderDelivery]:
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise RuntimeError("Tenant not found")
+
     candidates = get_reminder_candidates(
         db,
-        tenant_id,
+        tenant,
     )
 
     deliveries = []
 
     for item in candidates:
         scheduled_for = reminder_scheduled_for(
-            item
+            item,
+            tenant.timezone_name,
         )
 
         existing = db.scalar(

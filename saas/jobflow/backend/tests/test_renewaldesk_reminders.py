@@ -1,10 +1,18 @@
-from datetime import date, datetime
+from datetime import (
+    date,
+    datetime,
+    timezone,
+)
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Product, Tenant
+from app.products.renewaldesk.reminders_api import (
+    reminder_scheduled_for,
+    tenant_local_today,
+)
 from app.products.renewaldesk.models import (
     RenewalItem,
     RenewalReminderDelivery,
@@ -67,6 +75,72 @@ def create_renewal_item(
     db_session.refresh(item)
 
     return item
+
+
+def test_tenant_local_today_uses_tenant_timezone():
+    tenant = Tenant(
+        product_id=1,
+        name="Eastern Tenant",
+        slug="eastern-tenant",
+        timezone_name="America/New_York",
+    )
+
+    result = tenant_local_today(
+        tenant,
+        now=datetime(
+            2027,
+            1,
+            1,
+            2,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        ),
+    )
+
+    assert result == date(2026, 12, 31)
+
+
+def test_reminder_schedule_converts_winter_time_to_utc():
+    item = RenewalItem(
+        tenant_id=1,
+        name="Winter Insurance",
+        renewal_date=date(2027, 3, 1),
+        reminder_days=30,
+    )
+
+    assert reminder_scheduled_for(
+        item,
+        "America/New_York",
+    ) == datetime(
+        2027,
+        1,
+        30,
+        14,
+        0,
+        0,
+    )
+
+
+def test_reminder_schedule_converts_summer_time_to_utc():
+    item = RenewalItem(
+        tenant_id=1,
+        name="Summer Insurance",
+        renewal_date=date(2027, 7, 1),
+        reminder_days=30,
+    )
+
+    assert reminder_scheduled_for(
+        item,
+        "America/New_York",
+    ) == datetime(
+        2027,
+        6,
+        1,
+        13,
+        0,
+        0,
+    )
 
 
 def test_reminder_delivery_persists(
@@ -307,15 +381,10 @@ def test_reminder_queue_creates_pending_delivery(
 ):
     from app.products.renewaldesk import reminders_api
 
-    class FixedDate(date):
-        @classmethod
-        def today(cls):
-            return cls(2027, 1, 20)
-
     monkeypatch.setattr(
         reminders_api,
-        "date",
-        FixedDate,
+        "tenant_local_today",
+        lambda tenant: date(2027, 1, 20),
     )
 
     client = authenticated_client
@@ -390,15 +459,10 @@ def test_reminder_queue_is_idempotent(
 ):
     from app.products.renewaldesk import reminders_api
 
-    class FixedDate(date):
-        @classmethod
-        def today(cls):
-            return cls(2027, 1, 20)
-
     monkeypatch.setattr(
         reminders_api,
-        "date",
-        FixedDate,
+        "tenant_local_today",
+        lambda tenant: date(2027, 1, 20),
     )
 
     client = authenticated_client
@@ -458,15 +522,10 @@ def test_queue_reuses_sent_occurrence_when_schedule_changes(
 ):
     from app.products.renewaldesk import reminders_api
 
-    class FixedDate(date):
-        @classmethod
-        def today(cls):
-            return cls(2027, 1, 20)
-
     monkeypatch.setattr(
         reminders_api,
-        "date",
-        FixedDate,
+        "tenant_local_today",
+        lambda tenant: date(2027, 1, 20),
     )
 
     client = authenticated_client
@@ -513,7 +572,7 @@ def test_queue_reuses_sent_occurrence_when_schedule_changes(
     monkeypatch.setattr(
         reminders_api,
         "reminder_scheduled_for",
-        lambda item: datetime(
+        lambda item, timezone_name: datetime(
             2027, 1, 16, 14, 0, 0
         ),
     )
@@ -550,15 +609,10 @@ def test_reminder_queue_ignores_ineligible_items(
 ):
     from app.products.renewaldesk import reminders_api
 
-    class FixedDate(date):
-        @classmethod
-        def today(cls):
-            return cls(2027, 1, 15)
-
     monkeypatch.setattr(
         reminders_api,
-        "date",
-        FixedDate,
+        "tenant_local_today",
+        lambda tenant: date(2027, 1, 15),
     )
 
     client = authenticated_client

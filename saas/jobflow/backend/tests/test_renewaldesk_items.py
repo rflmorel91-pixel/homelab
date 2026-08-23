@@ -906,15 +906,10 @@ def test_renewaldesk_lists_reminder_candidates(
 
     from app.products.renewaldesk import reminders_api
 
-    class FixedDate(date):
-        @classmethod
-        def today(cls):
-            return cls(2027, 1, 15)
-
     monkeypatch.setattr(
         reminders_api,
-        "date",
-        FixedDate,
+        "tenant_local_today",
+        lambda tenant: date(2027, 1, 15),
     )
 
     client = authenticated_client

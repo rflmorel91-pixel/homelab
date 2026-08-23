@@ -59,7 +59,7 @@ def run_reminder_cycle(
     for tenant in tenants:
         candidates = get_reminder_candidates(
             db,
-            tenant.id,
+            tenant,
         )
 
         summary.candidate_count += len(
