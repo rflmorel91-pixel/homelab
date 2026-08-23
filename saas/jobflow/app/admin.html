@@ -478,6 +478,24 @@
       margin-top: 3px;
     }
 
+    .timezone-form {
+      display: grid;
+      grid-template-columns:
+        minmax(260px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .timezone-form input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: white;
+      color: var(--text);
+    }
+
     .membership-form {
       display: grid;
       grid-template-columns:
@@ -548,6 +566,10 @@
     }
 
     @media (max-width: 760px) {
+      .timezone-form {
+        grid-template-columns: 1fr;
+      }
+
       .app-shell {
         grid-template-columns: 1fr;
       }
@@ -2520,6 +2542,49 @@
           </div>
         </div>
 
+        <h3>Workspace Timezone</h3>
+
+        <p class="row-secondary">
+          Reminder emails are scheduled for 9:00 AM
+          in this IANA timezone.
+        </p>
+
+        <div class="timezone-form">
+          <input
+            id="tenantTimezoneInput"
+            type="text"
+            list="tenantTimezoneOptions"
+            value="${escapeHtml(
+              data.tenant.timezone_name
+            )}"
+            placeholder="America/New_York"
+            autocomplete="off"
+            spellcheck="false"
+          >
+
+          <datalist id="tenantTimezoneOptions">
+            <option value="UTC"></option>
+            <option value="America/New_York"></option>
+            <option value="America/Chicago"></option>
+            <option value="America/Denver"></option>
+            <option value="America/Phoenix"></option>
+            <option value="America/Los_Angeles"></option>
+            <option value="America/Anchorage"></option>
+            <option value="Pacific/Honolulu"></option>
+          </datalist>
+
+          <button
+            id="saveTenantTimezoneButton"
+            class="btn primary"
+            type="button"
+            data-save-tenant-timezone="${
+              data.tenant.id
+            }"
+          >
+            Save Timezone
+          </button>
+        </div>
+
         ${membershipControl}
 
         <h3>Memberships</h3>
@@ -2613,6 +2678,66 @@
       );
 
     } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+
+  async function saveTenantTimezone(
+    tenantId
+  ) {
+    const input =
+      document.getElementById(
+        "tenantTimezoneInput"
+      );
+
+    const button =
+      document.getElementById(
+        "saveTenantTimezoneButton"
+      );
+
+    const timezoneName =
+      input ? input.value.trim() : "";
+
+    if (!timezoneName) {
+      setStatus(
+        "Enter an IANA timezone.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving...";
+      }
+
+      setStatus("Updating tenant timezone...");
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/timezone`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            timezone_name: timezoneName,
+          }),
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        "Tenant timezone updated.",
+        "success"
+      );
+
+    } catch (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Timezone";
+      }
+
       setStatus(error.message, "error");
     }
   }
@@ -2989,6 +3114,21 @@
         await reactivateTenant(
           Number(
             reactivateTenantButton.dataset.reactivateTenant
+          )
+        );
+        return;
+      }
+
+      const saveTimezoneButton =
+        event.target.closest(
+          "[data-save-tenant-timezone]"
+        );
+
+      if (saveTimezoneButton) {
+        await saveTenantTimezone(
+          Number(
+            saveTimezoneButton.dataset
+              .saveTenantTimezone
           )
         );
         return;
