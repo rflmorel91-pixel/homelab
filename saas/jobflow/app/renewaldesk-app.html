@@ -380,7 +380,10 @@
         >
       </div>
 
-      <button type="submit">
+      <button
+        id="passwordResetRequestButton"
+        type="submit"
+      >
         Send Reset Link
       </button>
 
@@ -770,6 +773,11 @@
   const backToSignInButton =
     document.getElementById(
       "backToSignInButton"
+    );
+
+  const passwordResetRequestButton =
+    document.getElementById(
+      "passwordResetRequestButton"
     );
 
   const logoutButton =
@@ -1671,6 +1679,10 @@
     async event => {
       event.preventDefault();
 
+      passwordResetRequestButton.disabled = true;
+      passwordResetRequestButton.textContent =
+        "Sending...";
+
       try {
         const result = await apiRequest(
           "/auth/password-reset/request",
@@ -1687,10 +1699,18 @@
         passwordResetRequestForm.hidden = true;
         loginForm.hidden = false;
 
+        passwordResetRequestButton.disabled = false;
+        passwordResetRequestButton.textContent =
+          "Send Reset Link";
+
         showSuccess(result.message);
         loginEmail.focus();
 
       } catch (error) {
+        passwordResetRequestButton.disabled = false;
+        passwordResetRequestButton.textContent =
+          "Send Reset Link";
+
         showError(error.message);
       }
     }

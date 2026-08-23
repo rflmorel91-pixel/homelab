@@ -27,6 +27,7 @@ from app.security import (
 logger = logging.getLogger(__name__)
 
 RESET_LIFETIME_MINUTES = 30
+RESET_REQUEST_COOLDOWN_SECONDS = 60
 GENERIC_RESET_MESSAGE = (
     "If an eligible account exists, "
     "a password reset email has been sent."
@@ -136,6 +137,31 @@ def request_password_reset(
         return generic_response
 
     now = utc_now_naive()
+
+    latest_active_token = db.scalar(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.product_slug
+            == product.slug,
+            PasswordResetToken.used_at.is_(None),
+        )
+        .order_by(
+            PasswordResetToken.created_at.desc(),
+            PasswordResetToken.id.desc(),
+        )
+        .limit(1)
+    )
+
+    if (
+        latest_active_token is not None
+        and latest_active_token.created_at
+        >= now
+        - timedelta(
+            seconds=RESET_REQUEST_COOLDOWN_SECONDS
+        )
+    ):
+        return generic_response
 
     active_tokens = db.scalars(
         select(PasswordResetToken).where(

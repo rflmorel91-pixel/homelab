@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, field_validator
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth_context import get_current_user_id
@@ -25,6 +25,14 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(
+        cls,
+        value: str,
+    ) -> str:
+        return value.strip().lower()
+
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -42,7 +50,8 @@ def login(
 ):
     user = db.scalar(
         select(User).where(
-            User.email == credentials.email,
+            func.lower(User.email)
+            == credentials.email,
         )
     )
 

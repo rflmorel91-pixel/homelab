@@ -18,6 +18,12 @@ def test_renewaldesk_exposes_password_reset_request():
         in page
     )
     assert 'product_slug: "renewaldesk"' in page
+    assert 'id="passwordResetRequestButton"' in page
+    assert (
+        "passwordResetRequestButton.disabled = true"
+        in page
+    )
+    assert '"Sending..."' in page
 
 
 def test_password_reset_page_confirms_and_redirects():

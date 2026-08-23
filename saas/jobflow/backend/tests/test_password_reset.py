@@ -164,6 +164,52 @@ def test_password_reset_request_is_enumeration_safe(
     ) is None
 
 
+def test_password_reset_suppresses_duplicate_email(
+    raw_client,
+    monkeypatch,
+    db_session,
+):
+    sent = []
+
+    monkeypatch.setenv(
+        "PLATFORM_PUBLIC_BASE_URL",
+        "https://jobflow.fieldlookers.com",
+    )
+    monkeypatch.setattr(
+        password_reset,
+        "send_password_reset_email",
+        lambda **kwargs: sent.append(kwargs),
+    )
+
+    user = create_reset_account(db_session)
+
+    payload = {
+        "email": user.email,
+        "product_slug": "renewaldesk",
+    }
+
+    first = raw_client.post(
+        "/api/v1/auth/password-reset/request",
+        json=payload,
+    )
+    second = raw_client.post(
+        "/api/v1/auth/password-reset/request",
+        json=payload,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json() == second.json()
+    assert len(sent) == 1
+
+    records = db_session.scalars(
+        select(PasswordResetToken)
+    ).all()
+
+    assert len(records) == 1
+    assert records[0].used_at is None
+
+
 def test_password_reset_updates_password_and_is_single_use(
     raw_client,
     monkeypatch,

@@ -50,6 +50,29 @@ def test_login_returns_access_token(raw_client, db_session):
     assert decode_access_token(body["access_token"]) == user.id
 
 
+def test_login_normalizes_email(
+    raw_client,
+    db_session,
+):
+    user = create_login_user(
+        db_session,
+        email="MixedCase@example.com",
+    )
+
+    response = raw_client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "  MIXEDCASE@EXAMPLE.COM  ",
+            "password": "correct-password",
+        },
+    )
+
+    assert response.status_code == 200
+    assert decode_access_token(
+        response.json()["access_token"]
+    ) == user.id
+
+
 def test_login_rejects_wrong_password(raw_client, db_session):
     user = create_login_user(db_session)
 
