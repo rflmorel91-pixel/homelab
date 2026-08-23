@@ -92,7 +92,7 @@ def test_global_users_are_identity_registry_only():
     assert "Identity &amp; Access" in page
     assert "shared platform identities and security" in page
     assert (
-        "Product access remains under each "
-        "product and client."
+        "Access remains within each tenant/product "
+        "and its clients or validation workspaces."
         in page
     )

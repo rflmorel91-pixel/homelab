@@ -778,7 +778,7 @@
         type="button"
         data-view="products"
       >
-        Products
+        Tenant / Products
       </button>
 
       <button
@@ -845,14 +845,14 @@
           <div>
             <h1>Overview</h1>
             <p>
-              Products, clients, validation workspaces, and access.
+              Tenant/products, clients, validation workspaces, and access.
             </p>
           </div>
         </div>
 
         <div class="summary-grid">
           <div class="summary-card">
-            <span>Products</span>
+            <span>Tenant / Products</span>
             <strong id="productCount">-</strong>
           </div>
 
@@ -885,8 +885,8 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <h2>Products</h2>
-              <p>Products operating on the shared SaaS platform.</p>
+              <h2>Tenant / Products</h2>
+              <p>Tenant/products operating on the FieldLookers Platform.</p>
             </div>
           </div>
 
@@ -949,9 +949,9 @@
 
         <div class="page-header">
           <div>
-            <h1>Products</h1>
+            <h1>Tenant / Products</h1>
             <p>
-              SaaS products running on the shared platform.
+              Tenant/products running on the FieldLookers Platform.
             </p>
           </div>
         </div>
@@ -959,9 +959,9 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <h2>Product Directory</h2>
+              <h2>Tenant / Product Directory</h2>
               <p>
-                Product identity, workspace, and customer footprint.
+                Tenant/product identity, workspace, and client footprint.
               </p>
             </div>
           </div>
@@ -1051,7 +1051,7 @@
             <h1>Identity &amp; Access</h1>
             <p>
               Manage shared platform identities and security.
-              Product access remains under each product and client.
+              Access remains within each tenant/product and its clients or validation workspaces.
             </p>
           </div>
         </div>
@@ -1227,8 +1227,19 @@
     currentProductId: null,
     currentTenantId: null,
     currentUserId: null,
+    currentAccessKind: null,
     tenantNavigationGeneration: 0,
   };
+
+  function currentAccessLabel() {
+    return state.currentAccessKind === "client"
+      ? "Client"
+      : "Workspace";
+  }
+
+  function currentAccessLabelLower() {
+    return currentAccessLabel().toLowerCase();
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -1527,7 +1538,7 @@
             type="button"
             data-open-product="${product.id}"
           >
-            Manage Product
+            Manage Tenant / Product
           </button>
         </div>
       </div>
@@ -1824,7 +1835,7 @@
           </div>
         </div>
 
-        <h3>Tenant Access</h3>
+        <h3>Client &amp; Workspace Access</h3>
         <div class="list">
           ${memberships}
         </div>
@@ -2205,13 +2216,14 @@
       ++state.tenantNavigationGeneration;
 
     state.currentTenantId = null;
+    state.currentAccessKind = null;
 
     document.getElementById(
       "tenantDetailPanel"
     ).classList.add("hidden");
 
     try {
-      setStatus("Loading tenant...");
+      setStatus("Loading client or workspace...");
 
       const data =
         await apiRequest(
@@ -2256,6 +2268,10 @@
       }
 
       state.currentTenantId = tenantId;
+      state.currentAccessKind =
+        data.tenant.client_number
+          ? "client"
+          : "workspace";
 
       const invitationRows =
         invitationData.invitations.length
@@ -2556,7 +2572,13 @@
           </div>
         </div>
 
-        <h3>Workspace Timezone</h3>
+        <h3>
+          ${
+            data.tenant.client_number
+              ? "Client"
+              : "Workspace"
+          } Timezone
+        </h3>
 
         <p class="row-secondary">
           Reminder emails are scheduled for 9:00 AM
@@ -2621,7 +2643,7 @@
       });
 
       setStatus(
-        "Tenant details loaded.",
+        `${currentAccessLabel()} details loaded.`,
         "success"
       );
 
@@ -2631,16 +2653,24 @@
   }
 
   async function suspendTenant(tenantId) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
     if (
       !window.confirm(
-        "Suspend this tenant? Tenant workspace access will be blocked until reactivated."
+        `Suspend this ${accessLabelLower}? `
+        + `${accessLabel} access will be blocked `
+        + "until reactivated."
       )
     ) {
       return;
     }
 
     try {
-      setStatus("Suspending tenant...");
+      setStatus(
+        `Suspending ${accessLabelLower}...`
+      );
 
       await apiRequest(
         `/admin/tenants/${tenantId}/suspend`,
@@ -2653,7 +2683,7 @@
       await openTenant(tenantId);
 
       setStatus(
-        "Tenant suspended. Workspace access is now blocked.",
+        `${accessLabel} suspended. Access is now blocked.`,
         "success"
       );
 
@@ -2663,16 +2693,23 @@
   }
 
   async function reactivateTenant(tenantId) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
     if (
       !window.confirm(
-        "Reactivate this tenant and restore workspace access?"
+        `Reactivate this ${accessLabelLower} `
+        + "and restore access?"
       )
     ) {
       return;
     }
 
     try {
-      setStatus("Reactivating tenant...");
+      setStatus(
+        `Reactivating ${accessLabelLower}...`
+      );
 
       await apiRequest(
         `/admin/tenants/${tenantId}/reactivate`,
@@ -2685,7 +2722,7 @@
       await openTenant(tenantId);
 
       setStatus(
-        "Tenant reactivated. Workspace access restored.",
+        `${accessLabel} reactivated. Access restored.`,
         "success"
       );
 
@@ -2697,6 +2734,10 @@
   async function saveTenantTimezone(
     tenantId
   ) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
     const input =
       document.getElementById(
         "tenantTimezoneInput"
@@ -2724,7 +2765,9 @@
         button.textContent = "Saving...";
       }
 
-      setStatus("Updating tenant timezone...");
+      setStatus(
+        `Updating ${accessLabelLower} timezone...`
+      );
 
       await apiRequest(
         `/admin/tenants/${tenantId}/timezone`,
@@ -2739,7 +2782,7 @@
       await openTenant(tenantId);
 
       setStatus(
-        "Tenant timezone updated.",
+        `${accessLabel} timezone updated.`,
         "success"
       );
 

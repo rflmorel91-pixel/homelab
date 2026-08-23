@@ -50,7 +50,7 @@ def test_admin_separates_clients_from_validation_workspaces():
     ).read_text()
 
     assert 'data-view="tenants"' not in page
-    assert "<h1>Products</h1>" in page
+    assert "<h1>Tenant / Products</h1>" in page
     assert "Client Directory" in page
     assert "Validation Workspaces" in page
     assert 'id="validationTenantList"' in page
@@ -73,7 +73,7 @@ def test_admin_product_directory_opens_product_management():
     assert 'id="productDetailPanel"' in page
     assert 'id="productDetail"' in page
     assert 'data-open-product="${product.id}"' in page
-    assert "Manage Product" in page
+    assert "Manage Tenant / Product" in page
     assert "async function openProduct(productId)" in page
     assert (
         "`/admin/products/${productId}`"
@@ -108,8 +108,8 @@ def test_admin_uses_shared_platform_branding():
     assert "Identity &amp; Access" in page
     assert 'data-view="users"' in page
     assert (
-        "Product access remains under each "
-        "product and client."
+        "Access remains within each tenant/product "
+        "and its clients or validation workspaces."
         in page
     )
     assert 'href="/app"' not in page
