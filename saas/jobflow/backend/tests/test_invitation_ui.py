@@ -213,6 +213,8 @@ def test_renewaldesk_owner_can_manage_team_memberships():
     assert "currentMembershipId" in page
     assert '" · You"' in page
     assert '? "hidden"' in page
+    assert "[hidden]" in page
+    assert "display: none !important;" in page
     assert (
         "`/client/team/memberships/${membershipId}`"
         in page
