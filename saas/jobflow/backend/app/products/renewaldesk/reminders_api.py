@@ -34,6 +34,7 @@ router = APIRouter(
 
 MAX_DELIVERY_ATTEMPTS = 4
 DELIVERY_BATCH_SIZE = 100
+STALE_PROCESSING_MINUTES = 15
 RETRY_DELAYS = (
     timedelta(minutes=5),
     timedelta(minutes=30),
@@ -182,10 +183,85 @@ def safe_delivery_error(
     )[:1000]
 
 
+def recover_stale_deliveries(
+    db: Session,
+    tenant_id: int,
+) -> list[RenewalReminderDelivery]:
+    now = utc_now_naive()
+    stale_before = (
+        now
+        - timedelta(
+            minutes=STALE_PROCESSING_MINUTES
+        )
+    )
+
+    deliveries = db.scalars(
+        select(RenewalReminderDelivery)
+        .where(
+            RenewalReminderDelivery.tenant_id
+            == tenant_id,
+            RenewalReminderDelivery.status
+            == "processing",
+            or_(
+                RenewalReminderDelivery
+                .processing_started_at.is_(None),
+                RenewalReminderDelivery
+                .processing_started_at
+                <= stale_before,
+            ),
+        )
+        .order_by(
+            RenewalReminderDelivery.id
+        )
+        .with_for_update(
+            skip_locked=True
+        )
+        .limit(DELIVERY_BATCH_SIZE)
+    ).all()
+
+    for delivery in deliveries:
+        delivery.processing_started_at = None
+        delivery.sent_at = None
+        delivery.last_error = (
+            "Processing claim expired before "
+            "an outcome was recorded"
+        )
+
+        if (
+            delivery.attempt_count
+            >= MAX_DELIVERY_ATTEMPTS
+        ):
+            delivery.status = "failed"
+            delivery.failed_at = now
+            delivery.next_attempt_at = None
+
+        else:
+            delivery.status = "retry_scheduled"
+            delivery.failed_at = None
+            delivery.next_attempt_at = (
+                now
+                + delivery_retry_delay(
+                    delivery.attempt_count
+                )
+            )
+
+    db.commit()
+
+    for delivery in deliveries:
+        db.refresh(delivery)
+
+    return deliveries
+
+
 def process_pending_deliveries(
     db: Session,
     tenant_id: int,
 ) -> list[RenewalReminderDelivery]:
+    recover_stale_deliveries(
+        db,
+        tenant_id,
+    )
+
     deliveries = claim_due_deliveries(
         db,
         tenant_id,

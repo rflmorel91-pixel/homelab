@@ -761,6 +761,186 @@ def test_reminder_process_skips_future_delivery(
     assert delivery.sent_at is None
 
 
+def test_stale_processing_delivery_is_recovered(
+    db_session,
+):
+    from app.products.renewaldesk import reminders_api
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Stale Processing Tenant",
+        slug="stale-processing-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.status = "processing"
+    delivery.attempt_count = 1
+    delivery.last_attempt_at = datetime(
+        2020,
+        1,
+        1,
+        9,
+        0,
+        0,
+    )
+    delivery.processing_started_at = datetime(
+        2020,
+        1,
+        1,
+        9,
+        0,
+        0,
+    )
+    delivery.next_attempt_at = None
+    db_session.commit()
+
+    recovered = (
+        reminders_api.recover_stale_deliveries(
+            db_session,
+            tenant.id,
+        )
+    )
+
+    assert [row.id for row in recovered] == [
+        delivery.id
+    ]
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "retry_scheduled"
+    assert delivery.attempt_count == 1
+    assert delivery.processing_started_at is None
+    assert delivery.next_attempt_at is not None
+    assert delivery.failed_at is None
+    assert delivery.sent_at is None
+    assert delivery.last_error == (
+        "Processing claim expired before "
+        "an outcome was recorded"
+    )
+
+
+def test_recent_processing_delivery_is_not_recovered(
+    db_session,
+):
+    from app.products.renewaldesk import reminders_api
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Recent Processing Tenant",
+        slug="recent-processing-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.status = "processing"
+    delivery.attempt_count = 1
+    delivery.processing_started_at = datetime(
+        2099,
+        1,
+        1,
+        9,
+        0,
+        0,
+    )
+    delivery.next_attempt_at = None
+    db_session.commit()
+
+    recovered = (
+        reminders_api.recover_stale_deliveries(
+            db_session,
+            tenant.id,
+        )
+    )
+
+    assert recovered == []
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "processing"
+    assert delivery.attempt_count == 1
+    assert delivery.processing_started_at is not None
+    assert delivery.next_attempt_at is None
+
+
+def test_terminal_stale_delivery_is_failed(
+    db_session,
+):
+    from app.products.renewaldesk import reminders_api
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Terminal Stale Tenant",
+        slug="terminal-stale-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = create_pending_delivery(
+        db_session,
+        tenant,
+        item,
+    )
+
+    delivery.status = "processing"
+    delivery.attempt_count = 4
+    delivery.processing_started_at = datetime(
+        2020,
+        1,
+        1,
+        9,
+        0,
+        0,
+    )
+    delivery.next_attempt_at = None
+    db_session.commit()
+
+    recovered = (
+        reminders_api.recover_stale_deliveries(
+            db_session,
+            tenant.id,
+        )
+    )
+
+    assert [row.id for row in recovered] == [
+        delivery.id
+    ]
+
+    db_session.refresh(delivery)
+
+    assert delivery.status == "failed"
+    assert delivery.attempt_count == 4
+    assert delivery.processing_started_at is None
+    assert delivery.next_attempt_at is None
+    assert delivery.failed_at is not None
+    assert delivery.sent_at is None
+    assert delivery.last_error == (
+        "Processing claim expired before "
+        "an outcome was recorded"
+    )
+
+
 def test_due_retry_is_claimed_and_sent(
     authenticated_client,
     db_session,
