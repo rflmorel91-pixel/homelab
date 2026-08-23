@@ -24,6 +24,14 @@ RenewalState = Literal[
     "inactive",
 ]
 
+ReminderDeliveryStatus = Literal[
+    "pending",
+    "processing",
+    "retry_scheduled",
+    "sent",
+    "failed",
+]
+
 
 class RenewalItemBase(BaseModel):
     name: str
@@ -105,8 +113,16 @@ class RenewalReminderDeliveryRead(BaseModel):
     id: int
     renewal_item_id: int
     channel: str
-    status: str
+    status: ReminderDeliveryStatus
     scheduled_for: datetime
+    recipient_email: str | None
+    attempt_count: int
+    last_attempt_at: datetime | None
+    next_attempt_at: datetime | None
+    processing_started_at: datetime | None
+    last_error: str | None
+    provider_message_id: str | None
+    failed_at: datetime | None
     sent_at: datetime | None
     created_at: datetime
     updated_at: datetime

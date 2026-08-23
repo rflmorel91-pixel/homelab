@@ -98,6 +98,7 @@ def test_reminder_delivery_persists(
         channel="email",
         status="pending",
         scheduled_for=scheduled_for,
+        recipient_email="owner@example.test",
     )
 
     db_session.add(delivery)
@@ -110,9 +111,56 @@ def test_reminder_delivery_persists(
     assert delivery.channel == "email"
     assert delivery.status == "pending"
     assert delivery.scheduled_for == scheduled_for
+    assert delivery.recipient_email == (
+        "owner@example.test"
+    )
+    assert delivery.attempt_count == 0
+    assert delivery.last_attempt_at is None
+    assert delivery.next_attempt_at is None
+    assert delivery.processing_started_at is None
+    assert delivery.last_error is None
+    assert delivery.provider_message_id is None
+    assert delivery.failed_at is None
     assert delivery.sent_at is None
     assert delivery.created_at is not None
     assert delivery.updated_at is not None
+
+
+def test_reminder_delivery_rejects_invalid_status(
+    db_session,
+):
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Invalid Delivery Status Tenant",
+        slug="invalid-delivery-status-tenant",
+    )
+
+    item = create_renewal_item(
+        db_session,
+        tenant,
+    )
+
+    delivery = RenewalReminderDelivery(
+        tenant_id=tenant.id,
+        renewal_item_id=item.id,
+        channel="email",
+        status="unknown",
+        scheduled_for=datetime(
+            2027,
+            1,
+            16,
+            9,
+            0,
+            0,
+        ),
+    )
+
+    db_session.add(delivery)
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+    db_session.rollback()
 
 
 def test_reminder_delivery_occurrence_is_unique(
@@ -263,6 +311,7 @@ def test_reminder_queue_creates_pending_delivery(
         name="Queue Insurance",
         renewal_date=date(2027, 2, 15),
         status="active",
+        owner_email="queue-owner@example.test",
         reminder_days=30,
     )
 
@@ -283,6 +332,10 @@ def test_reminder_queue_creates_pending_delivery(
     assert payload[0]["renewal_item_id"] == item.id
     assert payload[0]["channel"] == "email"
     assert payload[0]["status"] == "pending"
+    assert payload[0]["recipient_email"] == (
+        "queue-owner@example.test"
+    )
+    assert payload[0]["attempt_count"] == 0
     assert payload[0]["scheduled_for"].startswith(
         "2027-01-16T09:00:00"
     )
@@ -296,6 +349,10 @@ def test_reminder_queue_creates_pending_delivery(
     ).all()
 
     assert len(stored) == 1
+    assert stored[0].recipient_email == (
+        "queue-owner@example.test"
+    )
+    assert stored[0].attempt_count == 0
 
 
 def test_reminder_queue_is_idempotent(

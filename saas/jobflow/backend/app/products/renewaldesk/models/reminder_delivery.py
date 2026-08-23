@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -26,6 +28,24 @@ class RenewalReminderDelivery(Base):
                 "uq_renewaldesk_reminder_"
                 "delivery_occurrence"
             ),
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'pending', "
+            "'processing', "
+            "'retry_scheduled', "
+            "'sent', "
+            "'failed'"
+            ")",
+            name=(
+                "ck_renewaldesk_reminder_"
+                "delivery_status"
+            ),
+        ),
+        Index(
+            "ix_renewaldesk_reminder_delivery_due",
+            "status",
+            "next_attempt_at",
         ),
     )
 
@@ -63,6 +83,56 @@ class RenewalReminderDelivery(Base):
     scheduled_for: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
+    )
+
+    recipient_email: Mapped[str | None] = mapped_column(
+        String(320),
+        nullable=True,
+    )
+
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+
+    last_attempt_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    next_attempt_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    processing_started_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    last_error: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    provider_message_id: Mapped[
+        str | None
+    ] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )
 
     sent_at: Mapped[datetime | None] = mapped_column(

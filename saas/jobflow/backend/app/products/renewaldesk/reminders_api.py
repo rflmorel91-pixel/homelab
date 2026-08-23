@@ -200,6 +200,7 @@ def queue_reminder_deliveries(
             channel="email",
             status="pending",
             scheduled_for=scheduled_for,
+            recipient_email=item.owner_email,
         )
 
         db.add(delivery)
