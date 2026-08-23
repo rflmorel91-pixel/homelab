@@ -52,6 +52,36 @@ def test_tenant_detail_loads_owning_product_context():
     assert 'showView("products");' in page
 
 
+def test_stale_tenant_navigation_cannot_render():
+    page = (
+        WORKSPACE_ROOT
+        / "app"
+        / "admin.html"
+    ).read_text()
+
+    assert "tenantNavigationGeneration: 0" in page
+    assert (
+        "const navigationGeneration ="
+        "\n      ++state.tenantNavigationGeneration"
+        in page
+    )
+    assert (
+        page.count(
+            "!== state.tenantNavigationGeneration"
+        )
+        >= 3
+    )
+    assert (
+        '"tenantDetailPanel"'
+        '\n    ).classList.add("hidden");'
+        in page
+    )
+    assert (
+        "state.currentTenantId = tenantId;"
+        in page
+    )
+
+
 def test_global_users_are_identity_registry_only():
     page = (
         WORKSPACE_ROOT

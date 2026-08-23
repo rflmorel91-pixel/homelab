@@ -1227,6 +1227,7 @@
     currentProductId: null,
     currentTenantId: null,
     currentUserId: null,
+    tenantNavigationGeneration: 0,
   };
 
   function escapeHtml(value) {
@@ -2200,6 +2201,15 @@
   }
 
   async function openTenant(tenantId) {
+    const navigationGeneration =
+      ++state.tenantNavigationGeneration;
+
+    state.currentTenantId = null;
+
+    document.getElementById(
+      "tenantDetailPanel"
+    ).classList.add("hidden");
+
     try {
       setStatus("Loading tenant...");
 
@@ -2209,15 +2219,27 @@
         );
 
       if (
+        navigationGeneration
+        !== state.tenantNavigationGeneration
+      ) {
+        return;
+      }
+
+      if (
         state.currentProductId
         !== data.tenant.product_id
       ) {
         await openProduct(
           data.tenant.product_id
         );
-      }
 
-      state.currentTenantId = tenantId;
+        if (
+          navigationGeneration
+          !== state.tenantNavigationGeneration
+        ) {
+          return;
+        }
+      }
 
       const invitationData =
         data.tenant.client_number
@@ -2225,6 +2247,15 @@
               `/admin/tenants/${tenantId}/user-invitations`
             )
           : {invitations: []};
+
+      if (
+        navigationGeneration
+        !== state.tenantNavigationGeneration
+      ) {
+        return;
+      }
+
+      state.currentTenantId = tenantId;
 
       const invitationRows =
         invitationData.invitations.length
