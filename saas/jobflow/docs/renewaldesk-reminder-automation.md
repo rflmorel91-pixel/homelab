@@ -103,3 +103,31 @@ attempt failed without a later successful recovery.
 Disable future executions:
 
     sudo systemctl disable --now       fieldlookers-renewaldesk-reminders.timer
+
+## Prometheus Monitoring
+
+The reminder wrapper atomically publishes metrics to the
+Node Exporter textfile collector after production cycles.
+
+Dry runs do not update production success markers, failure
+markers, result files, or Prometheus metrics.
+
+The primary health metrics are:
+
+- `fieldlookers_renewaldesk_reminder_last_attempt_success`
+- `fieldlookers_renewaldesk_reminder_last_exit_status`
+- `fieldlookers_renewaldesk_reminder_last_attempt_timestamp_seconds`
+- `fieldlookers_renewaldesk_reminder_last_success_timestamp_seconds`
+- `fieldlookers_renewaldesk_reminder_last_failure_timestamp_seconds`
+
+Cycle-result metrics also report Client, candidate, delivery,
+processing, sending, failure, and retry counts.
+
+A healthy latest cycle has:
+
+    fieldlookers_renewaldesk_reminder_last_attempt_success 1
+    fieldlookers_renewaldesk_reminder_last_exit_status 0
+
+Node Exporter must report:
+
+    node_textfile_scrape_error 0

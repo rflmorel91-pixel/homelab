@@ -94,3 +94,42 @@ def test_reminder_timer_runs_every_five_minutes():
         in timer
     )
     assert "WantedBy=timers.target" in timer
+
+def test_dry_run_does_not_replace_production_markers():
+    script = WRAPPER.read_text()
+
+    assert 'dry_run="false"' in script
+    assert 'dry_run="true"' in script
+    assert (
+        script.count(
+            'if [[ "${dry_run}" == "true" ]]'
+        )
+        == 2
+    )
+
+    success_guard = script.index(
+        'if [[ "${dry_run}" == "true" ]]'
+    )
+    success_marker = script.index(
+        '> "${SUCCESS_FILE}.tmp"'
+    )
+
+    assert success_guard < success_marker
+
+
+def test_wrapper_publishes_prometheus_metrics():
+    script = WRAPPER.read_text()
+
+    assert (
+        "write-renewaldesk-reminder-metrics.py"
+        in script
+    )
+    assert "publish_metrics \"success\" 0" in script
+    assert (
+        'publish_metrics "failure" "${status}"'
+        in script
+    )
+    assert (
+        "fieldlookers-renewaldesk-reminders.prom"
+        in script
+    )

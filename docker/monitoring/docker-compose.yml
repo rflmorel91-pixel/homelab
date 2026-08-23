@@ -27,6 +27,10 @@ services:
     image: prom/node-exporter:latest
     container_name: node-exporter
     restart: unless-stopped
+    command:
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
+    volumes:
+      - "./node-exporter-textfiles:/var/lib/node_exporter/textfile_collector:ro"
     ports:
       - "9100:9100"
     networks:
