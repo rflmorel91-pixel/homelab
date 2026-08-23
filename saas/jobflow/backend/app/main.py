@@ -10,6 +10,7 @@ from app.api.invitations import (
     client_owner_router as invitation_client_owner_router,
     public_router as invitation_public_router,
 )
+from app.api.password_reset import router as password_reset_router
 from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
 from app.database import SessionLocal
@@ -57,6 +58,11 @@ app.include_router(
 
 app.include_router(
     auth_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    password_reset_router,
     prefix="/api/v1",
 )
 

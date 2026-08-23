@@ -10,6 +10,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
       JWT_SECRET: ${JWT_SECRET}
+      PLATFORM_PUBLIC_BASE_URL: ${PLATFORM_PUBLIC_BASE_URL:-https://jobflow.fieldlookers.com}
       RENEWALDESK_SMTP_HOST: ${RENEWALDESK_SMTP_HOST:-}
       RENEWALDESK_SMTP_PORT: ${RENEWALDESK_SMTP_PORT:-587}
       RENEWALDESK_SMTP_USERNAME: ${RENEWALDESK_SMTP_USERNAME:-}

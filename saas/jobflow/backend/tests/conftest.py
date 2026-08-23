@@ -44,7 +44,8 @@ def clean_test_database():
         connection.execute(
             text(
                 "TRUNCATE TABLE "
-                "admin_audit_logs, user_invitations, payments, "
+                "password_reset_tokens, admin_audit_logs, "
+                "user_invitations, payments, "
                 "invoices, schedules, "
                 "estimates, jobs, customers, tenant_memberships, "
                 "users, tenants, leads, products "
