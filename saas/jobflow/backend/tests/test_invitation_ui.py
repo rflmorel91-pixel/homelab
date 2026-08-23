@@ -64,7 +64,9 @@ def test_activation_continues_to_linked_product_landing():
         / "accept-invitation.html"
     ).read_text()
 
-    assert "payload.product.landing_route" in page
+    assert "payload.product.workspace_route" in page
+    assert "window.location.assign(workspaceUrl)" in page
+    assert "payload.product.landing_route" not in page
     assert "payload.product.name" in page
     assert "?activated=1" in page
 

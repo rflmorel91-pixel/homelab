@@ -367,17 +367,24 @@
           form.reset();
           form.classList.add("hidden");
 
-          continueLink.href =
-            `${payload.product.landing_route}?activated=1`;
+          const workspaceUrl =
+            `${payload.product.workspace_route}?activated=1`;
+
+          continueLink.href = workspaceUrl;
 
           continueLink.textContent =
-            `Continue to ${payload.product.name}`;
+            `Continue to ${payload.product.name} Sign In`;
 
           continueLink.classList.add("visible");
 
           showStatus(
-            `Your account is active. Continue to ${payload.product.name}.`,
+            `Your account is active. Redirecting to ${payload.product.name} sign in...`,
             "success"
+          );
+
+          window.setTimeout(
+            () => window.location.assign(workspaceUrl),
+            1200
           );
 
         } catch (error) {
