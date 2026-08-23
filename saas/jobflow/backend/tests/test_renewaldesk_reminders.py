@@ -95,6 +95,8 @@ def test_reminder_delivery_persists(
     delivery = RenewalReminderDelivery(
         tenant_id=tenant.id,
         renewal_item_id=item.id,
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
         channel="email",
         status="pending",
         scheduled_for=scheduled_for,
@@ -111,6 +113,12 @@ def test_reminder_delivery_persists(
     assert delivery.channel == "email"
     assert delivery.status == "pending"
     assert delivery.scheduled_for == scheduled_for
+    assert delivery.occurrence_renewal_date == (
+        item.renewal_date
+    )
+    assert delivery.reminder_days_snapshot == (
+        item.reminder_days
+    )
     assert delivery.recipient_email == (
         "owner@example.test"
     )
@@ -143,6 +151,8 @@ def test_reminder_delivery_rejects_invalid_status(
     delivery = RenewalReminderDelivery(
         tenant_id=tenant.id,
         renewal_item_id=item.id,
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
         channel="email",
         status="unknown",
         scheduled_for=datetime(
@@ -189,6 +199,8 @@ def test_reminder_delivery_occurrence_is_unique(
     first = RenewalReminderDelivery(
         tenant_id=tenant.id,
         renewal_item_id=item.id,
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
         channel="email",
         status="pending",
         scheduled_for=scheduled_for,
@@ -200,9 +212,13 @@ def test_reminder_delivery_occurrence_is_unique(
     duplicate = RenewalReminderDelivery(
         tenant_id=tenant.id,
         renewal_item_id=item.id,
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
         channel="email",
         status="pending",
-        scheduled_for=scheduled_for,
+        scheduled_for=(
+            scheduled_for.replace(hour=14)
+        ),
     )
 
     db_session.add(duplicate)
@@ -231,6 +247,8 @@ def test_different_reminder_occurrences_are_allowed(
         RenewalReminderDelivery(
             tenant_id=tenant.id,
             renewal_item_id=item.id,
+            occurrence_renewal_date=item.renewal_date,
+            reminder_days_snapshot=item.reminder_days,
             channel="email",
             status="pending",
             scheduled_for=datetime(
@@ -245,6 +263,8 @@ def test_different_reminder_occurrences_are_allowed(
         RenewalReminderDelivery(
             tenant_id=tenant.id,
             renewal_item_id=item.id,
+            occurrence_renewal_date=date(2028, 2, 15),
+            reminder_days_snapshot=item.reminder_days,
             channel="email",
             status="pending",
             scheduled_for=datetime(
@@ -336,6 +356,10 @@ def test_reminder_queue_creates_pending_delivery(
         "queue-owner@example.test"
     )
     assert payload[0]["attempt_count"] == 0
+    assert payload[0]["occurrence_renewal_date"] == (
+        "2027-02-15"
+    )
+    assert payload[0]["reminder_days_snapshot"] == 30
     assert payload[0]["scheduled_for"].startswith(
         "2027-01-16T09:00:00"
     )
@@ -353,6 +377,10 @@ def test_reminder_queue_creates_pending_delivery(
         "queue-owner@example.test"
     )
     assert stored[0].attempt_count == 0
+    assert stored[0].occurrence_renewal_date == (
+        item.renewal_date
+    )
+    assert stored[0].reminder_days_snapshot == 30
 
 
 def test_reminder_queue_is_idempotent(
@@ -421,6 +449,98 @@ def test_reminder_queue_is_idempotent(
     ).all()
 
     assert len(stored) == 1
+
+
+def test_queue_reuses_sent_occurrence_when_schedule_changes(
+    authenticated_client,
+    db_session,
+    monkeypatch,
+):
+    from app.products.renewaldesk import reminders_api
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 20)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "date",
+        FixedDate,
+    )
+
+    client = authenticated_client
+
+    tenant = create_renewaldesk_tenant(
+        db_session,
+        name="Timezone Safe Queue Tenant",
+        slug="timezone-safe-queue-tenant",
+    )
+
+    item = RenewalItem(
+        tenant_id=tenant.id,
+        name="Timezone Safe Insurance",
+        renewal_date=date(2027, 2, 15),
+        status="active",
+        owner_email="timezone-owner@example.test",
+        reminder_days=30,
+    )
+
+    db_session.add(item)
+    db_session.commit()
+    db_session.refresh(item)
+
+    sent_delivery = RenewalReminderDelivery(
+        tenant_id=tenant.id,
+        renewal_item_id=item.id,
+        channel="email",
+        status="sent",
+        scheduled_for=datetime(
+            2027, 1, 16, 9, 0, 0
+        ),
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
+        recipient_email=item.owner_email,
+        sent_at=datetime(
+            2027, 1, 16, 9, 1, 0
+        ),
+    )
+
+    db_session.add(sent_delivery)
+    db_session.commit()
+    db_session.refresh(sent_delivery)
+
+    monkeypatch.setattr(
+        reminders_api,
+        "reminder_scheduled_for",
+        lambda item: datetime(
+            2027, 1, 16, 14, 0, 0
+        ),
+    )
+
+    response = client.post(
+        REMINDER_QUEUE_URL,
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == sent_delivery.id
+    assert response.json()[0]["status"] == "sent"
+    assert response.json()[0]["scheduled_for"].startswith(
+        "2027-01-16T09:00:00"
+    )
+
+    stored = db_session.scalars(
+        select(RenewalReminderDelivery).where(
+            RenewalReminderDelivery.renewal_item_id
+            == item.id
+        )
+    ).all()
+
+    assert len(stored) == 1
+    assert stored[0].id == sent_delivery.id
+    assert stored[0].sent_at is not None
 
 
 def test_reminder_queue_ignores_ineligible_items(
@@ -508,6 +628,8 @@ def create_pending_delivery(
     delivery = RenewalReminderDelivery(
         tenant_id=tenant.id,
         renewal_item_id=item.id,
+        occurrence_renewal_date=item.renewal_date,
+        reminder_days_snapshot=item.reminder_days,
         channel="email",
         status="pending",
         scheduled_for=datetime(

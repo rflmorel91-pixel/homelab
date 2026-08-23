@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -23,7 +24,7 @@ class RenewalReminderDelivery(Base):
         UniqueConstraint(
             "renewal_item_id",
             "channel",
-            "scheduled_for",
+            "occurrence_renewal_date",
             name=(
                 "uq_renewaldesk_reminder_"
                 "delivery_occurrence"
@@ -82,6 +83,20 @@ class RenewalReminderDelivery(Base):
 
     scheduled_for: Mapped[datetime] = mapped_column(
         DateTime,
+        nullable=False,
+    )
+
+    occurrence_renewal_date: Mapped[
+        date
+    ] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
+    reminder_days_snapshot: Mapped[
+        int
+    ] = mapped_column(
+        Integer,
         nullable=False,
     )
 

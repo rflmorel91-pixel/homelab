@@ -366,8 +366,9 @@ def queue_reminder_deliveries_for_tenant(
                 == item.id,
                 RenewalReminderDelivery.channel
                 == "email",
-                RenewalReminderDelivery.scheduled_for
-                == scheduled_for,
+                RenewalReminderDelivery
+                .occurrence_renewal_date
+                == item.renewal_date,
             )
         )
 
@@ -381,6 +382,12 @@ def queue_reminder_deliveries_for_tenant(
             channel="email",
             status="pending",
             scheduled_for=scheduled_for,
+            occurrence_renewal_date=(
+                item.renewal_date
+            ),
+            reminder_days_snapshot=(
+                item.reminder_days
+            ),
             recipient_email=item.owner_email,
             next_attempt_at=scheduled_for,
         )

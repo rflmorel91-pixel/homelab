@@ -115,6 +115,8 @@ class RenewalReminderDeliveryRead(BaseModel):
     channel: str
     status: ReminderDeliveryStatus
     scheduled_for: datetime
+    occurrence_renewal_date: date
+    reminder_days_snapshot: int
     recipient_email: str | None
     attempt_count: int
     last_attempt_at: datetime | None
