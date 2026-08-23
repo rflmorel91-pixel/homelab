@@ -289,7 +289,6 @@
       background: white;
     }
 
-
     .invitation-form {
       display: grid;
       grid-template-columns:
@@ -785,17 +784,9 @@
       <button
         class="nav-button"
         type="button"
-        data-view="tenants"
-      >
-        Clients
-      </button>
-
-      <button
-        class="nav-button"
-        type="button"
         data-view="users"
       >
-        Platform Users
+        Identity &amp; Access
       </button>
 
       <button
@@ -991,6 +982,16 @@
           ></div>
         </section>
 
+        <section
+          id="tenantDetailPanel"
+          class="panel hidden"
+        >
+          <div
+            id="tenantDetail"
+            class="panel-body"
+          ></div>
+        </section>
+
       </section>
 
       <section id="tenantsView" class="hidden">
@@ -1041,29 +1042,19 @@
           ></div>
         </section>
 
-        <section
-          id="tenantDetailPanel"
-          class="panel hidden"
-        >
-          <div
-            id="tenantDetail"
-            class="panel-body"
-          ></div>
-        </section>
-
       </section>
 
       <section id="usersView" class="hidden">
 
         <div class="page-header">
           <div>
-            <h1>Users</h1>
+            <h1>Identity &amp; Access</h1>
             <p>
-              Review user identities, status, and tenant access.
+              Manage shared platform identities and security.
+              Product access remains under each product and client.
             </p>
           </div>
         </div>
-
 
         <section class="panel">
           <div class="panel-header">
@@ -1238,7 +1229,6 @@
     currentUserId: null,
   };
 
-
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -1248,7 +1238,6 @@
       .replaceAll("'", "&#039;");
   }
 
-
   function setStatus(message, type = "") {
     const banner =
       document.getElementById("statusBanner");
@@ -1257,7 +1246,6 @@
     banner.className =
       `status-banner${type ? ` ${type}` : ""}`;
   }
-
 
   async function apiRequest(path, options = {}) {
     const headers = {
@@ -1310,7 +1298,6 @@
     return response.json();
   }
 
-
   function showView(viewName) {
     const views = {
       overview:
@@ -1344,7 +1331,6 @@
       });
   }
 
-
   function userBadges(user) {
     const badges = [];
 
@@ -1362,7 +1348,6 @@
 
     return badges.join("");
   }
-
 
   function renderUserRows(users) {
     if (!users.length) {
@@ -1398,13 +1383,11 @@
     `).join("");
   }
 
-
   function productForTenant(tenant) {
     return state.overview.products.find(
       product => product.id === tenant.product_id
     );
   }
-
 
   function renderClientRows(clients) {
     if (!clients.length) {
@@ -1447,7 +1430,6 @@
       `;
     }).join("");
   }
-
 
   function renderValidationWorkspaceRows(workspaces) {
     if (!workspaces.length) {
@@ -1493,7 +1475,6 @@
       `;
     }).join("");
   }
-
 
   function renderProductRows(products) {
     if (!products.length) {
@@ -1551,7 +1532,6 @@
       </div>
     `).join("");
   }
-
 
   function renderOverview() {
     const data = state.overview;
@@ -1619,7 +1599,6 @@
     renderUserDirectory();
   }
 
-
   function renderTenantDirectory() {
     const query =
       document.getElementById("tenantSearch")
@@ -1661,7 +1640,6 @@
       );
   }
 
-
   function renderUserDirectory() {
     const query =
       document.getElementById("userSearch")
@@ -1684,14 +1662,12 @@
     ).innerHTML = renderUserRows(users);
   }
 
-
   async function refreshOverview() {
     state.overview =
       await apiRequest("/admin/overview");
 
     renderOverview();
   }
-
 
   async function openUser(userId) {
     try {
@@ -1874,7 +1850,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   function membershipRow(tenantId, membership) {
     return `
@@ -2224,7 +2199,6 @@
     }
   }
 
-
   async function openTenant(tenantId) {
     try {
       setStatus("Loading tenant...");
@@ -2233,6 +2207,15 @@
         await apiRequest(
           `/admin/tenants/${tenantId}`
         );
+
+      if (
+        state.currentProductId
+        !== data.tenant.product_id
+      ) {
+        await openProduct(
+          data.tenant.product_id
+        );
+      }
 
       state.currentTenantId = tenantId;
 
@@ -2599,7 +2582,7 @@
 
       tenantDetailPanel.classList.remove("hidden");
 
-      showView("tenants");
+      showView("products");
 
       tenantDetailPanel.scrollIntoView({
         behavior: "smooth",
@@ -2615,7 +2598,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   async function suspendTenant(tenantId) {
     if (
@@ -2649,7 +2631,6 @@
     }
   }
 
-
   async function reactivateTenant(tenantId) {
     if (
       !window.confirm(
@@ -2681,7 +2662,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   async function saveTenantTimezone(
     tenantId
@@ -2741,7 +2721,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   async function createClientInvitation() {
     const displayName =
@@ -2839,7 +2818,6 @@
     }
   }
 
-
   async function copyClientInvitation() {
     const input =
       document.getElementById(
@@ -2873,7 +2851,6 @@
       );
     }
   }
-
 
   async function revokeClientInvitation(
     tenantId,
@@ -2909,7 +2886,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   async function addMembership() {
     const userId =
@@ -2955,7 +2931,6 @@
     }
   }
 
-
   async function saveMembership(
     membershipId,
     tenantId
@@ -2997,7 +2972,6 @@
     }
   }
 
-
   async function removeMembership(
     membershipId,
     tenantId
@@ -3030,7 +3004,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   document.addEventListener(
     "click",
@@ -3194,7 +3167,6 @@
     }
   );
 
-
   document.addEventListener(
     "change",
     async event => {
@@ -3257,7 +3229,6 @@
       }
     }
   );
-
 
   document.addEventListener(
     "change",
@@ -3332,7 +3303,6 @@
     }
   );
 
-
   document.addEventListener(
     "change",
     async event => {
@@ -3390,7 +3360,6 @@
     }
   );
 
-
   document.getElementById(
     "tenantSearch"
   ).addEventListener(
@@ -3398,15 +3367,12 @@
     renderTenantDirectory
   );
 
-
   document.getElementById(
     "userSearch"
   ).addEventListener(
     "input",
     renderUserDirectory
   );
-
-
 
   async function loadInvitationLeadOptions() {
     const select =
@@ -3448,7 +3414,6 @@
       }
     `;
   }
-
 
   async function createUserInvitation(event) {
     event.preventDefault();
@@ -3536,7 +3501,6 @@
     }
   }
 
-
   async function copyInvitationLink() {
     const input =
       document.getElementById(
@@ -3564,7 +3528,6 @@
     }
   }
 
-
   document.getElementById(
     "inviteUserForm"
   ).addEventListener(
@@ -3572,14 +3535,12 @@
     createUserInvitation
   );
 
-
   document.getElementById(
     "copyInvitationLinkButton"
   ).addEventListener(
     "click",
     copyInvitationLink
   );
-
 
   function auditActionLabel(action) {
     const labels = {
@@ -3603,7 +3564,6 @@
 
     return labels[action] || action;
   }
-
 
   function auditDetails(event) {
     if (
@@ -3635,7 +3595,6 @@
 
     return "No additional details";
   }
-
 
   function renderActivity(data) {
     document.getElementById(
@@ -3701,7 +3660,6 @@
     `).join("");
   }
 
-
   async function loadActivity() {
     try {
       setStatus("Loading administrative activity...");
@@ -3720,7 +3678,6 @@
       setStatus(error.message, "error");
     }
   }
-
 
   const adminAuth =
     document.getElementById("adminAuth");
@@ -3743,7 +3700,6 @@
   const adminLogoutButton =
     document.getElementById("adminLogoutButton");
 
-
   function showAdminLogin(message = "") {
     adminShell.classList.add("hidden");
     adminAuth.classList.remove("hidden");
@@ -3755,7 +3711,6 @@
     );
   }
 
-
   function showAdminShell() {
     adminAuth.classList.add("hidden");
     adminShell.classList.remove("hidden");
@@ -3763,7 +3718,6 @@
     adminLoginError.textContent = "";
     adminLoginError.classList.remove("visible");
   }
-
 
   adminLoginForm.addEventListener(
     "submit",
@@ -3808,7 +3762,6 @@
     }
   );
 
-
   adminLogoutButton.addEventListener(
     "click",
     async () => {
@@ -3828,7 +3781,6 @@
       showAdminLogin("Signed out.");
     }
   );
-
 
   async function initializeAdmin() {
     try {

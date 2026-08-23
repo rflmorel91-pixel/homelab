@@ -49,7 +49,8 @@ def test_admin_separates_clients_from_validation_workspaces():
         / "admin.html"
     ).read_text()
 
-    assert "<h1>Clients</h1>" in page
+    assert 'data-view="tenants"' not in page
+    assert "<h1>Products</h1>" in page
     assert "Client Directory" in page
     assert "Validation Workspaces" in page
     assert 'id="validationTenantList"' in page
@@ -104,8 +105,13 @@ def test_admin_uses_shared_platform_branding():
     )
     assert page.count("<strong>FieldLookers</strong>") == 2
     assert "Lead Commercialization" in page
-    assert ">Platform Users<" not in page
-    assert "Platform Users" in page
+    assert "Identity &amp; Access" in page
+    assert 'data-view="users"' in page
+    assert (
+        "Product access remains under each "
+        "product and client."
+        in page
+    )
     assert 'href="/app"' not in page
     assert "Client Workspace" not in page
     assert "<strong>JobFlow</strong>" not in page
