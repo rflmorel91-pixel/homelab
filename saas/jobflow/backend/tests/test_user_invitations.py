@@ -1163,6 +1163,17 @@ def test_client_owner_can_manage_current_team_membership(
     db_session.commit()
     db_session.refresh(teammate_membership)
 
+    team_response = client.get(
+        "/api/v1/client/team",
+        headers=headers,
+    )
+
+    assert team_response.status_code == 200
+    assert (
+        team_response.json()["current_membership_id"]
+        == owner_membership.id
+    )
+
     update_response = client.put(
         (
             "/api/v1/client/team/memberships/"

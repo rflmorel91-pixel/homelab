@@ -209,6 +209,10 @@ def test_renewaldesk_owner_can_manage_team_memberships():
     assert "saveTeamMemberRole" in page
     assert "removeTeamMember" in page
     assert "Save Role" in page
+    assert "current_membership_id" in page
+    assert "currentMembershipId" in page
+    assert '" · You"' in page
+    assert '? "hidden"' in page
     assert (
         "`/client/team/memberships/${membershipId}`"
         in page

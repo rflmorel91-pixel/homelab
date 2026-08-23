@@ -605,7 +605,7 @@ def get_current_client_team(
     response: Response,
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
-    _: TenantMembership = Depends(
+    operator_membership: TenantMembership = Depends(
         require_current_tenant_owner
     ),
 ):
@@ -631,6 +631,7 @@ def get_current_client_team(
     ).all()
 
     return {
+        "current_membership_id": operator_membership.id,
         "client": {
             "id": tenant.id,
             "client_number": tenant.client_number,

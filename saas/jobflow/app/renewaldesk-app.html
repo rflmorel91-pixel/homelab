@@ -1290,7 +1290,10 @@
   }
 
 
-  function renderTeamMembers(members) {
+  function renderTeamMembers(
+    members,
+    currentMembershipId
+  ) {
     teamMemberList.innerHTML = members.length
       ? members.map(member => `
           <article class="renewal-card">
@@ -1303,9 +1306,25 @@
               <span>
                 ${member.is_active ? "Active" : "Inactive"}
               </span>
+
+              <span>
+                ${escapeHtml(member.role)}
+                ${
+                  member.membership_id
+                    === currentMembershipId
+                    ? " · You"
+                    : ""
+                }
+              </span>
             </div>
 
             <div
+              ${
+                member.membership_id
+                  === currentMembershipId
+                  ? "hidden"
+                  : ""
+              }
               class="actions"
               style="margin-top: 12px;"
             >
@@ -1473,7 +1492,10 @@
       apiRequest("/client/user-invitations")
     ]);
 
-    renderTeamMembers(team.members);
+    renderTeamMembers(
+      team.members,
+      team.current_membership_id
+    );
     renderTeamInvitations(
       invitationData.invitations
     );
