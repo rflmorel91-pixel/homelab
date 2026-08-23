@@ -1,0 +1,59 @@
+groups:
+  - name: fieldlookers-renewaldesk-reminders
+    rules:
+      - alert: FieldLookersRenewalDeskReminderCycleFailed
+        expr: fieldlookers_renewaldesk_reminder_last_attempt_success == 0
+        for: 1m
+        labels:
+          severity: critical
+          platform: fieldlookers
+          tenant_product: renewaldesk
+        annotations:
+          summary: RenewalDesk reminder cycle failed
+          description: >-
+            The latest scheduled RenewalDesk Client reminder
+            cycle returned a failure.
+
+      - alert: FieldLookersRenewalDeskReminderCycleStale
+        expr: >-
+          time()
+          - fieldlookers_renewaldesk_reminder_last_success_timestamp_seconds
+          > 900
+        for: 1m
+        labels:
+          severity: critical
+          platform: fieldlookers
+          tenant_product: renewaldesk
+        annotations:
+          summary: RenewalDesk reminder cycles are stale
+          description: >-
+            No successful RenewalDesk Client reminder cycle
+            has been recorded for more than 15 minutes.
+
+      - alert: FieldLookersRenewalDeskReminderMetricsMissing
+        expr: >-
+          absent(
+            fieldlookers_renewaldesk_reminder_last_attempt_success
+          )
+        for: 5m
+        labels:
+          severity: warning
+          platform: fieldlookers
+          tenant_product: renewaldesk
+        annotations:
+          summary: RenewalDesk reminder metrics are missing
+          description: >-
+            Prometheus cannot find the RenewalDesk reminder
+            automation health metric.
+
+      - alert: FieldLookersNodeTextfileCollectorFailed
+        expr: node_textfile_scrape_error != 0
+        for: 1m
+        labels:
+          severity: warning
+          platform: fieldlookers
+        annotations:
+          summary: Node Exporter textfile collection failed
+          description: >-
+            Node Exporter could not parse or read one or more
+            FieldLookers textfile metrics.

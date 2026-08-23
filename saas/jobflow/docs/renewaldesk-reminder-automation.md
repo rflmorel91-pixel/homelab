@@ -131,3 +131,31 @@ A healthy latest cycle has:
 Node Exporter must report:
 
     node_textfile_scrape_error 0
+
+## Prometheus Alert Rules
+
+Prometheus evaluates four RenewalDesk automation alerts:
+
+- `FieldLookersRenewalDeskReminderCycleFailed`
+- `FieldLookersRenewalDeskReminderCycleStale`
+- `FieldLookersRenewalDeskReminderMetricsMissing`
+- `FieldLookersNodeTextfileCollectorFailed`
+
+A cycle failure becomes critical after one minute.
+
+The scheduler becomes stale when no successful cycle has
+been recorded for more than 15 minutes, followed by a
+one-minute alert hold.
+
+A missing reminder metric becomes a warning after five
+minutes. A Node Exporter textfile parsing failure becomes a
+warning after one minute.
+
+Rules are stored in:
+
+    docker/monitoring/prometheus/rules/
+    fieldlookers-renewaldesk-reminders.yml
+
+Prometheus alert rules provide alert state and Grafana
+visibility. External notification delivery requires an
+Alertmanager or Grafana notification contact point.
