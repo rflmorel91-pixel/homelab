@@ -1,0 +1,11 @@
+[Unit]
+Description=FieldLookers RenewalDesk client reminder cycle
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=rflmorel
+WorkingDirectory=/home/rflmorel/homelab/saas/jobflow
+ExecStart=/home/rflmorel/homelab/saas/jobflow/scripts/run-renewaldesk-reminder-cycle.sh
+TimeoutStartSec=10min
