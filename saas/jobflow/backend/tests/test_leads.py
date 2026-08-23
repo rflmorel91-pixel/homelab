@@ -184,6 +184,27 @@ def test_lead_can_be_closed_after_contact(
     assert response.json()["status"] == "closed"
 
 
+def test_new_lead_can_be_closed_without_contact(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    lead = create_lead(db_session)
+
+    response = client.put(
+        f"/api/v1/leads/{lead.id}",
+        json={
+            "status": "closed",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "closed"
+
+    db_session.refresh(lead)
+    assert lead.status == "closed"
+
+
 def test_invalid_lead_status_transition_is_rejected(
     client,
     db_session,

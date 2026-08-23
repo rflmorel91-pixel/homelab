@@ -25,7 +25,7 @@ from app.schemas.lead import (
 
 
 LEAD_STATUS_TRANSITIONS = {
-    "new": {"contacted"},
+    "new": {"contacted", "closed"},
     "contacted": {"qualified", "closed"},
     "qualified": {"closed"},
     "converted": set(),
