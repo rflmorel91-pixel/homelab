@@ -1,4 +1,8 @@
 from datetime import datetime, timezone
+from zoneinfo import (
+    ZoneInfo,
+    ZoneInfoNotFoundError,
+)
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -506,6 +510,7 @@ def admin_tenant_detail(
             "name": tenant.name,
             "slug": tenant.slug,
             "status": tenant.status,
+            "timezone_name": tenant.timezone_name,
             "suspended_at": tenant.suspended_at,
             "created_at": tenant.created_at,
         },
@@ -700,7 +705,31 @@ def admin_user_detail(
 from typing import Literal
 
 from fastapi import HTTPException, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+
+class TenantTimezoneUpdate(BaseModel):
+    timezone_name: str
+
+    @field_validator("timezone_name")
+    @classmethod
+    def validate_timezone_name(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        try:
+            ZoneInfo(normalized)
+        except (
+            ValueError,
+            ZoneInfoNotFoundError,
+        ) as error:
+            raise ValueError(
+                "Unknown IANA timezone"
+            ) from error
+
+        return normalized
 
 
 class UserAdminUpdate(BaseModel):
@@ -715,6 +744,52 @@ class MembershipCreate(BaseModel):
 
 class MembershipUpdate(BaseModel):
     role: Literal["owner", "member"]
+
+
+@router.put(
+    "/tenants/{tenant_id}/timezone"
+)
+def admin_update_tenant_timezone(
+    tenant_id: int,
+    payload: TenantTimezoneUpdate,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    before_timezone = tenant.timezone_name
+    tenant.timezone_name = payload.timezone_name
+
+    if before_timezone != tenant.timezone_name:
+        add_admin_audit(
+            db,
+            operator_user_id=operator.id,
+            action="tenant.timezone_updated",
+            target_type="tenant",
+            target_id=tenant.id,
+            tenant_id=tenant.id,
+            before_data={
+                "timezone_name": before_timezone,
+            },
+            after_data={
+                "timezone_name":
+                    tenant.timezone_name,
+            },
+        )
+
+    db.commit()
+    db.refresh(tenant)
+
+    return {
+        "id": tenant.id,
+        "timezone_name": tenant.timezone_name,
+    }
 
 
 @router.put("/users/{user_id}")

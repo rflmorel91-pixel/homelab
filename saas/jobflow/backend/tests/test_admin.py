@@ -98,6 +98,7 @@ def test_platform_admin_can_view_tenant_detail(
     payload = response.json()
 
     assert payload["tenant"]["id"] == tenant_id
+    assert payload["tenant"]["timezone_name"] == "UTC"
     assert payload["counts"]["memberships"] >= 1
     assert set(payload["counts"]) == {"memberships"}
 
@@ -756,6 +757,132 @@ def test_unauthenticated_user_cannot_view_audit_log(
     )
 
     assert response.status_code == 401
+
+
+def test_platform_admin_can_update_tenant_timezone(
+    client,
+    db_session,
+):
+    from app.models import AdminAuditLog, Tenant
+
+    operator = make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+    assert tenant.timezone_name == "UTC"
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/timezone"
+        ),
+        json={
+            "timezone_name":
+                "  America/New_York  ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": tenant.id,
+        "timezone_name": "America/New_York",
+    }
+
+    db_session.expire_all()
+
+    stored = db_session.get(Tenant, tenant.id)
+    assert stored is not None
+    assert (
+        stored.timezone_name
+        == "America/New_York"
+    )
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "tenant.timezone_updated",
+            AdminAuditLog.target_id
+            == tenant.id,
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.tenant_id == tenant.id
+    assert audit.before_data == {
+        "timezone_name": "UTC",
+    }
+    assert audit.after_data == {
+        "timezone_name": "America/New_York",
+    }
+
+
+def test_admin_rejects_unknown_tenant_timezone(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    make_platform_admin(db_session)
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/timezone"
+        ),
+        json={
+            "timezone_name": "Not/A_Timezone",
+        },
+    )
+
+    assert response.status_code == 422
+
+    db_session.refresh(tenant)
+    assert tenant.timezone_name == "UTC"
+
+
+def test_non_platform_admin_cannot_update_timezone(
+    client,
+    db_session,
+):
+    from app.models import Tenant
+
+    tenant = db_session.scalar(select(Tenant))
+    assert tenant is not None
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/timezone"
+        ),
+        json={
+            "timezone_name": "America/New_York",
+        },
+    )
+
+    assert response.status_code == 403
+
+
+def test_timezone_update_returns_404_for_missing_tenant(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+
+    response = client.put(
+        "/api/v1/admin/tenants/999999/timezone",
+        json={
+            "timezone_name": "America/New_York",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Tenant not found"
+    )
 
 
 def test_platform_admin_can_suspend_tenant(

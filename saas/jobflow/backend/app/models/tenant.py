@@ -1,4 +1,8 @@
 from datetime import datetime, timezone
+from zoneinfo import (
+    ZoneInfo,
+    ZoneInfoNotFoundError,
+)
 
 from sqlalchemy import (
     DateTime,
@@ -7,7 +11,11 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    validates,
+)
 
 from app.database import Base
 
@@ -56,6 +64,33 @@ class Tenant(Base):
         default="active",
         index=True,
     )
+
+    timezone_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="UTC",
+        server_default="UTC",
+    )
+
+    @validates("timezone_name")
+    def validate_timezone_name(
+        self,
+        key: str,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        try:
+            ZoneInfo(normalized)
+        except (
+            ValueError,
+            ZoneInfoNotFoundError,
+        ) as error:
+            raise ValueError(
+                "Unknown IANA timezone"
+            ) from error
+
+        return normalized
 
     suspended_at: Mapped[datetime | None] = mapped_column(
         DateTime,
