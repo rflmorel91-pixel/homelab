@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>Product #6 Prospecting Agent</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 24px;
+    }
+
+    .header-inner,
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .brand {
+      font-size: 23px;
+      font-weight: bold;
+    }
+
+    .meta {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    header .meta {
+      color: #cbd5e1;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    main {
+      padding: 32px 24px 80px;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel h1,
+    .panel h2,
+    .panel h3 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      padding: 10px;
+      font: inherit;
+      background: white;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .button,
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 15px;
+      background: #111827;
+      color: white;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .button-light {
+      background: white;
+      color: #111827;
+    }
+
+    .button-secondary {
+      background: #475569;
+    }
+
+    .button-danger {
+      background: #991b1b;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      padding: 19px;
+      margin-top: 15px;
+    }
+
+    .card-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 14px;
+    }
+
+    .score,
+    .status {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #e2e8f0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .score {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      color: #991b1b;
+      font-weight: bold;
+    }
+
+    .success {
+      color: #166534;
+      font-weight: bold;
+    }
+
+    .notice {
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+    }
+
+    ul {
+      margin-top: 7px;
+    }
+
+    .evidence a {
+      color: #1d4ed8;
+      text-decoration: underline;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 650px) {
+      .header-inner,
+      .card-heading {
+        display: block;
+      }
+
+      .button-light {
+        display: inline-block;
+        margin-top: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="brand">
+        Product #6 Prospecting Agent
+      </div>
+      <div class="meta">
+        Workflow Automation Package · Operator review
+      </div>
+    </div>
+
+    <a class="button button-light" href="/commercialization">
+      Commercialization Pipeline
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="notice">
+    The agent finds, scores, and drafts outreach.
+    It never sends messages. Rafael must review and approve
+    every draft.
+  </div>
+
+  <section class="panel">
+    <h1>Create Prospecting Campaign</h1>
+
+    <p class="meta">
+      Search public business websites for small IT providers
+      and home-service businesses in New York State.
+    </p>
+
+    <form id="campaignForm">
+      <div class="grid">
+        <div>
+          <label for="campaignName">Campaign name</label>
+          <input
+            id="campaignName"
+            required
+            value="New York Product #6 Prospects"
+          >
+        </div>
+
+        <div>
+          <label for="geography">Geography</label>
+          <input
+            id="geography"
+            required
+            value="New York State"
+          >
+        </div>
+
+        <div>
+          <label for="maxCandidates">
+            Maximum candidates
+          </label>
+          <input
+            id="maxCandidates"
+            type="number"
+            min="1"
+            max="25"
+            value="10"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="minimumScore">
+            Minimum fit score
+          </label>
+          <input
+            id="minimumScore"
+            type="number"
+            min="0"
+            max="100"
+            value="70"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="actions">
+        <label>
+          <input
+            id="segmentIt"
+            type="checkbox"
+            checked
+            style="width: auto;"
+          >
+          Small IT providers
+        </label>
+
+        <label>
+          <input
+            id="segmentHome"
+            type="checkbox"
+            checked
+            style="width: auto;"
+          >
+          Home-service businesses
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="createButton" type="submit">
+          Create Campaign
+        </button>
+      </div>
+    </form>
+
+    <div id="agentStatus" class="meta" style="margin-top: 15px;">
+      Checking operator access...
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Campaigns</h2>
+    <div id="campaignList">
+      <p class="meta">Loading campaigns...</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Outreach Review Queue</h2>
+
+    <div style="max-width: 260px;">
+      <label for="reviewFilter">Review status</label>
+      <select id="reviewFilter">
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="">All</option>
+      </select>
+    </div>
+
+    <div id="candidateList">
+      <p class="meta">Loading candidates...</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API_BASE =
+    "/api/v1/products/workflow-automation/prospecting";
+
+  const statusElement =
+    document.getElementById("agentStatus");
+
+  const campaignList =
+    document.getElementById("campaignList");
+
+  const candidateList =
+    document.getElementById("candidateList");
+
+  const reviewFilter =
+    document.getElementById("reviewFilter");
+
+
+  async function apiRequest(path, options = {}) {
+    const response = await fetch(
+      `${API_BASE}${path}`,
+      {
+        ...options,
+        credentials: "same-origin",
+        headers: {
+          ...(options.body
+            ? {"Content-Type": "application/json"}
+            : {}),
+          ...(options.headers || {})
+        }
+      }
+    );
+
+    if (!response.ok) {
+      let detail = `Request failed (${response.status})`;
+
+      try {
+        const data = await response.json();
+        detail = data.detail || detail;
+      } catch {
+        // Keep the default detail.
+      }
+
+      if (response.status === 401) {
+        window.location.href =
+          "/admin?return=%2Fprospecting";
+      }
+
+      throw new Error(detail);
+    }
+
+    return response.json();
+  }
+
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  function label(value) {
+    return String(value)
+      .replaceAll("_", " ")
+      .replace(
+        /\b\w/g,
+        character => character.toUpperCase()
+      );
+  }
+
+
+  function setStatus(message, className = "meta") {
+    statusElement.textContent = message;
+    statusElement.className = className;
+  }
+
+
+  async function loadCampaigns() {
+    const campaigns = await apiRequest("/campaigns");
+
+    if (campaigns.length === 0) {
+      campaignList.innerHTML =
+        '<p class="meta">No campaigns yet.</p>';
+      return;
+    }
+
+    campaignList.innerHTML = campaigns.map(campaign => `
+      <div class="card">
+        <div class="card-heading">
+          <div>
+            <strong>${escapeHtml(campaign.name)}</strong>
+            <div class="meta">
+              ${escapeHtml(campaign.geography)}
+              · ${campaign.max_candidates} maximum
+              · score ${campaign.minimum_score}+
+            </div>
+            <div class="meta">
+              Segments:
+              ${campaign.segments.map(label).join(", ")}
+            </div>
+            <div class="meta">
+              Model: ${escapeHtml(campaign.model)}
+            </div>
+          </div>
+
+          <span class="status">
+            ${escapeHtml(label(campaign.status))}
+          </span>
+        </div>
+
+        ${
+          campaign.error_message
+            ? `<p class="error">${
+                escapeHtml(campaign.error_message)
+              }</p>`
+            : ""
+        }
+
+        ${
+          campaign.status === "draft"
+            ? `
+              <div class="actions">
+                <button
+                  onclick="runCampaign(${campaign.id}, this)"
+                >
+                  Run Agent
+                </button>
+              </div>
+            `
+            : ""
+        }
+      </div>
+    `).join("");
+  }
+
+
+  async function loadCandidates() {
+    const query = reviewFilter.value
+      ? `?review_status=${
+          encodeURIComponent(reviewFilter.value)
+        }`
+      : "";
+
+    const candidates = await apiRequest(
+      `/candidates${query}`
+    );
+
+    if (candidates.length === 0) {
+      candidateList.innerHTML =
+        '<p class="meta">No matching candidates.</p>';
+      return;
+    }
+
+    candidateList.innerHTML = candidates.map(candidate => {
+      const evidence = candidate.evidence.map(item => `
+        <li>
+          ${escapeHtml(item.fact)}
+          —
+          <a
+            href="${escapeHtml(item.url)}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            source
+          </a>
+        </li>
+      `).join("");
+
+      const reasons = candidate.score_reasons.map(
+        reason => `<li>${escapeHtml(reason)}</li>`
+      ).join("");
+
+      return `
+        <div class="card">
+          <div class="card-heading">
+            <div>
+              <h3>${escapeHtml(candidate.business_name)}</h3>
+              <div class="meta">
+                ${escapeHtml(label(candidate.segment))}
+                · ${escapeHtml(candidate.location)}
+              </div>
+            </div>
+
+            <span class="score">
+              Fit ${candidate.fit_score}/100
+            </span>
+          </div>
+
+          <p>
+            <a
+              href="${escapeHtml(candidate.website_url)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="color: #1d4ed8; text-decoration: underline;"
+            >
+              ${escapeHtml(candidate.normalized_domain)}
+            </a>
+          </p>
+
+          <div>
+            Email: ${escapeHtml(candidate.email)}
+          </div>
+
+          ${
+            candidate.phone
+              ? `<div>Phone: ${
+                  escapeHtml(candidate.phone)
+                }</div>`
+              : ""
+          }
+
+          <strong>Fit reasons</strong>
+          <ul>${reasons}</ul>
+
+          <strong>Evidence</strong>
+          <ul class="evidence">${evidence}</ul>
+
+          <label for="subject-${candidate.id}">
+            Draft subject
+          </label>
+          <input
+            id="subject-${candidate.id}"
+            value="${
+              escapeHtml(candidate.outreach_subject)
+            }"
+            ${candidate.review_status !== "pending"
+              ? "disabled"
+              : ""}
+          >
+
+          <label
+            for="body-${candidate.id}"
+            style="margin-top: 12px;"
+          >
+            Draft message
+          </label>
+          <textarea
+            id="body-${candidate.id}"
+            ${candidate.review_status !== "pending"
+              ? "disabled"
+              : ""}
+          >${escapeHtml(candidate.outreach_body)}</textarea>
+
+          <div class="actions">
+            <span class="status">
+              ${escapeHtml(label(candidate.review_status))}
+            </span>
+
+            ${
+              candidate.review_status === "pending"
+                ? `
+                  <button
+                    onclick="reviewCandidate(
+                      ${candidate.id},
+                      'approved',
+                      this
+                    )"
+                  >
+                    Approve Draft
+                  </button>
+
+                  <button
+                    class="button-danger"
+                    onclick="reviewCandidate(
+                      ${candidate.id},
+                      'rejected',
+                      this
+                    )"
+                  >
+                    Reject Candidate
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          ${
+            candidate.lead_id
+              ? `
+                <div class="meta" style="margin-top: 10px;">
+                  Product #6 pipeline lead:
+                  #${candidate.lead_id}
+                </div>
+              `
+              : ""
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+
+  async function runCampaign(campaignId, button) {
+    if (
+      !window.confirm(
+        "Run public web discovery for this campaign?"
+      )
+    ) {
+      return;
+    }
+
+    button.disabled = true;
+    setStatus("Running prospect discovery...");
+
+    try {
+      const result = await apiRequest(
+        `/campaigns/${campaignId}/run`,
+        {method: "POST"}
+      );
+
+      setStatus(
+        `Campaign complete: ${
+          result.discovered_count
+        } discovered, ${
+          result.saved_count
+        } saved, ${
+          result.skipped_count
+        } skipped.`,
+        "success"
+      );
+
+      await Promise.all([
+        loadCampaigns(),
+        loadCandidates()
+      ]);
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+      await loadCampaigns();
+    }
+  }
+
+
+  async function reviewCandidate(
+    candidateId,
+    decision,
+    button
+  ) {
+    const action =
+      decision === "approved" ? "approve" : "reject";
+
+    if (
+      !window.confirm(
+        `Are you sure you want to ${action} this draft?`
+      )
+    ) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      const subject = document.getElementById(
+        `subject-${candidateId}`
+      ).value;
+
+      const body = document.getElementById(
+        `body-${candidateId}`
+      ).value;
+
+      await apiRequest(
+        `/candidates/${candidateId}/review`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            decision,
+            outreach_subject: subject,
+            outreach_body: body
+          })
+        }
+      );
+
+      setStatus(
+        decision === "approved"
+          ? "Draft approved. No message was sent."
+          : "Candidate rejected.",
+        "success"
+      );
+
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+    }
+  }
+
+
+  document.getElementById(
+    "campaignForm"
+  ).addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const segments = [];
+
+    if (document.getElementById("segmentIt").checked) {
+      segments.push("small_it_provider");
+    }
+
+    if (document.getElementById("segmentHome").checked) {
+      segments.push("home_service_business");
+    }
+
+    if (segments.length === 0) {
+      setStatus(
+        "Select at least one target segment.",
+        "error"
+      );
+      return;
+    }
+
+    const button =
+      document.getElementById("createButton");
+
+    button.disabled = true;
+
+    try {
+      await apiRequest("/campaigns", {
+        method: "POST",
+        body: JSON.stringify({
+          name: document.getElementById(
+            "campaignName"
+          ).value,
+          geography: document.getElementById(
+            "geography"
+          ).value,
+          segments,
+          max_candidates: Number(
+            document.getElementById(
+              "maxCandidates"
+            ).value
+          ),
+          minimum_score: Number(
+            document.getElementById(
+              "minimumScore"
+            ).value
+          )
+        })
+      });
+
+      setStatus(
+        "Campaign created. Review it below, then run the agent.",
+        "success"
+      );
+
+      await loadCampaigns();
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+
+  reviewFilter.addEventListener(
+    "change",
+    () => {
+      loadCandidates().catch(error => {
+        setStatus(error.message, "error");
+      });
+    }
+  );
+
+
+  async function initialize() {
+    try {
+      await Promise.all([
+        loadCampaigns(),
+        loadCandidates()
+      ]);
+
+      setStatus(
+        "Operator access confirmed. No outreach is sent automatically."
+      );
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  initialize();
+</script>
+</body>
+</html>

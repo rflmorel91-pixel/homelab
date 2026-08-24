@@ -44,6 +44,8 @@ def clean_test_database():
         connection.execute(
             text(
                 "TRUNCATE TABLE "
+                "workflow_automation_prospect_candidates, "
+                "workflow_automation_prospecting_campaigns, "
                 "password_reset_tokens, admin_audit_logs, "
                 "user_invitations, payments, "
                 "invoices, schedules, "

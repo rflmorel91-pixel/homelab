@@ -288,4 +288,4 @@ def test_validator_runs_without_application_environment():
     )
     assert result.stdout.count(
         "migration_locations=1"
-    ) == 2
+    ) == 3

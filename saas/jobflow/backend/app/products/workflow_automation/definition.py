@@ -3,7 +3,10 @@ from app.platform import (
     register_product,
 )
 from app.products.workflow_automation.api import (
-    router,
+    router as status_router,
+)
+from app.products.workflow_automation.prospecting_api import (
+    router as prospecting_router,
 )
 
 
@@ -20,7 +23,8 @@ WORKFLOW_AUTOMATION_PRODUCT = register_product(
             "/api/v1/products/workflow-automation"
         ),
         routers=(
-            router,
+            status_router,
+            prospecting_router,
         ),
         description=(
             "Fixed-scope implementation of one "
