@@ -291,6 +291,8 @@
       new: "New",
       contacted: "Contacted",
       qualified: "Qualified",
+      quoted: "Quoted",
+      won: "Won",
       converted: "Converted",
       closed: "Closed"
     };
@@ -302,7 +304,7 @@
   function renderLeads(leads) {
     if (leads.length === 0) {
       leadList.innerHTML =
-        '<p class="empty">No pilot leads yet.</p>';
+        '<p class="empty">No leads yet.</p>';
       return;
     }
 
@@ -310,7 +312,7 @@
       const submitted =
         new Date(lead.created_at).toLocaleString();
 
-      const actions = {
+      const saasActions = {
         new: [
           ["contacted", "Mark Contacted"],
           ["closed", "Close Lead"]
@@ -324,7 +326,34 @@
         ],
         converted: [],
         closed: []
-      }[lead.status] || [];
+      };
+
+      const serviceActions = {
+        new: [
+          ["contacted", "Mark Contacted"],
+          ["closed", "Close Lead"]
+        ],
+        contacted: [
+          ["qualified", "Mark Qualified"],
+          ["closed", "Close Lead"]
+        ],
+        qualified: [
+          ["quoted", "Mark Quoted"],
+          ["closed", "Close Lead"]
+        ],
+        quoted: [
+          ["won", "Mark Won"],
+          ["closed", "Close Lead"]
+        ],
+        won: [],
+        closed: []
+      };
+
+      const actions = (
+        lead.offering_type === "service"
+          ? serviceActions
+          : saasActions
+      )[lead.status] || [];
 
       const actionButtons = actions.map(
         ([status, label]) => `
@@ -342,7 +371,10 @@
         );
 
       const provisioning =
-        lead.status === "qualified"
+        (
+          lead.status === "qualified"
+          && lead.offering_type !== "service"
+        )
           ? `
             <div class="lead-actions">
               <strong>Provision Client</strong>

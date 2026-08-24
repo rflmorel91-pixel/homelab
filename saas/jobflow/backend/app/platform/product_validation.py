@@ -62,6 +62,7 @@ def _validate_platform_routes(
                 product.workspace_route,
             ),
         )
+        if route is not None
     )
 
     for route, owners in sorted(
@@ -137,7 +138,8 @@ def _validate_product(
         )
 
     if (
-        product.landing_route
+        product.workspace_route is not None
+        and product.landing_route
         == product.workspace_route
     ):
         errors.append(

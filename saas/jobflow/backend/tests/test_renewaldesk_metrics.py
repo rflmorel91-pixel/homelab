@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -48,7 +49,7 @@ def run_writer(
 
     subprocess.run(
         [
-            "python",
+            sys.executable,
             str(WRITER),
             "--status",
             status,

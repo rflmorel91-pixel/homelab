@@ -20,11 +20,12 @@ class ProductDefinition:
     platform_contract_version: int
     workspace_key: str
     landing_route: str
-    workspace_route: str
+    workspace_route: str | None
     api_prefix: str
     routers: tuple[APIRouter, ...] = ()
     tenant_routers: tuple[APIRouter, ...] = ()
     description: str = ""
+    offering_type: str = "saas"
 
     def __post_init__(self) -> None:
         if not self.slug:
@@ -65,9 +66,17 @@ class ProductDefinition:
                 "Product workspace_key is required"
             )
 
+        if self.offering_type not in {
+            "saas",
+            "service",
+        }:
+            raise ValueError(
+                "Product offering_type must be "
+                "saas or service"
+            )
+
         for field_name in (
             "landing_route",
-            "workspace_route",
             "api_prefix",
         ):
             value = getattr(self, field_name)
@@ -76,6 +85,40 @@ class ProductDefinition:
                 raise ValueError(
                     f"{field_name} must begin with /"
                 )
+
+        if (
+            self.workspace_route is not None
+            and not self.workspace_route.startswith("/")
+        ):
+            raise ValueError(
+                "workspace_route must begin with /"
+            )
+
+        if (
+            self.offering_type == "saas"
+            and self.workspace_route is None
+        ):
+            raise ValueError(
+                "SaaS products require workspace_route"
+            )
+
+        if (
+            self.offering_type == "service"
+            and self.workspace_route is not None
+        ):
+            raise ValueError(
+                "Service products cannot define "
+                "workspace_route"
+            )
+
+        if (
+            self.offering_type == "service"
+            and self.tenant_routers
+        ):
+            raise ValueError(
+                "Service products cannot register "
+                "tenant routers"
+            )
 
 
 class ProductRegistry:

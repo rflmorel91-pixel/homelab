@@ -271,8 +271,12 @@ def test_validator_runs_without_application_environment():
     assert result.returncode == 0, (
         result.stdout + result.stderr
     )
-    assert "Validated 5 products." in (
+    assert "Validated 6 products." in (
         result.stdout
+    )
+    assert (
+        "product=workflow-automation "
+        in result.stdout
     )
     assert (
         "product=assettrack "

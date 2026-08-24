@@ -15,6 +15,7 @@ from app.models import (
     UserInvitation,
 )
 from app.operator_context import get_current_operator
+from app.platform import get_product
 from app.schemas.lead import (
     LeadProvisionRead,
     LeadProvisionRequest,
@@ -24,11 +25,21 @@ from app.schemas.lead import (
 )
 
 
-LEAD_STATUS_TRANSITIONS = {
+SAAS_LEAD_STATUS_TRANSITIONS = {
     "new": {"contacted", "closed"},
     "contacted": {"qualified", "closed"},
     "qualified": {"closed"},
     "converted": set(),
+    "closed": set(),
+}
+
+
+SERVICE_LEAD_STATUS_TRANSITIONS = {
+    "new": {"contacted", "closed"},
+    "contacted": {"qualified", "closed"},
+    "qualified": {"quoted", "closed"},
+    "quoted": {"won", "closed"},
+    "won": set(),
     "closed": set(),
 }
 
@@ -44,11 +55,20 @@ def build_lead_read(
     product: Product,
     converted_client_number: int | None = None,
 ) -> LeadRead:
+    definition = get_product(product.slug)
+
+    offering_type = (
+        definition.offering_type
+        if definition is not None
+        else "saas"
+    )
+
     return LeadRead(
         id=lead.id,
         product_id=lead.product_id,
         product_slug=product.slug,
         product_name=product.name,
+        offering_type=offering_type,
         business_name=lead.business_name,
         contact_name=lead.contact_name,
         email=lead.email,
@@ -162,8 +182,30 @@ def update_lead(
             detail="Lead not found",
         )
 
+    product = db.get(
+        Product,
+        db_lead.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Lead product is unavailable",
+        )
+
+    definition = get_product(product.slug)
+
+    transitions = (
+        SERVICE_LEAD_STATUS_TRANSITIONS
+        if (
+            definition is not None
+            and definition.offering_type == "service"
+        )
+        else SAAS_LEAD_STATUS_TRANSITIONS
+    )
+
     if lead.status != db_lead.status:
-        allowed_statuses = LEAD_STATUS_TRANSITIONS.get(
+        allowed_statuses = transitions.get(
             db_lead.status,
             set(),
         )
@@ -241,6 +283,33 @@ def provision_lead(
         raise HTTPException(
             status_code=409,
             detail="Lead must be qualified before provisioning",
+        )
+
+    lead_product = db.get(
+        Product,
+        lead.product_id,
+    )
+
+    if lead_product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Lead product is unavailable",
+        )
+
+    definition = get_product(
+        lead_product.slug
+    )
+
+    if (
+        definition is not None
+        and definition.offering_type == "service"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Service leads cannot be "
+                "provisioned as clients"
+            ),
         )
 
     owner = db.get(User, payload.owner_user_id)

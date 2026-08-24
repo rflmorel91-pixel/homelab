@@ -44,6 +44,7 @@ class LeadRead(BaseModel):
     product_id: int
     product_slug: str
     product_name: str
+    offering_type: str
     business_name: str
     contact_name: str
     email: str
