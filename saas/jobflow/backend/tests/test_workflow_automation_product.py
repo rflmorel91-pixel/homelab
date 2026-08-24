@@ -403,3 +403,22 @@ def test_workflow_automation_page_supports_it_partners():
         "3 E Evergreen Road, Suite 101 PMB 1172"
         in page
     )
+
+
+def test_workflow_automation_page_hides_internal_number():
+    from pathlib import Path
+
+    workspace_root = (
+        Path(__file__).resolve().parents[2]
+    )
+
+    page = (
+        workspace_root
+        / "app"
+        / "workflow-automation.html"
+    ).read_text()
+
+    assert (
+        "FieldLookers Product #6"
+        not in page
+    )
