@@ -231,7 +231,8 @@
 
 <main>
   <div class="notice">
-    The agent finds, scores, and drafts outreach.
+    The agent finds IT partners, scores freelance fit,
+    and drafts partnership outreach.
     It never sends messages. Rafael must review and approve
     every draft.
   </div>
@@ -241,7 +242,8 @@
 
     <p class="meta">
       Search public business websites for small IT providers
-      and home-service businesses in New York State.
+      that may need freelance or white-label implementation
+      support in New York State.
     </p>
 
     <form id="campaignForm">
@@ -304,15 +306,6 @@
           Small IT providers
         </label>
 
-        <label>
-          <input
-            id="segmentHome"
-            type="checkbox"
-            checked
-            style="width: auto;"
-          >
-          Home-service businesses
-        </label>
       </div>
 
       <div class="actions">
@@ -648,6 +641,53 @@
   }
 
 
+  async function waitForCampaign(campaignId) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await new Promise(resolve => {
+        window.setTimeout(resolve, 3000);
+      });
+
+      const campaigns = await apiRequest(
+        "/campaigns"
+      );
+
+      const campaign = campaigns.find(
+        item => item.id === campaignId
+      );
+
+      await loadCampaigns();
+
+      if (!campaign) {
+        throw new Error(
+          "Queued campaign could not be found."
+        );
+      }
+
+      if (campaign.status === "completed") {
+        return campaign;
+      }
+
+      if (campaign.status === "failed") {
+        throw new Error(
+          campaign.error_message
+          || "Prospect discovery failed."
+        );
+      }
+
+      setStatus(
+        `Prospect discovery is ${
+          campaign.status
+        }...`
+      );
+    }
+
+    throw new Error(
+      "Campaign is still running. Refresh later "
+      + "to view its persisted status."
+    );
+  }
+
+
   async function runCampaign(campaignId, button) {
     if (
       !window.confirm(
@@ -658,29 +698,27 @@
     }
 
     button.disabled = true;
-    setStatus("Running prospect discovery...");
+    setStatus("Queueing prospect discovery...");
 
     try {
-      const result = await apiRequest(
+      await apiRequest(
         `/campaigns/${campaignId}/run`,
         {method: "POST"}
       );
 
       setStatus(
-        `Campaign complete: ${
-          result.discovered_count
-        } discovered, ${
-          result.saved_count
-        } saved, ${
-          result.skipped_count
-        } skipped.`,
-        "success"
+        "Campaign queued. Waiting for results..."
       );
 
-      await Promise.all([
-        loadCampaigns(),
-        loadCandidates()
-      ]);
+      await loadCampaigns();
+      await waitForCampaign(campaignId);
+      await loadCandidates();
+
+      setStatus(
+        "Campaign completed. Review any saved "
+        + "candidates below.",
+        "success"
+      );
     } catch (error) {
       setStatus(error.message, "error");
       button.disabled = false;
@@ -752,10 +790,6 @@
 
     if (document.getElementById("segmentIt").checked) {
       segments.push("small_it_provider");
-    }
-
-    if (document.getElementById("segmentHome").checked) {
-      segments.push("home_service_business");
     }
 
     if (segments.length === 0) {

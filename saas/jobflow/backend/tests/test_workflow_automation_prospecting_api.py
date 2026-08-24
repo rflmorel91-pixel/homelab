@@ -1,6 +1,10 @@
 from sqlalchemy import select
 
-from app.models import AdminAuditLog, User
+from app.models import (
+    AdminAuditLog,
+    Lead,
+    User,
+)
 from app.products.workflow_automation.models import (
     ProspectCandidate,
     ProspectingCampaign,
@@ -43,8 +47,25 @@ def create_candidate(
     db_session.add(campaign)
     db_session.flush()
 
+    lead = Lead(
+        product_id=1,
+        business_name="Review Test IT",
+        contact_name="Business contact",
+        email="hello@review-test.example",
+        phone=None,
+        service_type=(
+            "Small IT provider partnership"
+        ),
+        message="Agent review test",
+        status="new",
+    )
+
+    db_session.add(lead)
+    db_session.flush()
+
     candidate = ProspectCandidate(
         campaign_id=campaign.id,
+        lead_id=lead.id,
         business_name="Review Test IT",
         website_url=(
             "https://review-test.example"
@@ -108,7 +129,6 @@ def test_operator_can_create_campaign(
             "geography": "New York State",
             "segments": [
                 "small_it_provider",
-                "home_service_business",
             ],
             "max_candidates": 10,
             "minimum_score": 70,
@@ -249,3 +269,137 @@ def test_candidate_cannot_be_reviewed_twice(
     )
 
     assert response.status_code == 409
+
+
+def test_operator_queues_campaign_run(
+    client,
+    db_session,
+    monkeypatch,
+):
+    operator = make_operator(db_session)
+
+    campaign = ProspectingCampaign(
+        name="Queued Campaign",
+        geography="New York State",
+        segments=["small_it_provider"],
+        status="draft",
+        max_candidates=3,
+        minimum_score=75,
+        model="test-model",
+        created_by_user_id=operator.id,
+    )
+
+    db_session.add(campaign)
+    db_session.commit()
+    db_session.refresh(campaign)
+
+    calls = []
+
+    def fake_background_run(campaign_id):
+        calls.append(campaign_id)
+
+    monkeypatch.setattr(
+        "app.products.workflow_automation."
+        "prospecting_api."
+        "run_campaign_in_background",
+        fake_background_run,
+    )
+
+    monkeypatch.setenv(
+        "OPENAI_API_KEY",
+        "test-key",
+    )
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/campaigns/"
+        f"{campaign.id}/run"
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "campaign_id": campaign.id,
+        "status": "queued",
+    }
+    assert calls == [campaign.id]
+
+    db_session.expire_all()
+
+    queued = db_session.get(
+        ProspectingCampaign,
+        campaign.id,
+    )
+
+    assert queued.status == "queued"
+    assert queued.started_at is None
+
+
+def test_campaign_cannot_be_queued_twice(
+    client,
+    db_session,
+    monkeypatch,
+):
+    operator = make_operator(db_session)
+
+    campaign = ProspectingCampaign(
+        name="Already Queued Campaign",
+        geography="New York State",
+        segments=["small_it_provider"],
+        status="queued",
+        max_candidates=3,
+        minimum_score=75,
+        model="test-model",
+        created_by_user_id=operator.id,
+    )
+
+    db_session.add(campaign)
+    db_session.commit()
+    db_session.refresh(campaign)
+
+    monkeypatch.setenv(
+        "OPENAI_API_KEY",
+        "test-key",
+    )
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/campaigns/"
+        f"{campaign.id}/run"
+    )
+
+    assert response.status_code == 409
+
+
+def test_rejecting_candidate_closes_new_lead(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+
+    response = client.put(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/"
+        f"{candidate.id}/review",
+        json={
+            "decision": "rejected",
+        },
+    )
+
+    assert response.status_code == 200
+
+    db_session.expire_all()
+
+    lead = db_session.get(
+        Lead,
+        candidate.lead_id,
+    )
+
+    assert lead.status == "closed"

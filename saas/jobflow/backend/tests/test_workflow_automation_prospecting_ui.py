@@ -18,7 +18,8 @@ def test_prospecting_operator_page_exists():
     assert "Product #6 Prospecting Agent" in text
     assert "New York State" in text
     assert "Small IT providers" in text
-    assert "Home-service businesses" in text
+    assert "Home-service businesses" not in text
+    assert "white-label implementation" in text
 
 
 def test_prospecting_page_requires_manual_review():
@@ -41,3 +42,11 @@ def test_prospecting_page_uses_operator_api():
     assert "/campaigns" in text
     assert "/candidates/" in text
     assert 'credentials: "same-origin"' in text
+
+
+def test_prospecting_page_polls_queued_runs():
+    text = PROSPECTING_PAGE.read_text()
+
+    assert "waitForCampaign" in text
+    assert "Campaign queued" in text
+    assert "window.setTimeout" in text

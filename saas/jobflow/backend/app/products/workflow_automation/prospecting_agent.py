@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.database import SessionLocal
 from app.models import (
     AdminAuditLog,
     Lead,
@@ -26,7 +27,6 @@ from app.products.workflow_automation.prospecting_schemas import (
 
 ALLOWED_SEGMENTS = {
     "small_it_provider",
-    "home_service_business",
 }
 
 
@@ -280,7 +280,43 @@ def _extract_source_urls(
 def _normalize_url_for_match(
     url: str,
 ) -> str:
-    return url.strip().rstrip("/")
+    parsed = urlparse(url.strip())
+
+    if parsed.scheme not in {
+        "http",
+        "https",
+    }:
+        return url.strip().rstrip("/")
+
+    hostname = (
+        parsed.hostname or ""
+    ).lower()
+
+    if hostname.startswith("www."):
+        hostname = hostname[4:]
+
+    path = parsed.path.rstrip("/")
+
+    return f"{hostname}{path}"
+
+
+def evidence_matches_source(
+    evidence_url: str,
+    source_url: str,
+) -> bool:
+    if (
+        _normalize_url_for_match(evidence_url)
+        == _normalize_url_for_match(source_url)
+    ):
+        return True
+
+    try:
+        return (
+            normalize_domain(evidence_url)
+            == normalize_domain(source_url)
+        )
+    except ValueError:
+        return False
 
 
 class OpenAIWebSearchProvider:
@@ -316,8 +352,6 @@ class OpenAIWebSearchProvider:
         segment_labels = {
             "small_it_provider":
                 "small IT providers",
-            "home_service_business":
-                "home-service businesses",
         }
 
         requested_segments = [
@@ -326,35 +360,65 @@ class OpenAIWebSearchProvider:
         ]
 
         prompt = (
-            "Find up to "
+            "Actively perform multiple web searches "
+            "before answering. Find up to "
             f"{campaign.max_candidates} "
-            "real businesses in "
-            f"{campaign.geography}. Target only "
-            + " and ".join(requested_segments)
-            + ". Use public business websites and "
-            "reputable public directories. A candidate "
-            "must have a public business website, a "
-            "public business email using the website's "
-            "domain, clear New York location evidence, "
-            "and evidence of a workflow that could "
-            "benefit from a fixed-scope $500-$2,000 "
-            "automation engagement. Relevant workflows "
-            "include intake-to-database processing, "
-            "status tracking, scheduled notifications, "
-            "spreadsheet replacement, lightweight "
-            "internal dashboards, and API integration. "
-            "Exclude large enterprises, software "
-            "vendors selling equivalent automation, "
-            "businesses outside New York, businesses "
-            "without a domain-matching public email, "
-            "and candidates supported only by inferred "
-            "facts. Score fit from 0 to 100. Every "
-            "specific claim must appear in evidence "
-            "with the public source URL. Draft a short, "
-            "truthful, personalized outreach message "
-            "for Rafael to review. Do not claim prior "
-            "contact, do not invent a person, and do "
-            "not imply the message was sent."
+            "small IT service providers in "
+            f"{campaign.geography}. Search Albany, "
+            "Buffalo, Rochester, Syracuse, New York "
+            "City, Long Island, Westchester, and other "
+            "New York markets. Target managed service "
+            "providers, local IT consultants, computer "
+            "support firms, Microsoft 365 or Google "
+            "Workspace consultants, web technology "
+            "agencies, and similar client-service "
+            "businesses. The commercial goal is to find "
+            "firms that may subcontract fixed-scope "
+            "development and automation work to Rafael "
+            "or use FieldLookers as a white-label "
+            "implementation partner. Relevant overflow "
+            "work includes API integrations, form-to-"
+            "database workflows, spreadsheet "
+            "replacements, internal dashboards, "
+            "scheduled notifications, Microsoft 365 or "
+            "Google Workspace automation, and custom "
+            "client workflow implementation. Favor "
+            "small local firms serving small businesses, "
+            "firms offering a broad service catalog, "
+            "firms discussing custom solutions or "
+            "projects, and firms that may lack a large "
+            "internal development team. A candidate must "
+            "have a real public business website, clear "
+            "New York location or service-area evidence, "
+            "and a verifiable public business email. "
+            "The email may be domain-based or a public "
+            "business address from a reputable provider. "
+            "Exclude large enterprises, staffing and "
+            "recruiting agencies, job boards, hardware-"
+            "only retailers, businesses outside New "
+            "York, and companies that do not provide IT "
+            "services to clients. Score from 0 to 100 "
+            "for likelihood of needing a freelance, "
+            "overflow, subcontract, or white-label "
+            "implementation partner. Workflow or "
+            "capacity fit may be a clearly labeled "
+            "inference, but factual claims about the "
+            "business, services, location, and contact "
+            "details must be supported by public source "
+            "URLs. The disqualifiers array must be empty "
+            "unless a hard exclusion clearly applies. "
+            "Do not use disqualifiers merely because no "
+            "job posting or subcontractor request is "
+            "public. Draft a short, truthful partnership "
+            "outreach message for Rafael to review. "
+            "Position Rafael as providing fixed-scope "
+            "overflow implementation support that the "
+            "IT provider can subcontract or offer to its "
+            "clients without hiring a full-time "
+            "developer. Do not claim prior contact, do "
+            "not invent a person, do not promise a "
+            "delivery timeline, and do not imply the "
+            "message was sent."
         )
 
         request_payload = {
@@ -425,12 +489,9 @@ class OpenAIWebSearchProvider:
             ) from exc
 
         payload = response.json()
-        source_urls = {
-            _normalize_url_for_match(url)
-            for url in _extract_source_urls(
-                payload
-            )
-        }
+        source_urls = _extract_source_urls(
+            payload
+        )
 
         try:
             result = json.loads(
@@ -465,9 +526,13 @@ class OpenAIWebSearchProvider:
                 evidence
                 for evidence
                 in candidate.evidence
-                if _normalize_url_for_match(
-                    evidence.url
-                ) in source_urls
+                if any(
+                    evidence_matches_source(
+                        evidence.url,
+                        source_url,
+                    )
+                    for source_url in source_urls
+                )
             ]
 
             if not verified_evidence:
@@ -484,9 +549,7 @@ class OpenAIWebSearchProvider:
 def _service_type(segment: str) -> str:
     return {
         "small_it_provider":
-            "Small IT provider",
-        "home_service_business":
-            "Home-service business",
+            "Small IT provider partnership",
     }[segment]
 
 
@@ -496,9 +559,13 @@ def run_campaign(
     campaign: ProspectingCampaign,
     provider: ProspectingProvider,
 ) -> dict:
-    if campaign.status != "draft":
+    if campaign.status not in {
+        "draft",
+        "queued",
+    }:
         raise ValueError(
-            "Only draft campaigns can be run"
+            "Only draft or queued campaigns "
+            "can be run"
         )
 
     campaign.status = "running"
@@ -530,6 +597,15 @@ def run_campaign(
 
         saved_count = 0
         skipped_count = 0
+        skip_reasons = {
+            "invalid_website": 0,
+            "wrong_segment": 0,
+            "below_minimum_score": 0,
+            "has_disqualifiers": 0,
+            "missing_evidence": 0,
+            "invalid_business_email": 0,
+            "duplicate": 0,
+        }
 
         for item in discovered[
             : campaign.max_candidates
@@ -540,21 +616,43 @@ def run_campaign(
                 )
             except ValueError:
                 skipped_count += 1
+                skip_reasons[
+                    "invalid_website"
+                ] += 1
                 continue
 
-            if (
-                item.segment
-                not in campaign.segments
-                or item.fit_score
+            rejection_reason = None
+
+            if item.segment not in campaign.segments:
+                rejection_reason = "wrong_segment"
+            elif (
+                item.fit_score
                 < campaign.minimum_score
-                or item.disqualifiers
-                or not item.evidence
-                or not valid_business_email(
-                    item.email,
-                    domain,
-                )
             ):
+                rejection_reason = (
+                    "below_minimum_score"
+                )
+            elif item.disqualifiers:
+                rejection_reason = (
+                    "has_disqualifiers"
+                )
+            elif not item.evidence:
+                rejection_reason = (
+                    "missing_evidence"
+                )
+            elif not valid_business_email(
+                item.email,
+                domain,
+            ):
+                rejection_reason = (
+                    "invalid_business_email"
+                )
+
+            if rejection_reason is not None:
                 skipped_count += 1
+                skip_reasons[
+                    rejection_reason
+                ] += 1
                 continue
 
             existing_candidate = db.scalar(
@@ -579,6 +677,7 @@ def run_campaign(
                 or existing_lead is not None
             ):
                 skipped_count += 1
+                skip_reasons["duplicate"] += 1
                 continue
 
             lead = Lead(
@@ -687,6 +786,8 @@ def run_campaign(
                         saved_count,
                     "skipped_count":
                         skipped_count,
+                    "skip_reasons":
+                        skip_reasons,
                 },
             )
         )
@@ -721,3 +822,57 @@ def run_campaign(
             db.commit()
 
         raise
+
+
+def run_campaign_in_background(
+    campaign_id: int,
+) -> None:
+    """Run one queued campaign with its own DB session."""
+    with SessionLocal() as db:
+        campaign = db.get(
+            ProspectingCampaign,
+            campaign_id,
+        )
+
+        if (
+            campaign is None
+            or campaign.status != "queued"
+        ):
+            return
+
+        try:
+            provider = (
+                OpenAIWebSearchProvider
+                .from_environment()
+            )
+
+            run_campaign(
+                db=db,
+                campaign=campaign,
+                provider=provider,
+            )
+
+        except Exception as exc:
+            db.rollback()
+
+            failed = db.get(
+                ProspectingCampaign,
+                campaign_id,
+            )
+
+            if (
+                failed is not None
+                and failed.status
+                not in {
+                    "completed",
+                    "failed",
+                }
+            ):
+                failed.status = "failed"
+                failed.completed_at = datetime.now(
+                    timezone.utc
+                )
+                failed.error_message = (
+                    str(exc)[:2000]
+                )
+                db.commit()

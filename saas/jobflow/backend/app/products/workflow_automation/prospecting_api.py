@@ -3,6 +3,7 @@ import os
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
 )
@@ -10,7 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AdminAuditLog, User
+from app.models import (
+    AdminAuditLog,
+    Lead,
+    User,
+)
 from app.operator_context import get_current_operator
 from app.products.workflow_automation.models import (
     ProspectCandidate,
@@ -19,13 +24,12 @@ from app.products.workflow_automation.models import (
 from app.products.workflow_automation.prospecting_agent import (
     OpenAIWebSearchProvider,
     ProspectingConfigurationError,
-    ProspectingProviderError,
-    run_campaign,
+    run_campaign_in_background,
 )
 from app.products.workflow_automation.prospecting_schemas import (
     CampaignCreate,
     CampaignRead,
-    CampaignRunRead,
+    CampaignRunAccepted,
     CandidateRead,
     CandidateReview,
 )
@@ -103,10 +107,12 @@ def create_campaign(
 
 @router.post(
     "/campaigns/{campaign_id}/run",
-    response_model=CampaignRunRead,
+    response_model=CampaignRunAccepted,
+    status_code=202,
 )
 def run_prospecting_campaign(
     campaign_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_operator),
 ):
@@ -121,35 +127,40 @@ def run_prospecting_campaign(
             detail="Prospecting campaign not found",
         )
 
+    if campaign.status != "draft":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only draft campaigns can be run"
+            ),
+        )
+
     try:
-        provider = (
+        (
             OpenAIWebSearchProvider
             .from_environment()
         )
-
-        return run_campaign(
-            db=db,
-            campaign=campaign,
-            provider=provider,
-        )
-
     except ProspectingConfigurationError as exc:
         raise HTTPException(
             status_code=503,
             detail=str(exc),
         ) from exc
 
-    except ProspectingProviderError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        ) from exc
+    campaign.status = "queued"
+    campaign.started_at = None
+    campaign.completed_at = None
+    campaign.error_message = None
+    db.commit()
 
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=str(exc),
-        ) from exc
+    background_tasks.add_task(
+        run_campaign_in_background,
+        campaign.id,
+    )
+
+    return {
+        "campaign_id": campaign.id,
+        "status": "queued",
+    }
 
 
 @router.get(
@@ -267,6 +278,21 @@ def review_candidate(
         candidate.outreach_body = (
             payload.outreach_body
         )
+
+    if (
+        payload.decision == "rejected"
+        and candidate.lead_id is not None
+    ):
+        lead = db.get(
+            Lead,
+            candidate.lead_id,
+        )
+
+        if (
+            lead is not None
+            and lead.status == "new"
+        ):
+            lead.status = "closed"
 
     candidate.review_status = payload.decision
     candidate.reviewed_by_user_id = operator.id

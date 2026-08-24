@@ -1,11 +1,17 @@
 from sqlalchemy import select
 
-from app.models import Lead, Product, User
+from app.models import (
+    AdminAuditLog,
+    Lead,
+    Product,
+    User,
+)
 from app.products.workflow_automation.models import (
     ProspectCandidate,
     ProspectingCampaign,
 )
 from app.products.workflow_automation.prospecting_agent import (
+    evidence_matches_source,
     run_campaign,
 )
 from app.products.workflow_automation.prospecting_schemas import (
@@ -55,7 +61,6 @@ def setup_records(db_session):
         geography="New York State",
         segments=[
             "small_it_provider",
-            "home_service_business",
         ],
         status="draft",
         max_candidates=10,
@@ -180,6 +185,24 @@ def test_campaign_saves_only_qualified_leads(
         "pending"
     )
 
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "campaign_completed"
+            )
+        )
+    )
+
+    assert audit is not None
+    assert audit.after_data[
+        "skip_reasons"
+    ]["below_minimum_score"] == 1
+    assert audit.after_data[
+        "skip_reasons"
+    ]["invalid_business_email"] == 1
+
 
 def test_campaign_deduplicates_domains(
     db_session,
@@ -261,4 +284,28 @@ def test_campaign_records_provider_failure(
     assert (
         "Simulated provider failure"
         in failed.error_message
+    )
+
+
+def test_evidence_accepts_canonical_url_variations():
+    assert evidence_matches_source(
+        "https://example.com/contact",
+        (
+            "https://www.example.com/contact/"
+            "?utm_source=search"
+        ),
+    )
+
+
+def test_evidence_accepts_verified_source_domain():
+    assert evidence_matches_source(
+        "https://example.com/contact-us",
+        "https://example.com/about",
+    )
+
+
+def test_evidence_rejects_unverified_domain():
+    assert not evidence_matches_source(
+        "https://invented.example/contact",
+        "https://verified.example/about",
     )

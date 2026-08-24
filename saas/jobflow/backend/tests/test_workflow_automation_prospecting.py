@@ -85,7 +85,6 @@ def test_prospecting_records_are_product_owned(
         geography="New York State",
         segments=[
             "small_it_provider",
-            "home_service_business",
         ],
         status="draft",
         max_candidates=10,

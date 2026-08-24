@@ -20,7 +20,6 @@ RequiredText = Annotated[
 
 ProspectSegment = Literal[
     "small_it_provider",
-    "home_service_business",
 ]
 
 
@@ -30,10 +29,9 @@ class CampaignCreate(BaseModel):
     segments: list[ProspectSegment] = Field(
         default_factory=lambda: [
             "small_it_provider",
-            "home_service_business",
         ],
         min_length=1,
-        max_length=2,
+        max_length=1,
     )
     max_candidates: int = Field(
         default=10,
@@ -153,3 +151,7 @@ class CampaignRunRead(BaseModel):
     saved_count: int
     skipped_count: int
 
+
+class CampaignRunAccepted(BaseModel):
+    campaign_id: int
+    status: Literal["queued"]
