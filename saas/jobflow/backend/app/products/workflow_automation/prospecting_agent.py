@@ -415,10 +415,14 @@ class OpenAIWebSearchProvider:
             "overflow implementation support that the "
             "IT provider can subcontract or offer to its "
             "clients without hiring a full-time "
-            "developer. Do not claim prior contact, do "
-            "not invent a person, do not promise a "
-            "delivery timeline, and do not imply the "
-            "message was sent."
+            "developer. Draft only the personalized "
+            "message body without a signature, postal "
+            "address, website footer, advertisement "
+            "notice, or opt-out text; the platform adds "
+            "its verified compliance footer. Do not "
+            "claim prior contact, do not invent a person, "
+            "do not promise a delivery timeline, and do "
+            "not imply the message was sent."
         )
 
         request_payload = {
@@ -544,6 +548,44 @@ class OpenAIWebSearchProvider:
             candidates.append(candidate)
 
         return candidates
+
+
+def outreach_body_with_footer(
+    body: str,
+) -> str:
+    offer_url = os.getenv(
+        "FIELDLOOKERS_WORKFLOW_AUTOMATION_URL",
+        (
+            "https://jobflow.fieldlookers.com/"
+            "workflow-automation"
+        ),
+    ).strip()
+
+    postal_address = os.getenv(
+        "FIELDLOOKERS_OUTREACH_POSTAL_ADDRESS",
+        (
+            "3 E Evergreen Road, Suite 101 PMB 1172, "
+            "New City, NY 10956"
+        ),
+    ).strip()
+
+    footer = (
+        "Rafael Morel\n"
+        "FieldLookers LLC\n"
+        "Workflow Automation Package: "
+        f"{offer_url}\n"
+        f"{postal_address}\n\n"
+        "This is a business outreach message. "
+        "If you prefer not to receive future "
+        "messages from me, reply "
+        "\"unsubscribe.\""
+    )
+
+    return (
+        body.strip()
+        + "\n\n"
+        + footer
+    )
 
 
 def _service_type(segment: str) -> str:
@@ -748,7 +790,9 @@ def run_campaign(
                     item.outreach_subject
                 ),
                 outreach_body=(
-                    item.outreach_body
+                    outreach_body_with_footer(
+                        item.outreach_body
+                    )
                 ),
                 review_status="pending",
             )

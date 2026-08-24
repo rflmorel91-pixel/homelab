@@ -374,3 +374,32 @@ def test_commercialization_separates_service_actions():
     assert 'quoted: "Quoted"' in page
     assert 'won: "Won"' in page
 
+
+def test_workflow_automation_page_supports_it_partners():
+    from pathlib import Path
+
+    workspace_root = (
+        Path(__file__).resolve().parents[2]
+    )
+
+    page = (
+        workspace_root
+        / "app"
+        / "workflow-automation.html"
+    ).read_text()
+
+    assert "IT provider partnerships" in page
+    assert (
+        "Overflow implementation for small IT providers"
+        in page
+    )
+    assert "White-label support" in page
+    assert (
+        "No direct client contact without approval"
+        in page
+    )
+    assert "IT provider partnership / overflow work" in page
+    assert (
+        "3 E Evergreen Road, Suite 101 PMB 1172"
+        in page
+    )

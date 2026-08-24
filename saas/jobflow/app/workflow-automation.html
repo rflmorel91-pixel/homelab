@@ -69,6 +69,13 @@
       letter-spacing: -0.02em;
     }
 
+    .nav-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 18px;
+    }
+
     .nav-link {
       color: var(--blue);
       text-decoration: none;
@@ -312,9 +319,15 @@
       FieldLookers
     </a>
 
-    <a class="nav-link" href="#quote">
-      Request an assessment
-    </a>
+    <div class="nav-actions">
+      <a class="nav-link" href="#it-partners">
+        IT provider partnerships
+      </a>
+
+      <a class="nav-link" href="#quote">
+        Request an assessment
+      </a>
+    </div>
   </nav>
 </header>
 
@@ -390,6 +403,98 @@
         </p>
       </article>
     </div>
+  </section>
+
+  <section class="section" id="it-partners">
+    <p class="eyebrow">
+      Freelance and white-label delivery
+    </p>
+
+    <h2>
+      Overflow implementation for small IT providers
+    </h2>
+
+    <p class="lead">
+      FieldLookers helps small managed-service providers,
+      IT consultants, and technology agencies deliver
+      bounded client workflow projects without adding a
+      full-time developer.
+    </p>
+
+    <div class="grid" style="margin-top: 28px;">
+      <article class="card">
+        <h3>Subcontracted delivery</h3>
+        <p>
+          Add implementation capacity for a defined
+          client project while your firm retains the
+          primary client relationship.
+        </p>
+      </article>
+
+      <article class="card">
+        <h3>White-label support</h3>
+        <p>
+          Deliver API integrations, intake workflows,
+          dashboards, spreadsheet replacements, and
+          scheduled notifications under an agreed
+          engagement model.
+        </p>
+      </article>
+
+      <article class="card">
+        <h3>Bounded commercial risk</h3>
+        <p>
+          Scope, responsibilities, exclusions, access,
+          acceptance criteria, confidentiality, and
+          support boundaries are documented before work
+          begins.
+        </p>
+      </article>
+    </div>
+
+    <div class="scope" style="margin-top: 30px;">
+      <div>
+        <h3>Good partnership opportunities</h3>
+
+        <ul>
+          <li>
+            A client request falls outside your current
+            team’s delivery capacity
+          </li>
+          <li>
+            The work is too specialized for routine
+            support but too small for a full-time hire
+          </li>
+          <li>
+            You need a defined implementation with
+            documentation and handoff
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Partner safeguards</h3>
+
+        <ul>
+          <li>
+            No direct client contact without approval
+          </li>
+          <li>
+            Your firm retains account ownership
+          </li>
+          <li>
+            Access and data responsibilities are written
+          </li>
+          <li>
+            Ongoing support is separately agreed
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <a class="button" href="#quote">
+      Discuss overflow implementation
+    </a>
   </section>
 
   <section class="section scope">
@@ -517,6 +622,9 @@
           <option value="API integration">
             API integration
           </option>
+          <option value="IT provider partnership">
+            IT provider partnership / overflow work
+          </option>
           <option value="Other workflow">
             Other workflow
           </option>
@@ -550,6 +658,9 @@
 <footer>
   FieldLookers LLC · Practical software and automation
   for small organizations
+  <br>
+  3 E Evergreen Road, Suite 101 PMB 1172,
+  New City, NY 10956
 </footer>
 
 <script>

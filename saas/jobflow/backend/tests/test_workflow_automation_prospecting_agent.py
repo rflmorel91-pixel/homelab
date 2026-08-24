@@ -12,6 +12,7 @@ from app.products.workflow_automation.models import (
 )
 from app.products.workflow_automation.prospecting_agent import (
     evidence_matches_source,
+    outreach_body_with_footer,
     run_campaign,
 )
 from app.products.workflow_automation.prospecting_schemas import (
@@ -309,3 +310,36 @@ def test_evidence_rejects_unverified_domain():
         "https://invented.example/contact",
         "https://verified.example/about",
     )
+
+
+def test_outreach_footer_uses_product_page_and_address(
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "FIELDLOOKERS_WORKFLOW_AUTOMATION_URL",
+        (
+            "https://jobflow.fieldlookers.com/"
+            "workflow-automation"
+        ),
+    )
+    monkeypatch.setenv(
+        "FIELDLOOKERS_OUTREACH_POSTAL_ADDRESS",
+        "FieldLookers Test Postal Address",
+    )
+
+    body = outreach_body_with_footer(
+        "Personalized partnership message."
+    )
+
+    assert body.startswith(
+        "Personalized partnership message."
+    )
+    assert (
+        "Workflow Automation Package: "
+        "https://jobflow.fieldlookers.com/"
+        "workflow-automation"
+        in body
+    )
+    assert "FieldLookers Test Postal Address" in body
+    assert "business outreach message" in body
+    assert 'reply "unsubscribe."' in body
