@@ -172,7 +172,7 @@ def update_lead(
     lead_id: int,
     lead: LeadUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_operator),
+    operator: User = Depends(get_current_operator),
 ):
     db_lead = db.get(Lead, lead_id)
 
@@ -204,9 +204,11 @@ def update_lead(
         else SAAS_LEAD_STATUS_TRANSITIONS
     )
 
-    if lead.status != db_lead.status:
+    previous_status = db_lead.status
+
+    if lead.status != previous_status:
         allowed_statuses = transitions.get(
-            db_lead.status,
+            previous_status,
             set(),
         )
 
@@ -215,11 +217,28 @@ def update_lead(
                 status_code=400,
                 detail=(
                     f"Invalid lead status transition: "
-                    f"{db_lead.status} -> {lead.status}"
+                    f"{previous_status} -> {lead.status}"
                 ),
             )
 
     db_lead.status = lead.status
+
+    if lead.status != previous_status:
+        db.add(
+            AdminAuditLog(
+                operator_user_id=operator.id,
+                action="lead.status_changed",
+                target_type="lead",
+                target_id=db_lead.id,
+                tenant_id=None,
+                before_data={
+                    "status": previous_status,
+                },
+                after_data={
+                    "status": lead.status,
+                },
+            )
+        )
 
     db.commit()
     db.refresh(db_lead)

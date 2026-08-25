@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.models import Lead, User
+from app.models import AdminAuditLog, Lead, User
 
 
 def create_lead(db_session):
@@ -92,7 +92,7 @@ def test_platform_admin_can_update_lead_status(
     client,
     db_session,
 ):
-    make_platform_admin(db_session)
+    operator = make_platform_admin(db_session)
     lead = create_lead(db_session)
 
     response = client.put(
@@ -107,6 +107,54 @@ def test_platform_admin_can_update_lead_status(
 
     db_session.refresh(lead)
     assert lead.status == "contacted"
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "lead.status_changed",
+            AdminAuditLog.target_type == "lead",
+            AdminAuditLog.target_id == lead.id,
+        )
+    )
+
+    assert audit is not None
+    assert audit.operator_user_id == operator.id
+    assert audit.tenant_id is None
+    assert audit.before_data == {
+        "status": "new",
+    }
+    assert audit.after_data == {
+        "status": "contacted",
+    }
+
+
+def test_unchanged_lead_status_does_not_create_audit(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    lead = create_lead(db_session)
+
+    response = client.put(
+        f"/api/v1/leads/{lead.id}",
+        json={
+            "status": "new",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "new"
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "lead.status_changed",
+            AdminAuditLog.target_type == "lead",
+            AdminAuditLog.target_id == lead.id,
+        )
+    )
+
+    assert audit is None
 
 
 def test_lead_status_progression_stops_at_qualified(
