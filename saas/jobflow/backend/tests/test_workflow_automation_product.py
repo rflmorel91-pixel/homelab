@@ -262,6 +262,18 @@ def test_workflow_automation_public_page():
         in page
     )
     assert (
+        "Add implementation capacity without adding a"
+        in page
+    )
+    assert (
+        "your firm retains the client"
+        in page
+    )
+    assert (
+        "Discuss an overflow project"
+        in page
+    )
+    assert (
         "Request a workflow assessment"
         in page
     )
