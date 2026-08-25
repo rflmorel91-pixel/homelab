@@ -158,28 +158,40 @@ def get_product_version_path(
         )
     )
 
-    expected = (
+    locations = {
+        *discover_product_migration_locations(
+            SOURCE_BACKEND_ROOT
+        ),
+        *discover_product_migration_locations(
+            root
+        ),
+    }
+
+    candidates = (
+        SOURCE_BACKEND_ROOT
+        / "app"
+        / "products"
+        / package_name
+        / "migrations"
+        / "versions",
         root
         / "app"
         / "products"
         / package_name
         / "migrations"
-        / "versions"
-    ).resolve()
-
-    locations = set(
-        discover_product_migration_locations(
-            root
-        )
+        / "versions",
     )
 
-    if expected not in locations:
-        raise ValueError(
-            "Product does not have a migration "
-            f"versions directory: {product_slug}"
-        )
+    for candidate in candidates:
+        resolved = candidate.resolve()
 
-    return expected
+        if resolved in locations:
+            return resolved
+
+    raise ValueError(
+        "Product does not have a migration "
+        f"versions directory: {product_slug}"
+    )
 
 
 def parse_root(
