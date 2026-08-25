@@ -329,3 +329,33 @@ def test_tenant_billing_assigns_catalog_offer():
     )
     assert '"fixed_scope"' in page
     assert "billingOfferId <= 0" in page
+
+
+
+def test_tenant_billing_collects_contact():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        'id="tenantBillingContactName"'
+        in page
+    )
+    assert (
+        'id="tenantBillingContactEmail"'
+        in page
+    )
+    assert (
+        "billing_contact_name:"
+        in page
+    )
+    assert (
+        "billing_contact_email:"
+        in page
+    )
+    assert (
+        "Enter a billing contact name."
+        in page
+    )
+    assert (
+        "Enter a valid billing contact email."
+        in page
+    )

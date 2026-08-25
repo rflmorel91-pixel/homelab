@@ -612,6 +612,10 @@ def billing_assignment_payload(
         "provider": "manual",
         "status": status,
         "currency": currency,
+        "billing_contact_name":
+            "  Billing Contact  ",
+        "billing_contact_email":
+            "  BILLING@EXAMPLE.COM  ",
         "provider_customer_id": None,
         "provider_subscription_id": None,
     }
@@ -692,6 +696,14 @@ def test_platform_admin_assigns_active_offer(
     assert (
         response.json()["billing_offer_id"]
         == offer.id
+    )
+    assert (
+        response.json()["billing_contact_name"]
+        == "Billing Contact"
+    )
+    assert (
+        response.json()["billing_contact_email"]
+        == "billing@example.com"
     )
 
     account = db_session.scalar(
@@ -890,3 +902,34 @@ def test_billing_offer_currency_must_match(
         "Billing account currency must "
         "match the selected offer"
     )
+
+
+
+def test_assigned_offer_requires_billing_contact(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        code_suffix="missing-contact",
+    )
+
+    payload = billing_assignment_payload(
+        offer.id
+    )
+    payload["billing_contact_name"] = None
+    payload["billing_contact_email"] = None
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=payload,
+    )
+
+    assert response.status_code == 422

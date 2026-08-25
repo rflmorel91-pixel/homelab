@@ -951,8 +951,52 @@ class BillingAccountUpdate(BaseModel):
         "canceled",
     ]
     currency: str = "USD"
+    billing_contact_name: str | None = None
+    billing_contact_email: str | None = None
     provider_customer_id: str | None = None
     provider_subscription_id: str | None = None
+
+    @field_validator("billing_contact_name")
+    @classmethod
+    def normalize_billing_contact_name(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+
+        if len(normalized) > 200:
+            raise ValueError(
+                "Billing contact name is too long"
+            )
+
+        return normalized or None
+
+    @field_validator("billing_contact_email")
+    @classmethod
+    def normalize_billing_contact_email(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip().lower()
+
+        if (
+            len(normalized) > 320
+            or "@" not in normalized
+            or normalized.startswith("@")
+            or normalized.endswith("@")
+        ):
+            raise ValueError(
+                "A valid billing contact email "
+                "is required"
+            )
+
+        return normalized
 
     @field_validator("currency")
     @classmethod
@@ -972,6 +1016,24 @@ class BillingAccountUpdate(BaseModel):
             )
 
         return normalized
+
+    @model_validator(mode="after")
+    def require_offer_contact(
+        self,
+    ):
+        if (
+            self.billing_offer_id is not None
+            and (
+                self.billing_contact_name is None
+                or self.billing_contact_email is None
+            )
+        ):
+            raise ValueError(
+                "Assigned billing offers require "
+                "a billing contact"
+            )
+
+        return self
 
     @field_validator(
         "provider_customer_id",
@@ -1038,6 +1100,10 @@ def billing_account_data(
         "provider": account.provider,
         "status": account.status,
         "currency": account.currency,
+        "billing_contact_name":
+            account.billing_contact_name,
+        "billing_contact_email":
+            account.billing_contact_email,
         "provider_customer_id":
             account.provider_customer_id,
         "provider_subscription_id":
@@ -1502,6 +1568,10 @@ def admin_update_tenant_billing(
             payload.status,
         "currency":
             payload.currency,
+        "billing_contact_name":
+            payload.billing_contact_name,
+        "billing_contact_email":
+            payload.billing_contact_email,
         "provider_customer_id":
             payload.provider_customer_id,
         "provider_subscription_id":
@@ -1532,6 +1602,12 @@ def admin_update_tenant_billing(
             provider=payload.provider,
             status=payload.status,
             currency=payload.currency,
+            billing_contact_name=(
+                payload.billing_contact_name
+            ),
+            billing_contact_email=(
+                payload.billing_contact_email
+            ),
             provider_customer_id=(
                 payload.provider_customer_id
             ),

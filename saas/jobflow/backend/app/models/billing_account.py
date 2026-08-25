@@ -67,6 +67,20 @@ class BillingAccount(Base):
         default="USD",
     )
 
+    billing_contact_name: Mapped[str | None] = (
+        mapped_column(
+            String(200),
+            nullable=True,
+        )
+    )
+
+    billing_contact_email: Mapped[str | None] = (
+        mapped_column(
+            String(320),
+            nullable=True,
+        )
+    )
+
     provider_customer_id: Mapped[str | None] = (
         mapped_column(
             String(255),

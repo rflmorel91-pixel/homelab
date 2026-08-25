@@ -3048,6 +3048,32 @@
           </label>
 
           <label class="billing-field">
+            <span>Billing contact name</span>
+            <input
+              id="tenantBillingContactName"
+              type="text"
+              maxlength="200"
+              value="${escapeHtml(
+                billing.billing_contact_name || ""
+              )}"
+              autocomplete="name"
+            >
+          </label>
+
+          <label class="billing-field">
+            <span>Billing contact email</span>
+            <input
+              id="tenantBillingContactEmail"
+              type="email"
+              maxlength="320"
+              value="${escapeHtml(
+                billing.billing_contact_email || ""
+              )}"
+              autocomplete="email"
+            >
+          </label>
+
+          <label class="billing-field">
             <span>Provider</span>
             <select
               id="tenantBillingProvider"
@@ -3440,6 +3466,36 @@
         "tenantBillingCurrency"
       ).value.trim().toUpperCase();
 
+    const billingContactName =
+      document.getElementById(
+        "tenantBillingContactName"
+      ).value.trim();
+
+    const billingContactEmail =
+      document.getElementById(
+        "tenantBillingContactEmail"
+      ).value.trim().toLowerCase();
+
+    if (!billingContactName) {
+      setStatus(
+        "Enter a billing contact name.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !billingContactEmail.includes("@")
+      || billingContactEmail.startsWith("@")
+      || billingContactEmail.endsWith("@")
+    ) {
+      setStatus(
+        "Enter a valid billing contact email.",
+        "error"
+      );
+      return;
+    }
+
     if (
       currency.length !== 3
       || !/^[A-Z]{3}$/.test(currency)
@@ -3471,6 +3527,10 @@
             provider: "manual",
             status: billingStatus,
             currency,
+            billing_contact_name:
+              billingContactName,
+            billing_contact_email:
+              billingContactEmail,
             provider_customer_id: null,
             provider_subscription_id: null,
           }),
