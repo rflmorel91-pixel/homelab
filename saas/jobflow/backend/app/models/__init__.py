@@ -6,6 +6,7 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.tenant_membership import TenantMembership
 from app.models.tenant import Tenant
 from app.models.lead import Lead
+from app.models.billing_account import BillingAccount
 
 __all__ = [
     "Product",
@@ -16,4 +17,5 @@ __all__ = [
     "UserInvitation",
     "Tenant",
     "Lead",
+    "BillingAccount",
 ]

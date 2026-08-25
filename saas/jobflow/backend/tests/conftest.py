@@ -46,6 +46,7 @@ def clean_test_database():
                 "TRUNCATE TABLE "
                 "workflow_automation_prospect_candidates, "
                 "workflow_automation_prospecting_campaigns, "
+                "platform_billing_accounts, "
                 "password_reset_tokens, admin_audit_logs, "
                 "user_invitations, payments, "
                 "invoices, schedules, "

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import (
+    BillingAccount,
     Lead,
     Product,
     AdminAuditLog,
@@ -491,6 +492,13 @@ def admin_tenant_detail(
             detail="Tenant not found",
         )
 
+    billing_account = db.scalar(
+        select(BillingAccount).where(
+            BillingAccount.tenant_id
+            == tenant.id
+        )
+    )
+
     memberships = db.execute(
         select(
             TenantMembership,
@@ -514,6 +522,10 @@ def admin_tenant_detail(
             "suspended_at": tenant.suspended_at,
             "created_at": tenant.created_at,
         },
+        "billing_account":
+            billing_account_data(
+                billing_account
+            ),
         "counts": {
             "memberships": len(memberships),
         },
@@ -744,6 +756,312 @@ class MembershipCreate(BaseModel):
 
 class MembershipUpdate(BaseModel):
     role: Literal["owner", "member"]
+
+
+class BillingAccountUpdate(BaseModel):
+    billing_mode: Literal[
+        "subscription",
+        "fixed_scope",
+        "manual",
+    ]
+    provider: Literal["manual"] = "manual"
+    status: Literal[
+        "pending",
+        "active",
+        "past_due",
+        "canceled",
+    ]
+    currency: str = "USD"
+    provider_customer_id: str | None = None
+    provider_subscription_id: str | None = None
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip().upper()
+
+        if (
+            len(normalized) != 3
+            or not normalized.isalpha()
+        ):
+            raise ValueError(
+                "Currency must be a "
+                "three-letter code"
+            )
+
+        return normalized
+
+    @field_validator(
+        "provider_customer_id",
+        "provider_subscription_id",
+    )
+    @classmethod
+    def normalize_provider_identifier(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+
+        return normalized or None
+
+
+def billing_account_data(
+    account: BillingAccount | None,
+) -> dict | None:
+    if account is None:
+        return None
+
+    return {
+        "id": account.id,
+        "tenant_id": account.tenant_id,
+        "billing_mode": account.billing_mode,
+        "provider": account.provider,
+        "status": account.status,
+        "currency": account.currency,
+        "provider_customer_id":
+            account.provider_customer_id,
+        "provider_subscription_id":
+            account.provider_subscription_id,
+        "created_at": (
+            account.created_at.isoformat()
+            if account.created_at
+            else None
+        ),
+        "updated_at": (
+            account.updated_at.isoformat()
+            if account.updated_at
+            else None
+        ),
+    }
+
+
+@router.get("/billing")
+def admin_billing_directory(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    rows = db.execute(
+        select(
+            Tenant,
+            Product,
+            BillingAccount,
+        )
+        .join(
+            Product,
+            Product.id == Tenant.product_id,
+        )
+        .outerjoin(
+            BillingAccount,
+            BillingAccount.tenant_id
+            == Tenant.id,
+        )
+        .order_by(
+            Product.name,
+            Tenant.client_number,
+            Tenant.id,
+        )
+    ).all()
+
+    billable_accounts = [
+        account
+        for tenant, _, account in rows
+        if (
+            tenant.client_number is not None
+            and account is not None
+        )
+    ]
+
+    client_count = sum(
+        tenant.client_number is not None
+        for tenant, _, _ in rows
+    )
+
+    status_counts = {
+        billing_status: sum(
+            account.status == billing_status
+            for account in billable_accounts
+        )
+        for billing_status in (
+            "pending",
+            "active",
+            "past_due",
+            "canceled",
+        )
+    }
+
+    return {
+        "counts": {
+            "tenants": len(rows),
+            "clients": client_count,
+            "validation_workspaces": sum(
+                tenant.client_number is None
+                for tenant, _, _ in rows
+            ),
+            "configured":
+                len(billable_accounts),
+            "unconfigured": (
+                client_count
+                - len(billable_accounts)
+            ),
+            **status_counts,
+        },
+        "accounts": [
+            {
+                "tenant": {
+                    "id": tenant.id,
+                    "client_number":
+                        tenant.client_number,
+                    "name": tenant.name,
+                    "slug": tenant.slug,
+                    "status": tenant.status,
+                },
+                "product": {
+                    "id": product.id,
+                    "name": product.name,
+                    "slug": product.slug,
+                },
+                "access_kind": (
+                    "client"
+                    if tenant.client_number
+                    is not None
+                    else "validation_workspace"
+                ),
+                "billing_account":
+                    billing_account_data(
+                        account
+                    ),
+            }
+            for tenant, product, account
+            in rows
+        ],
+    }
+
+
+@router.put(
+    "/tenants/{tenant_id}/billing"
+)
+def admin_update_tenant_billing(
+    tenant_id: int,
+    payload: BillingAccountUpdate,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    tenant = db.get(Tenant, tenant_id)
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    if tenant.client_number is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Validation workspaces "
+                "cannot have billing accounts"
+            ),
+        )
+
+    account = db.scalar(
+        select(BillingAccount).where(
+            BillingAccount.tenant_id
+            == tenant.id
+        )
+    )
+
+    requested_data = {
+        "billing_mode":
+            payload.billing_mode,
+        "provider":
+            payload.provider,
+        "status":
+            payload.status,
+        "currency":
+            payload.currency,
+        "provider_customer_id":
+            payload.provider_customer_id,
+        "provider_subscription_id":
+            payload.provider_subscription_id,
+    }
+
+    if (
+        account is not None
+        and all(
+            getattr(account, field) == value
+            for field, value
+            in requested_data.items()
+        )
+    ):
+        return billing_account_data(account)
+
+    before_data = billing_account_data(
+        account
+    )
+
+    if account is None:
+        account = BillingAccount(
+            tenant_id=tenant.id,
+            billing_mode=payload.billing_mode,
+            provider=payload.provider,
+            status=payload.status,
+            currency=payload.currency,
+            provider_customer_id=(
+                payload.provider_customer_id
+            ),
+            provider_subscription_id=(
+                payload.provider_subscription_id
+            ),
+        )
+
+        db.add(account)
+        db.flush()
+        audit_action = (
+            "billing_account.created"
+        )
+    else:
+        account.billing_mode = (
+            payload.billing_mode
+        )
+        account.provider = payload.provider
+        account.status = payload.status
+        account.currency = payload.currency
+        account.provider_customer_id = (
+            payload.provider_customer_id
+        )
+        account.provider_subscription_id = (
+            payload.provider_subscription_id
+        )
+        db.flush()
+        audit_action = (
+            "billing_account.updated"
+        )
+
+    after_data = billing_account_data(
+        account
+    )
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action=audit_action,
+        target_type="billing_account",
+        target_id=account.id,
+        tenant_id=tenant.id,
+        before_data=before_data,
+        after_data=after_data,
+    )
+
+    db.commit()
+    db.refresh(account)
+
+    return billing_account_data(account)
 
 
 @router.put(

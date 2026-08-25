@@ -700,7 +700,37 @@
       display: none !important;
     }
 
-  </style>
+    .billing-form {
+    display: grid;
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+
+  .billing-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .billing-field span {
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  @media (max-width: 900px) {
+    .billing-form {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 580px) {
+    .billing-form {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 </head>
 
 <body>
@@ -779,6 +809,14 @@
         data-view="products"
       >
         Tenant / Products
+      </button>
+
+      <button
+        class="nav-button"
+        type="button"
+        data-view="billing"
+      >
+        Billing Platform
       </button>
 
       <button
@@ -1044,6 +1082,77 @@
 
       </section>
 
+      <section id="billingView" class="hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>Billing Platform</h1>
+            <p>
+              Centralized billing oversight across every
+              FieldLookers product and workspace.
+            </p>
+          </div>
+
+          <button
+            id="refreshBillingButton"
+            class="btn"
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span>All Workspaces</span>
+            <strong id="billingTenantCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Clients</span>
+            <strong id="billingClientCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Configured</span>
+            <strong id="billingConfiguredCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Unconfigured</span>
+            <strong id="billingUnconfiguredCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Active</span>
+            <strong id="billingActiveCount">-</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Past Due</span>
+            <strong id="billingPastDueCount">-</strong>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Billing Account Directory</h2>
+              <p>
+                Manual billing metadata only. No payment
+                provider or automatic charging is enabled.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="billingAccountList"
+            class="panel-body list"
+          ></div>
+        </section>
+
+      </section>
+
       <section id="usersView" class="hidden">
 
         <div class="page-header">
@@ -1224,6 +1333,7 @@
 
   const state = {
     overview: null,
+    billing: null,
     currentProductId: null,
     currentTenantId: null,
     currentUserId: null,
@@ -1318,6 +1428,8 @@
         document.getElementById("productsView"),
       tenants:
         document.getElementById("tenantsView"),
+      billing:
+        document.getElementById("billingView"),
       users:
         document.getElementById("usersView"),
       activity:
@@ -2463,6 +2575,14 @@
             </div>
           `;
 
+      const billing =
+        data.billing_account || {
+          billing_mode: "manual",
+          provider: "manual",
+          status: "pending",
+          currency: "USD",
+        };
+
       const membershipRows =
         data.memberships.length
           ? data.memberships.map(
@@ -2621,6 +2741,142 @@
           </button>
         </div>
 
+        <h3>Platform Billing</h3>
+
+        <p class="row-secondary">
+          Operator-managed billing metadata for this
+          ${
+            data.tenant.client_number
+              ? "client"
+              : "validation workspace"
+          }.
+          Saving this form does not charge the customer
+          or contact a payment provider.
+        </p>
+
+        <div class="billing-form">
+          <label class="billing-field">
+            <span>Billing mode</span>
+            <select id="tenantBillingMode">
+              <option
+                value="manual"
+                ${
+                  billing.billing_mode === "manual"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Manual
+              </option>
+              <option
+                value="subscription"
+                ${
+                  billing.billing_mode
+                    === "subscription"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Subscription
+              </option>
+              <option
+                value="fixed_scope"
+                ${
+                  billing.billing_mode
+                    === "fixed_scope"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Fixed scope
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Provider</span>
+            <select
+              id="tenantBillingProvider"
+              disabled
+            >
+              <option value="manual" selected>
+                Manual
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Billing status</span>
+            <select id="tenantBillingStatus">
+              <option
+                value="pending"
+                ${
+                  billing.status === "pending"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Pending
+              </option>
+              <option
+                value="active"
+                ${
+                  billing.status === "active"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+              <option
+                value="past_due"
+                ${
+                  billing.status === "past_due"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Past due
+              </option>
+              <option
+                value="canceled"
+                ${
+                  billing.status === "canceled"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Canceled
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Currency</span>
+            <input
+              id="tenantBillingCurrency"
+              type="text"
+              maxlength="3"
+              value="${escapeHtml(
+                billing.currency || "USD"
+              )}"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </label>
+
+          <button
+            id="saveTenantBillingButton"
+            class="btn primary"
+            type="button"
+            data-save-tenant-billing="${
+              data.tenant.id
+            }"
+          >
+            Save Billing
+          </button>
+        </div>
+
         ${membershipControl}
 
         <h3>Memberships</h3>
@@ -2759,6 +3015,45 @@
       return;
     }
 
+    const tenant =
+      state.overview.tenants.find(
+        item => item.id === tenantId
+      );
+
+    const product =
+      tenant
+        ? productForTenant(tenant)
+        : null;
+
+    const targetLabel =
+      tenant
+        ? (
+            tenant.client_number !== null
+              ? `${
+                  product
+                    ? product.name
+                    : "Product"
+                } · Client #${
+                  tenant.client_number
+                }`
+              : `${
+                  product
+                    ? product.name
+                    : "Product"
+                } · ${tenant.name}`
+          )
+        : `Workspace #${tenantId}`;
+
+    const confirmed = window.confirm(
+      `Save billing metadata for ${
+        targetLabel
+      }? This does not create a charge.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       if (button) {
         button.disabled = true;
@@ -2790,6 +3085,83 @@
       if (button) {
         button.disabled = false;
         button.textContent = "Save Timezone";
+      }
+
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function saveTenantBilling(
+    tenantId
+  ) {
+    const button =
+      document.getElementById(
+        "saveTenantBillingButton"
+      );
+
+    const billingMode =
+      document.getElementById(
+        "tenantBillingMode"
+      ).value;
+
+    const billingStatus =
+      document.getElementById(
+        "tenantBillingStatus"
+      ).value;
+
+    const currency =
+      document.getElementById(
+        "tenantBillingCurrency"
+      ).value.trim().toUpperCase();
+
+    if (
+      currency.length !== 3
+      || !/^[A-Z]{3}$/.test(currency)
+    ) {
+      setStatus(
+        "Enter a three-letter currency code.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving...";
+      }
+
+      setStatus(
+        "Updating platform billing metadata..."
+      );
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/billing`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            billing_mode: billingMode,
+            provider: "manual",
+            status: billingStatus,
+            currency,
+            provider_customer_id: null,
+            provider_subscription_id: null,
+          }),
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        "Platform billing metadata updated. "
+        + "No charge was created.",
+        "success"
+      );
+
+    } catch (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Billing";
       }
 
       setStatus(error.message, "error");
@@ -3091,6 +3463,10 @@
 
         showView(viewName);
 
+        if (viewName === "billing") {
+          await loadBilling();
+        }
+
         if (viewName === "activity") {
           await loadActivity();
         }
@@ -3125,6 +3501,16 @@
         await openUser(
           Number(userButton.dataset.openUser)
         );
+        return;
+      }
+
+      const refreshBillingButton =
+        event.target.closest(
+          "#refreshBillingButton"
+        );
+
+      if (refreshBillingButton) {
+        await loadBilling();
         return;
       }
 
@@ -3176,6 +3562,21 @@
           Number(
             saveTimezoneButton.dataset
               .saveTenantTimezone
+          )
+        );
+        return;
+      }
+
+      const saveBillingButton =
+        event.target.closest(
+          "[data-save-tenant-billing]"
+        );
+
+      if (saveBillingButton) {
+        await saveTenantBilling(
+          Number(
+            saveBillingButton.dataset
+              .saveTenantBilling
           )
         );
         return;
@@ -3734,6 +4135,205 @@
     `).join("");
   }
 
+  function billingStatusBadge(
+    account
+  ) {
+    if (!account) {
+      return '<span class="badge">Unconfigured</span>';
+    }
+
+    const label = {
+      pending: "Pending",
+      active: "Active",
+      past_due: "Past due",
+      canceled: "Canceled",
+    }[account.status] || account.status;
+
+    return `
+      <span class="badge ${
+        account.status === "active"
+          ? "success"
+          : ""
+      }">
+        ${escapeHtml(label)}
+      </span>
+    `;
+  }
+
+  function renderBillingDirectory(
+    data
+  ) {
+    document.getElementById(
+      "billingTenantCount"
+    ).textContent = data.counts.tenants;
+
+    document.getElementById(
+      "billingClientCount"
+    ).textContent = data.counts.clients;
+
+    document.getElementById(
+      "billingConfiguredCount"
+    ).textContent = data.counts.configured;
+
+    document.getElementById(
+      "billingUnconfiguredCount"
+    ).textContent = data.counts.unconfigured;
+
+    document.getElementById(
+      "billingActiveCount"
+    ).textContent = data.counts.active;
+
+    document.getElementById(
+      "billingPastDueCount"
+    ).textContent = data.counts.past_due;
+
+    const list =
+      document.getElementById(
+        "billingAccountList"
+      );
+
+    if (!data.accounts.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No platform workspaces found.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML =
+      data.accounts.map(row => {
+        const account =
+          row.billing_account;
+
+        const accessLabel =
+          row.access_kind === "client"
+            ? (
+                row.tenant.client_number
+                  ? `Client #${
+                      row.tenant.client_number
+                    }`
+                  : "Client"
+              )
+            : "Validation workspace";
+
+        const billingSummary =
+          row.access_kind !== "client"
+            ? "Internal validation environment"
+            : (
+                account
+                  ? `
+                    ${escapeHtml(
+                      account.billing_mode
+                    )}
+                    · ${escapeHtml(
+                      account.provider
+                    )}
+                    · ${escapeHtml(
+                      account.currency
+                    )}
+                  `
+                  : "Billing setup required"
+              );
+
+        return `
+          <div class="list-row">
+            <div class="row-primary">
+              <strong>
+                ${escapeHtml(row.product.name)}
+                · ${
+                  row.access_kind === "client"
+                    ? `Client #${
+                        row.tenant.client_number
+                      }`
+                    : escapeHtml(
+                        row.tenant.name
+                      )
+                }
+              </strong>
+
+              <span>
+                ${
+                  row.access_kind === "client"
+                    ? `Account: ${
+                        escapeHtml(
+                          row.tenant.name
+                        )
+                      }`
+                    : "Validation workspace"
+                }
+                · ${escapeHtml(row.tenant.slug)}
+              </span>
+            </div>
+
+            <div class="row-secondary">
+              ${
+                row.access_kind === "client"
+                  ? billingStatusBadge(account)
+                  : (
+                      '<span class="badge">'
+                      + 'Not Billable</span>'
+                    )
+              }
+              <div>
+                ${billingSummary}
+              </div>
+            </div>
+
+            <div class="row-actions">
+              ${
+                row.access_kind === "client"
+                  ? `
+                    <button
+                      class="btn"
+                      type="button"
+                      data-open-tenant="${
+                        row.tenant.id
+                      }"
+                    >
+                      ${
+                        account
+                          ? "Manage Billing"
+                          : "Configure Billing"
+                      }
+                    </button>
+                  `
+                  : `
+                    <span class="row-secondary">
+                      Billing disabled
+                    </span>
+                  `
+              }
+            </div>
+          </div>
+        `;
+      }).join("");
+  }
+
+  async function loadBilling() {
+    try {
+      setStatus(
+        "Loading centralized billing..."
+      );
+
+      state.billing =
+        await apiRequest("/admin/billing");
+
+      renderBillingDirectory(
+        state.billing
+      );
+
+      setStatus(
+        "Billing Platform loaded. "
+        + "No payment provider is active.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
   async function loadActivity() {
     try {
       setStatus("Loading administrative activity...");
@@ -3848,6 +4448,7 @@
       }
 
       state.overview = null;
+      state.billing = null;
       state.currentProductId = null;
       state.currentTenantId = null;
       state.currentUserId = null;
