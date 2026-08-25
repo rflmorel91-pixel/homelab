@@ -33,6 +33,16 @@ class BillingAccount(Base):
         nullable=False,
     )
 
+    billing_offer_id: Mapped[int | None] = (
+        mapped_column(
+            ForeignKey(
+                "platform_billing_offers.id"
+            ),
+            nullable=True,
+            index=True,
+        )
+    )
+
     billing_mode: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

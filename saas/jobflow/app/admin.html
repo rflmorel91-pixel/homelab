@@ -2948,6 +2948,68 @@
 
         <div class="billing-form">
           <label class="billing-field">
+            <span>Billing offer</span>
+            <select id="tenantBillingOfferId">
+              <option value="">
+                Select an active offer
+              </option>
+              ${
+                data.billing_offers
+                  .filter(
+                    offer =>
+                      offer.status === "active"
+                      || offer.id
+                        === billing.billing_offer_id
+                  )
+                  .map(offer => `
+                    <option
+                      value="${offer.id}"
+                      data-currency="${
+                        escapeHtml(offer.currency)
+                      }"
+                      data-charge-type="${
+                        escapeHtml(
+                          offer.charge_type
+                        )
+                      }"
+                      ${
+                        offer.id
+                        === billing.billing_offer_id
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${escapeHtml(offer.name)}
+                      · ${
+                        escapeHtml(
+                          formatBillingOfferPrice(
+                            offer.minimum_amount_cents,
+                            offer.currency
+                          )
+                        )
+                      }
+                      ${
+                        offer.service_period_days
+                          ? `· ${
+                              offer.service_period_days
+                            } days`
+                          : ""
+                      }
+                      ${
+                        offer.status !== "active"
+                          ? `· ${
+                              escapeHtml(offer.status)
+                            }`
+                          : ""
+                      }
+                    </option>
+                  `)
+                  .join("")
+              }
+            </select>
+          </label>
+
+          <label class="billing-field">
             <span>Billing mode</span>
             <select id="tenantBillingMode">
               <option
@@ -3082,6 +3144,58 @@
         document.getElementById("tenantDetailPanel");
 
       tenantDetailPanel.classList.remove("hidden");
+
+      const billingOfferSelect =
+        document.getElementById(
+          "tenantBillingOfferId"
+        );
+
+      if (billingOfferSelect) {
+        billingOfferSelect.addEventListener(
+          "change",
+          event => {
+            const selectedOption =
+              event.target.selectedOptions[0];
+
+            if (
+              !selectedOption
+              || !selectedOption.value
+            ) {
+              return;
+            }
+
+            const offerCurrency =
+              selectedOption.dataset.currency;
+
+            const chargeType =
+              selectedOption.dataset.chargeType;
+
+            if (offerCurrency) {
+              document.getElementById(
+                "tenantBillingCurrency"
+              ).value = offerCurrency;
+            }
+
+            const billingModeSelect =
+              document.getElementById(
+                "tenantBillingMode"
+              );
+
+            if (chargeType === "subscription") {
+              billingModeSelect.value =
+                "subscription";
+            } else if (
+              chargeType === "one_time"
+            ) {
+              billingModeSelect.value =
+                "fixed_scope";
+            } else {
+              billingModeSelect.value =
+                "manual";
+            }
+          }
+        );
+      }
 
       showView("products");
 
@@ -3291,6 +3405,26 @@
         "saveTenantBillingButton"
       );
 
+    const billingOfferSelect =
+      document.getElementById(
+        "tenantBillingOfferId"
+      );
+
+    const billingOfferId = Number(
+      billingOfferSelect.value
+    );
+
+    if (
+      !Number.isInteger(billingOfferId)
+      || billingOfferId <= 0
+    ) {
+      setStatus(
+        "Select an active billing offer.",
+        "error"
+      );
+      return;
+    }
+
     const billingMode =
       document.getElementById(
         "tenantBillingMode"
@@ -3332,6 +3466,7 @@
         {
           method: "PUT",
           body: JSON.stringify({
+            billing_offer_id: billingOfferId,
             billing_mode: billingMode,
             provider: "manual",
             status: billingStatus,

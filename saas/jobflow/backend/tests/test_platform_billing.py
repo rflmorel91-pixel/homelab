@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models import (
     AdminAuditLog,
     BillingAccount,
+    BillingOffer,
     Product,
     Tenant,
     User,
@@ -559,4 +560,333 @@ def test_validation_workspace_cannot_be_billed(
             "Validation workspaces "
             "cannot have billing accounts"
         )
+    )
+
+
+
+def make_billing_offer_for_tenant(
+    db_session,
+    tenant,
+    *,
+    status="active",
+    product_id=None,
+    code_suffix="default",
+):
+    offer = BillingOffer(
+        product_id=(
+            tenant.product_id
+            if product_id is None
+            else product_id
+        ),
+        code=(
+            f"billing-assignment-{tenant.id}-"
+            f"{code_suffix}"
+        ),
+        name="Billing Assignment Test Offer",
+        description="Test billing assignment.",
+        status=status,
+        charge_type="one_time",
+        currency="USD",
+        minimum_amount_cents=9900,
+        maximum_amount_cents=9900,
+        billing_interval=None,
+        service_period_days=30,
+    )
+
+    db_session.add(offer)
+    db_session.commit()
+    db_session.refresh(offer)
+
+    return offer
+
+
+def billing_assignment_payload(
+    offer_id,
+    *,
+    currency="USD",
+    status="pending",
+):
+    return {
+        "billing_offer_id": offer_id,
+        "billing_mode": "fixed_scope",
+        "provider": "manual",
+        "status": status,
+        "currency": currency,
+        "provider_customer_id": None,
+        "provider_subscription_id": None,
+    }
+
+
+def test_billing_account_references_offer():
+    table = BillingAccount.__table__
+
+    foreign_keys = {
+        foreign_key.target_fullname
+        for foreign_key
+        in table.columns[
+            "billing_offer_id"
+        ].foreign_keys
+    }
+
+    assert foreign_keys == {
+        "platform_billing_offers.id",
+    }
+
+
+def test_tenant_detail_returns_product_offers(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        code_suffix="tenant-detail",
+    )
+
+    response = client.get(
+        f"/api/v1/admin/tenants/{tenant.id}"
+    )
+
+    assert response.status_code == 200
+
+    returned_offer = next(
+        item
+        for item
+        in response.json()["billing_offers"]
+        if item["id"] == offer.id
+    )
+
+    assert returned_offer["product_id"] == (
+        tenant.product_id
+    )
+    assert returned_offer["status"] == "active"
+
+
+def test_platform_admin_assigns_active_offer(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        code_suffix="active",
+    )
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id
+        ),
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.json()["billing_offer_id"]
+        == offer.id
+    )
+
+    account = db_session.scalar(
+        select(BillingAccount).where(
+            BillingAccount.tenant_id
+            == tenant.id
+        )
+    )
+
+    assert account is not None
+    assert account.billing_offer_id == offer.id
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "billing_account.created"
+        )
+    )
+
+    assert audit is not None
+    assert (
+        audit.after_data["billing_offer_id"]
+        == offer.id
+    )
+
+
+def test_billing_rejects_missing_offer(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            999999
+        ),
+    )
+
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == "Billing offer not found"
+    )
+
+
+def test_billing_rejects_cross_product_offer(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    other_product = db_session.scalar(
+        select(Product)
+        .where(
+            Product.id != tenant.product_id
+        )
+        .order_by(Product.id)
+    )
+
+    assert other_product is not None
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        product_id=other_product.id,
+        code_suffix="cross-product",
+    )
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Billing offer does not belong "
+        "to the tenant product"
+    )
+
+
+def test_billing_rejects_inactive_offer(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        status="draft",
+        code_suffix="draft",
+    )
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Only active billing offers "
+        "can be assigned"
+    )
+
+
+def test_billing_preserves_archived_assigned_offer(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        code_suffix="archive",
+    )
+
+    first = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id
+        ),
+    )
+
+    assert first.status_code == 200
+
+    offer.status = "archived"
+    db_session.commit()
+
+    second = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id,
+            status="active",
+        ),
+    )
+
+    assert second.status_code == 200
+    assert (
+        second.json()["billing_offer_id"]
+        == offer.id
+    )
+    assert second.json()["status"] == "active"
+
+
+def test_billing_offer_currency_must_match(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+    tenant = get_tenant(db_session)
+
+    offer = make_billing_offer_for_tenant(
+        db_session,
+        tenant,
+        code_suffix="currency",
+    )
+
+    response = client.put(
+        (
+            f"/api/v1/admin/tenants/"
+            f"{tenant.id}/billing"
+        ),
+        json=billing_assignment_payload(
+            offer.id,
+            currency="EUR",
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Billing account currency must "
+        "match the selected offer"
     )

@@ -293,3 +293,39 @@ def test_public_admin_hides_internal_product_number():
     page = ADMIN_PAGE.read_text()
 
     assert "Product #6" not in page
+
+
+
+def test_tenant_billing_assigns_catalog_offer():
+    page = ADMIN_PAGE.read_text()
+
+    assert 'id="tenantBillingOfferId"' in page
+    assert (
+        'billing_offer_id: billingOfferId'
+        in page
+    )
+    assert (
+        'offer.status === "active"'
+        in page
+    )
+    assert (
+        "billing.billing_offer_id"
+        in page
+    )
+    assert (
+        "Select an active billing offer."
+        in page
+    )
+    assert 'data-currency="' in page
+    assert 'data-charge-type="' in page
+    assert (
+        'chargeType === "subscription"'
+        in page
+    )
+    assert '"one_time"' in page
+    assert (
+        'billingModeSelect.value ='
+        in page
+    )
+    assert '"fixed_scope"' in page
+    assert "billingOfferId <= 0" in page

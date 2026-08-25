@@ -501,6 +501,19 @@ def admin_tenant_detail(
         )
     )
 
+    billing_offers = db.scalars(
+        select(BillingOffer)
+        .where(
+            BillingOffer.product_id
+            == tenant.product_id,
+        )
+        .order_by(
+            BillingOffer.status,
+            BillingOffer.name,
+            BillingOffer.id,
+        )
+    ).all()
+
     memberships = db.execute(
         select(
             TenantMembership,
@@ -528,6 +541,10 @@ def admin_tenant_detail(
             billing_account_data(
                 billing_account
             ),
+        "billing_offers": [
+            billing_offer_data(offer)
+            for offer in billing_offers
+        ],
         "counts": {
             "memberships": len(memberships),
         },
@@ -920,6 +937,7 @@ class BillingOfferWrite(BaseModel):
 
 
 class BillingAccountUpdate(BaseModel):
+    billing_offer_id: int | None = None
     billing_mode: Literal[
         "subscription",
         "fixed_scope",
@@ -1014,6 +1032,8 @@ def billing_account_data(
     return {
         "id": account.id,
         "tenant_id": account.tenant_id,
+        "billing_offer_id":
+            account.billing_offer_id,
         "billing_mode": account.billing_mode,
         "provider": account.provider,
         "status": account.status,
@@ -1421,7 +1441,59 @@ def admin_update_tenant_billing(
         )
     )
 
+    offer = None
+
+    if payload.billing_offer_id is not None:
+        offer = db.get(
+            BillingOffer,
+            payload.billing_offer_id,
+        )
+
+        if offer is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Billing offer not found",
+            )
+
+        if offer.product_id != tenant.product_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Billing offer does not belong "
+                    "to the tenant product"
+                ),
+            )
+
+        preserving_assigned_offer = (
+            account is not None
+            and account.billing_offer_id
+            == offer.id
+        )
+
+        if (
+            offer.status != "active"
+            and not preserving_assigned_offer
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Only active billing offers "
+                    "can be assigned"
+                ),
+            )
+
+        if payload.currency != offer.currency:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Billing account currency must "
+                    "match the selected offer"
+                ),
+            )
+
     requested_data = {
+        "billing_offer_id":
+            payload.billing_offer_id,
         "billing_mode":
             payload.billing_mode,
         "provider":
@@ -1453,6 +1525,9 @@ def admin_update_tenant_billing(
     if account is None:
         account = BillingAccount(
             tenant_id=tenant.id,
+            billing_offer_id=(
+                payload.billing_offer_id
+            ),
             billing_mode=payload.billing_mode,
             provider=payload.provider,
             status=payload.status,
