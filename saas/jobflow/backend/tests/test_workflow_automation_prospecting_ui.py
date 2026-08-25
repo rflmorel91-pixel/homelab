@@ -50,3 +50,26 @@ def test_prospecting_page_polls_queued_runs():
     assert "waitForCampaign" in text
     assert "Campaign queued" in text
     assert "window.setTimeout" in text
+
+
+def test_prospecting_page_supports_manual_intake():
+    text = PROSPECTING_PAGE.read_text()
+
+    assert 'id="manualCandidateForm"' in text
+    assert 'id="manualCampaignId"' in text
+    assert 'id="manualBusinessName"' in text
+    assert 'id="manualWebsiteUrl"' in text
+    assert 'id="manualEmail"' in text
+    assert 'id="manualEvidenceUrl"' in text
+    assert 'id="manualEvidenceFact"' in text
+    assert 'id="manualFitScore"' in text
+    assert 'id="manualOutreachSubject"' in text
+    assert 'id="manualOutreachBody"' in text
+    assert 'method: "POST"' in text
+    assert 'await apiRequest("/candidates"' in text
+    assert "Add to Review Queue" in text
+    assert (
+        "Candidate added for review."
+        in text
+    )
+    assert "No message was sent." in text

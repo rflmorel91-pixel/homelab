@@ -321,6 +321,150 @@
   </section>
 
   <section class="panel">
+    <h2>Add Researched Candidate</h2>
+
+    <p class="meta">
+      Add a manually researched IT provider to the review
+      queue. This creates a pending draft and does not send
+      outreach.
+    </p>
+
+    <form id="manualCandidateForm">
+      <div class="grid">
+        <div>
+          <label for="manualCampaignId">Campaign</label>
+          <select id="manualCampaignId" required>
+            <option value="">Select a campaign</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="manualBusinessName">
+            Business name
+          </label>
+          <input id="manualBusinessName" required>
+        </div>
+
+        <div>
+          <label for="manualWebsiteUrl">Website</label>
+          <input
+            id="manualWebsiteUrl"
+            type="url"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="manualEmail">
+            Verified business email
+          </label>
+          <input
+            id="manualEmail"
+            type="email"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="manualLocation">Location</label>
+          <input id="manualLocation" required>
+        </div>
+
+        <div>
+          <label for="manualContactName">
+            Contact name (optional)
+          </label>
+          <input id="manualContactName">
+        </div>
+
+        <div>
+          <label for="manualPhone">
+            Phone (optional)
+          </label>
+          <input id="manualPhone">
+        </div>
+
+        <div>
+          <label for="manualFitScore">Fit score</label>
+          <input
+            id="manualFitScore"
+            type="number"
+            min="0"
+            max="100"
+            value="85"
+            required
+          >
+        </div>
+      </div>
+
+      <label
+        for="manualEvidenceUrl"
+        style="margin-top: 16px;"
+      >
+        Evidence URL
+      </label>
+      <input
+        id="manualEvidenceUrl"
+        type="url"
+        required
+      >
+
+      <label
+        for="manualEvidenceFact"
+        style="margin-top: 16px;"
+      >
+        Evidence fact
+      </label>
+      <textarea
+        id="manualEvidenceFact"
+        required
+      ></textarea>
+
+      <label
+        for="manualScoreReasons"
+        style="margin-top: 16px;"
+      >
+        Fit reasons (one per line)
+      </label>
+      <textarea
+        id="manualScoreReasons"
+        required
+      ></textarea>
+
+      <label
+        for="manualOutreachSubject"
+        style="margin-top: 16px;"
+      >
+        Draft subject
+      </label>
+      <input
+        id="manualOutreachSubject"
+        required
+      >
+
+      <label
+        for="manualOutreachBody"
+        style="margin-top: 16px;"
+      >
+        Personalized draft message
+      </label>
+      <textarea
+        id="manualOutreachBody"
+        required
+      ></textarea>
+
+      <div class="actions">
+        <button
+          id="saveManualCandidateButton"
+          type="submit"
+        >
+          Add to Review Queue
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
     <h2>Campaigns</h2>
     <div id="campaignList">
       <p class="meta">Loading campaigns...</p>
@@ -361,6 +505,9 @@
 
   const reviewFilter =
     document.getElementById("reviewFilter");
+
+  const manualCampaignSelect =
+    document.getElementById("manualCampaignId");
 
 
   async function apiRequest(path, options = {}) {
@@ -428,6 +575,41 @@
 
   async function loadCampaigns() {
     const campaigns = await apiRequest("/campaigns");
+
+    const selectedCampaignId =
+      manualCampaignSelect.value;
+
+    manualCampaignSelect.innerHTML = [
+      '<option value="">Select a campaign</option>',
+      ...campaigns
+        .filter(
+          campaign =>
+            campaign.segments.includes(
+              "small_it_provider"
+            )
+        )
+        .map(
+          campaign => `
+            <option value="${campaign.id}">
+              ${escapeHtml(campaign.name)}
+              · ${escapeHtml(label(campaign.status))}
+              · score ${campaign.minimum_score}+
+            </option>
+          `
+        )
+    ].join("");
+
+    if (
+      selectedCampaignId
+      && campaigns.some(
+        campaign =>
+          String(campaign.id)
+          === selectedCampaignId
+      )
+    ) {
+      manualCampaignSelect.value =
+        selectedCampaignId;
+    }
 
     if (campaigns.length === 0) {
       campaignList.innerHTML =
@@ -839,6 +1021,111 @@
       setStatus(error.message, "error");
     } finally {
       button.disabled = false;
+    }
+  });
+
+
+  document.getElementById(
+    "manualCandidateForm"
+  ).addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const button = document.getElementById(
+      "saveManualCandidateButton"
+    );
+
+    const scoreReasons = document.getElementById(
+      "manualScoreReasons"
+    ).value
+      .split("\n")
+      .map(reason => reason.trim())
+      .filter(Boolean);
+
+    if (scoreReasons.length === 0) {
+      setStatus(
+        "Enter at least one fit reason.",
+        "error"
+      );
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Adding...";
+
+    try {
+      await apiRequest("/candidates", {
+        method: "POST",
+        body: JSON.stringify({
+          campaign_id: Number(
+            manualCampaignSelect.value
+          ),
+          business_name: document.getElementById(
+            "manualBusinessName"
+          ).value.trim(),
+          website_url: document.getElementById(
+            "manualWebsiteUrl"
+          ).value.trim(),
+          segment: "small_it_provider",
+          location: document.getElementById(
+            "manualLocation"
+          ).value.trim(),
+          contact_name:
+            document.getElementById(
+              "manualContactName"
+            ).value.trim() || null,
+          email: document.getElementById(
+            "manualEmail"
+          ).value.trim().toLowerCase(),
+          phone:
+            document.getElementById(
+              "manualPhone"
+            ).value.trim() || null,
+          evidence: [
+            {
+              url: document.getElementById(
+                "manualEvidenceUrl"
+              ).value.trim(),
+              fact: document.getElementById(
+                "manualEvidenceFact"
+              ).value.trim()
+            }
+          ],
+          fit_score: Number(
+            document.getElementById(
+              "manualFitScore"
+            ).value
+          ),
+          score_reasons: scoreReasons,
+          disqualifiers: [],
+          outreach_subject:
+            document.getElementById(
+              "manualOutreachSubject"
+            ).value.trim(),
+          outreach_body:
+            document.getElementById(
+              "manualOutreachBody"
+            ).value.trim()
+        })
+      });
+
+      setStatus(
+        "Candidate added for review. "
+        + "No message was sent.",
+        "success"
+      );
+
+      event.target.reset();
+      document.getElementById(
+        "manualFitScore"
+      ).value = "85";
+
+      reviewFilter.value = "pending";
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Add to Review Queue";
     }
   });
 
