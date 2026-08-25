@@ -144,6 +144,14 @@ class DiscoveredCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ManualCandidateCreate(
+    DiscoveredCandidate
+):
+    campaign_id: int = Field(
+        gt=0,
+    )
+
+
 class CampaignRunRead(BaseModel):
     campaign_id: int
     status: str

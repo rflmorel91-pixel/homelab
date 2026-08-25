@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models import (
     AdminAuditLog,
     Lead,
+    Product,
     User,
 )
 from app.operator_context import get_current_operator
@@ -24,7 +25,10 @@ from app.products.workflow_automation.models import (
 from app.products.workflow_automation.prospecting_agent import (
     OpenAIWebSearchProvider,
     ProspectingConfigurationError,
+    normalize_domain,
+    outreach_body_with_footer,
     run_campaign_in_background,
+    valid_business_email,
 )
 from app.products.workflow_automation.prospecting_schemas import (
     CampaignCreate,
@@ -32,6 +36,7 @@ from app.products.workflow_automation.prospecting_schemas import (
     CampaignRunAccepted,
     CandidateRead,
     CandidateReview,
+    ManualCandidateCreate,
 )
 
 
@@ -161,6 +166,212 @@ def run_prospecting_campaign(
         "campaign_id": campaign.id,
         "status": "queued",
     }
+
+
+@router.post(
+    "/candidates",
+    response_model=CandidateRead,
+    status_code=201,
+)
+def create_manual_candidate(
+    payload: ManualCandidateCreate,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    campaign = db.get(
+        ProspectingCampaign,
+        payload.campaign_id,
+    )
+
+    if campaign is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Prospecting campaign not found",
+        )
+
+    if payload.segment not in campaign.segments:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Candidate segment is not enabled "
+                "for this campaign"
+            ),
+        )
+
+    if payload.fit_score < campaign.minimum_score:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Candidate is below the campaign "
+                "minimum score"
+            ),
+        )
+
+    if payload.disqualifiers:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Disqualified candidates cannot "
+                "be added"
+            ),
+        )
+
+    try:
+        domain = normalize_domain(
+            payload.website_url
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    email = payload.email.strip().lower()
+
+    if not valid_business_email(
+        email,
+        domain,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Candidate email must use the "
+                "business website domain"
+            ),
+        )
+
+    product = db.scalar(
+        select(Product).where(
+            Product.slug
+            == "workflow-automation",
+            Product.status == "active",
+        )
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Workflow Automation product "
+                "is unavailable"
+            ),
+        )
+
+    existing_candidate = db.scalar(
+        select(ProspectCandidate).where(
+            ProspectCandidate.normalized_domain
+            == domain
+        )
+    )
+
+    existing_lead = db.scalar(
+        select(Lead).where(
+            Lead.product_id == product.id,
+            Lead.email == email,
+        )
+    )
+
+    if (
+        existing_candidate is not None
+        or existing_lead is not None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Prospect candidate already "
+                "exists"
+            ),
+        )
+
+    lead = Lead(
+        product_id=product.id,
+        business_name=payload.business_name,
+        contact_name=(
+            payload.contact_name
+            or "Business contact"
+        ),
+        email=email,
+        phone=payload.phone,
+        service_type=(
+            "Small IT provider partnership"
+        ),
+        message=(
+            "Operator-researched Workflow "
+            "Automation prospect. Review "
+            "evidence and approve the outreach "
+            "draft before any manual contact."
+        ),
+        status="new",
+    )
+
+    db.add(lead)
+    db.flush()
+
+    candidate = ProspectCandidate(
+        campaign_id=campaign.id,
+        lead_id=lead.id,
+        business_name=payload.business_name,
+        website_url=payload.website_url,
+        normalized_domain=domain,
+        segment=payload.segment,
+        location=payload.location,
+        contact_name=payload.contact_name,
+        email=email,
+        phone=payload.phone,
+        evidence=[
+            item.model_dump()
+            for item in payload.evidence
+        ],
+        fit_score=payload.fit_score,
+        score_reasons=payload.score_reasons,
+        disqualifiers=[],
+        outreach_subject=(
+            payload.outreach_subject
+        ),
+        outreach_body=(
+            outreach_body_with_footer(
+                payload.outreach_body
+            )
+        ),
+        review_status="pending",
+    )
+
+    db.add(candidate)
+    db.flush()
+
+    db.add(
+        AdminAuditLog(
+            operator_user_id=operator.id,
+            action=(
+                "workflow_automation."
+                "manual_candidate_created"
+            ),
+            target_type="prospect_candidate",
+            target_id=candidate.id,
+            tenant_id=None,
+            before_data=None,
+            after_data={
+                "campaign_id": campaign.id,
+                "lead_id": lead.id,
+                "business_name":
+                    candidate.business_name,
+                "normalized_domain":
+                    candidate.normalized_domain,
+                "email": candidate.email,
+                "fit_score":
+                    candidate.fit_score,
+                "review_status":
+                    candidate.review_status,
+            },
+        )
+    )
+
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
 
 
 @router.get(

@@ -403,3 +403,221 @@ def test_rejecting_candidate_closes_new_lead(
     )
 
     assert lead.status == "closed"
+
+def test_operator_can_add_manual_candidate(
+    client,
+    db_session,
+    monkeypatch,
+):
+    operator = make_operator(db_session)
+
+    campaign = ProspectingCampaign(
+        name="Manual Prospect Campaign",
+        geography="United States",
+        segments=["small_it_provider"],
+        status="draft",
+        max_candidates=10,
+        minimum_score=70,
+        model="manual-research",
+        created_by_user_id=operator.id,
+    )
+
+    db_session.add(campaign)
+    db_session.commit()
+    db_session.refresh(campaign)
+
+    monkeypatch.setenv(
+        "FIELDLOOKERS_OUTREACH_POSTAL_ADDRESS",
+        "Verified Business Address",
+    )
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        "prospecting/candidates",
+        json={
+            "campaign_id": campaign.id,
+            "business_name": "Manual IT Partner",
+            "website_url": (
+                "https://manual-partner.example"
+            ),
+            "segment": "small_it_provider",
+            "location": "United States",
+            "contact_name": None,
+            "email": (
+                "INQUIRIES@MANUAL-PARTNER.EXAMPLE"
+            ),
+            "phone": None,
+            "evidence": [
+                {
+                    "url": (
+                        "https://manual-partner.example"
+                    ),
+                    "fact": (
+                        "Public website documents "
+                        "client implementation work."
+                    ),
+                }
+            ],
+            "fit_score": 88,
+            "score_reasons": [
+                "Small IT provider",
+                "Public implementation evidence",
+            ],
+            "disqualifiers": [],
+            "outreach_subject": (
+                "Overflow implementation capacity"
+            ),
+            "outreach_body": (
+                "Personalized body for review."
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+
+    payload = response.json()
+
+    assert payload["review_status"] == "pending"
+    assert payload["normalized_domain"] == (
+        "manual-partner.example"
+    )
+    assert payload["email"] == (
+        "inquiries@manual-partner.example"
+    )
+    assert "Personalized body for review." in (
+        payload["outreach_body"]
+    )
+    assert "Verified Business Address" in (
+        payload["outreach_body"]
+    )
+    assert "unsubscribe" in (
+        payload["outreach_body"]
+    )
+
+    lead = db_session.get(
+        Lead,
+        payload["lead_id"],
+    )
+
+    assert lead is not None
+    assert lead.status == "new"
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "manual_candidate_created"
+            )
+        )
+    )
+
+    assert audit is not None
+
+
+def test_manual_candidate_requires_business_email(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+
+    campaign = ProspectingCampaign(
+        name="Manual Email Validation",
+        geography="United States",
+        segments=["small_it_provider"],
+        status="draft",
+        max_candidates=10,
+        minimum_score=70,
+        model="manual-research",
+        created_by_user_id=operator.id,
+    )
+
+    db_session.add(campaign)
+    db_session.commit()
+    db_session.refresh(campaign)
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        "prospecting/candidates",
+        json={
+            "campaign_id": campaign.id,
+            "business_name": "Invalid Email MSP",
+            "website_url": "https://invalid-msp.example",
+            "segment": "small_it_provider",
+            "location": "United States",
+            "email": "person@gmail.com",
+            "evidence": [
+                {
+                    "url": "https://invalid-msp.example",
+                    "fact": "Public MSP website.",
+                }
+            ],
+            "fit_score": 80,
+            "score_reasons": [
+                "Small IT provider",
+            ],
+            "disqualifiers": [],
+            "outreach_subject": "Test subject",
+            "outreach_body": "Test body",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_manual_candidate_rejects_duplicate_domain(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+
+    existing = create_candidate(
+        db_session,
+        operator,
+    )
+
+    campaign = ProspectingCampaign(
+        name="Duplicate Validation",
+        geography="United States",
+        segments=["small_it_provider"],
+        status="draft",
+        max_candidates=10,
+        minimum_score=70,
+        model="manual-research",
+        created_by_user_id=operator.id,
+    )
+
+    db_session.add(campaign)
+    db_session.commit()
+    db_session.refresh(campaign)
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        "prospecting/candidates",
+        json={
+            "campaign_id": campaign.id,
+            "business_name": "Duplicate MSP",
+            "website_url": existing.website_url,
+            "segment": "small_it_provider",
+            "location": "United States",
+            "email": existing.email,
+            "evidence": [
+                {
+                    "url": existing.website_url,
+                    "fact": "Duplicate evidence.",
+                }
+            ],
+            "fit_score": 80,
+            "score_reasons": [
+                "Small IT provider",
+            ],
+            "disqualifiers": [],
+            "outreach_subject": "Duplicate",
+            "outreach_body": "Duplicate",
+        },
+    )
+
+    assert response.status_code == 409
