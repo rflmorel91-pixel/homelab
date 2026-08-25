@@ -81,7 +81,7 @@ def test_billing_workspace_loads_central_api():
     page = ADMIN_PAGE.read_text()
 
     assert (
-        'await apiRequest("/admin/billing")'
+        'apiRequest("/admin/billing")'
         in page
     )
     assert (
@@ -145,3 +145,151 @@ def test_validation_workspaces_are_not_billable():
         in page
     )
     assert "Billing disabled" in page
+
+
+def test_billing_workspace_has_offer_catalog():
+    page = ADMIN_PAGE.read_text()
+
+    assert "Offer Catalog" in page
+    assert 'id="billingOfferForm"' in page
+    assert 'id="billingOfferProductId"' in page
+    assert 'id="billingOfferCode"' in page
+    assert 'id="billingOfferName"' in page
+    assert 'id="billingOfferStatus"' in page
+    assert 'id="billingOfferChargeType"' in page
+    assert 'id="billingOfferCurrency"' in page
+    assert (
+        'id="billingOfferMinimumAmount"'
+        in page
+    )
+    assert (
+        'id="billingOfferMaximumAmount"'
+        in page
+    )
+    assert 'id="billingOfferInterval"' in page
+    assert (
+        'id="billingOfferServicePeriod"'
+        in page
+    )
+    assert 'id="billingOfferList"' in page
+
+
+def test_offer_catalog_has_status_summary():
+    page = ADMIN_PAGE.read_text()
+
+    assert 'id="billingOfferCount"' in page
+    assert (
+        'id="billingOfferDraftCount"'
+        in page
+    )
+    assert (
+        'id="billingOfferActiveCount"'
+        in page
+    )
+    assert (
+        'id="billingOfferArchivedCount"'
+        in page
+    )
+
+
+def test_offer_catalog_loads_protected_api():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        'apiRequest("/admin/billing/offers")'
+        in page
+    )
+    assert (
+        "function renderBillingOfferCatalog("
+        in page
+    )
+    assert (
+        'data-edit-billing-offer="'
+        in page
+    )
+
+
+def test_offer_form_converts_dollars_to_cents():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        "Math.round(minimumAmount * 100)"
+        in page
+    )
+    assert (
+        "Math.round(maximumAmount * 100)"
+        in page
+    )
+    assert (
+        "amountCents / 100"
+        in page
+    )
+
+
+def test_offer_form_supports_create_and_update():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        "async function saveBillingOffer("
+        in page
+    )
+    assert (
+        'state.currentBillingOfferId'
+        in page
+    )
+    assert (
+        '? "PUT"'
+        in page
+    )
+    assert (
+        ': "POST"'
+        in page
+    )
+    assert (
+        '"/admin/billing/offers/"'
+        in page
+    )
+
+
+def test_offer_save_confirms_target_and_safety():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        "const confirmed = window.confirm("
+        in page
+    )
+    assert (
+        "This changes catalog metadata only"
+        in page
+    )
+    assert (
+        "and does not charge a client."
+        in page
+    )
+    assert (
+        "No charge was created."
+        in page
+    )
+
+
+def test_offer_edit_preserves_product_ownership():
+    page = ADMIN_PAGE.read_text()
+
+    assert (
+        "productSelect.disabled = true"
+        in page
+    )
+    assert (
+        "productSelect.disabled = false"
+        in page
+    )
+    assert (
+        "function editBillingOffer("
+        in page
+    )
+
+
+def test_public_admin_hides_internal_product_number():
+    page = ADMIN_PAGE.read_text()
+
+    assert "Product #6" not in page

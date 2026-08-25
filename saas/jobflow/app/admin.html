@@ -1137,6 +1137,196 @@
         <section class="panel">
           <div class="panel-header">
             <div>
+              <h2>Offer Catalog</h2>
+              <p>
+                Define what each FieldLookers product sells.
+                Saving an offer does not charge a client.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <span>Offers</span>
+                <strong id="billingOfferCount">-</strong>
+              </div>
+
+              <div class="summary-card">
+                <span>Draft</span>
+                <strong id="billingOfferDraftCount">-</strong>
+              </div>
+
+              <div class="summary-card">
+                <span>Active</span>
+                <strong id="billingOfferActiveCount">-</strong>
+              </div>
+
+              <div class="summary-card">
+                <span>Archived</span>
+                <strong id="billingOfferArchivedCount">-</strong>
+              </div>
+            </div>
+
+            <form
+              id="billingOfferForm"
+              class="invitation-form"
+            >
+              <label>
+                Product
+                <select
+                  id="billingOfferProductId"
+                  required
+                >
+                  <option value="">
+                    Select a product
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Offer code
+                <input
+                  id="billingOfferCode"
+                  type="text"
+                  placeholder="pilot-30-day"
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  required
+                >
+              </label>
+
+              <label>
+                Offer name
+                <input
+                  id="billingOfferName"
+                  type="text"
+                  required
+                >
+              </label>
+
+              <label>
+                Description
+                <textarea
+                  id="billingOfferDescription"
+                  rows="3"
+                ></textarea>
+              </label>
+
+              <label>
+                Catalog status
+                <select
+                  id="billingOfferStatus"
+                  required
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="archived">
+                    Archived
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Charge type
+                <select
+                  id="billingOfferChargeType"
+                  required
+                >
+                  <option value="one_time">
+                    One time
+                  </option>
+                  <option value="subscription">
+                    Subscription
+                  </option>
+                  <option value="custom_quote">
+                    Custom quote
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Currency
+                <input
+                  id="billingOfferCurrency"
+                  type="text"
+                  value="USD"
+                  maxlength="3"
+                  required
+                >
+              </label>
+
+              <label>
+                Minimum price
+                <input
+                  id="billingOfferMinimumAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                >
+              </label>
+
+              <label>
+                Maximum price
+                <input
+                  id="billingOfferMaximumAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                >
+              </label>
+
+              <label>
+                Billing interval
+                <select id="billingOfferInterval">
+                  <option value="">
+                    Not recurring
+                  </option>
+                  <option value="month">Monthly</option>
+                  <option value="year">Annual</option>
+                </select>
+              </label>
+
+              <label>
+                Service period in days
+                <input
+                  id="billingOfferServicePeriod"
+                  type="number"
+                  min="1"
+                  step="1"
+                >
+              </label>
+
+              <div class="row-actions">
+                <button
+                  id="saveBillingOfferButton"
+                  class="btn primary"
+                  type="submit"
+                >
+                  Create Offer
+                </button>
+
+                <button
+                  id="cancelBillingOfferEditButton"
+                  class="btn hidden"
+                  type="button"
+                >
+                  Cancel Edit
+                </button>
+              </div>
+            </form>
+
+            <div
+              id="billingOfferList"
+              class="list"
+            ></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
               <h2>Billing Account Directory</h2>
               <p>
                 Manual billing metadata only. No payment
@@ -1334,6 +1524,8 @@
   const state = {
     overview: null,
     billing: null,
+    billingOffers: null,
+    currentBillingOfferId: null,
     currentProductId: null,
     currentTenantId: null,
     currentUserId: null,
@@ -3504,6 +3696,36 @@
         return;
       }
 
+      const editBillingOfferButton =
+        event.target.closest(
+          "[data-edit-billing-offer]"
+        );
+
+      if (editBillingOfferButton) {
+        editBillingOffer(
+          Number(
+            editBillingOfferButton.dataset
+              .editBillingOffer
+          )
+        );
+        return;
+      }
+
+      const cancelBillingOfferEditButton =
+        event.target.closest(
+          "#cancelBillingOfferEditButton"
+        );
+
+      if (cancelBillingOfferEditButton) {
+        resetBillingOfferForm();
+
+        setStatus(
+          "Billing offer edit canceled.",
+          "success"
+        );
+        return;
+      }
+
       const refreshBillingButton =
         event.target.closest(
           "#refreshBillingButton"
@@ -4310,17 +4532,525 @@
       }).join("");
   }
 
+  function formatBillingOfferPrice(
+    amountCents,
+    currency
+  ) {
+    return new Intl.NumberFormat(
+      "en-US",
+      {
+        style: "currency",
+        currency,
+      }
+    ).format(amountCents / 100);
+  }
+
+  function renderBillingOfferCatalog(
+    data
+  ) {
+    document.getElementById(
+      "billingOfferCount"
+    ).textContent = data.counts.offers;
+
+    document.getElementById(
+      "billingOfferDraftCount"
+    ).textContent = data.counts.draft;
+
+    document.getElementById(
+      "billingOfferActiveCount"
+    ).textContent = data.counts.active;
+
+    document.getElementById(
+      "billingOfferArchivedCount"
+    ).textContent = data.counts.archived;
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    const selectedProduct =
+      productSelect.value;
+
+    productSelect.innerHTML = `
+      <option value="">
+        Select a product
+      </option>
+      ${state.overview.products.map(
+        product => `
+          <option value="${product.id}">
+            ${escapeHtml(product.name)}
+          </option>
+        `
+      ).join("")}
+    `;
+
+    if (
+      selectedProduct
+      && state.overview.products.some(
+        product =>
+          String(product.id)
+          === selectedProduct
+      )
+    ) {
+      productSelect.value =
+        selectedProduct;
+    }
+
+    const list =
+      document.getElementById(
+        "billingOfferList"
+      );
+
+    if (!data.offers.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No billing offers configured.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML =
+      data.offers.map(offer => {
+        const minimum =
+          formatBillingOfferPrice(
+            offer.minimum_amount_cents,
+            offer.currency
+          );
+
+        const maximum =
+          formatBillingOfferPrice(
+            offer.maximum_amount_cents,
+            offer.currency
+          );
+
+        const price =
+          offer.minimum_amount_cents
+          === offer.maximum_amount_cents
+            ? minimum
+            : `${minimum}–${maximum}`;
+
+        const chargeLabel = {
+          one_time: "One time",
+          subscription: "Subscription",
+          custom_quote: "Custom quote",
+        }[offer.charge_type]
+          || offer.charge_type;
+
+        const statusLabel = {
+          draft: "Draft",
+          active: "Active",
+          archived: "Archived",
+        }[offer.status] || offer.status;
+
+        const detailParts = [
+          chargeLabel,
+          price,
+        ];
+
+        if (offer.billing_interval) {
+          detailParts.push(
+            offer.billing_interval
+            === "month"
+              ? "Monthly"
+              : "Annual"
+          );
+        }
+
+        if (offer.service_period_days) {
+          detailParts.push(
+            `${offer.service_period_days} days`
+          );
+        }
+
+        return `
+          <div class="list-row">
+            <div class="row-primary">
+              <strong>
+                ${escapeHtml(
+                  offer.product.name
+                )}
+                · ${escapeHtml(offer.name)}
+              </strong>
+
+              <span>
+                ${escapeHtml(offer.code)}
+              </span>
+            </div>
+
+            <div class="row-secondary">
+              <span class="badge ${
+                offer.status === "active"
+                  ? "success"
+                  : ""
+              }">
+                ${escapeHtml(statusLabel)}
+              </span>
+
+              <div>
+                ${detailParts.map(
+                  escapeHtml
+                ).join(" · ")}
+              </div>
+            </div>
+
+            <div class="row-actions">
+              <button
+                class="btn"
+                type="button"
+                data-edit-billing-offer="${
+                  offer.id
+                }"
+              >
+                Manage Offer
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+  }
+
+  function resetBillingOfferForm() {
+    const form =
+      document.getElementById(
+        "billingOfferForm"
+      );
+
+    form.reset();
+
+    document.getElementById(
+      "billingOfferCurrency"
+    ).value = "USD";
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    productSelect.disabled = false;
+
+    document.getElementById(
+      "saveBillingOfferButton"
+    ).textContent = "Create Offer";
+
+    document.getElementById(
+      "cancelBillingOfferEditButton"
+    ).classList.add("hidden");
+
+    state.currentBillingOfferId = null;
+  }
+
+  function editBillingOffer(
+    offerId
+  ) {
+    const offer =
+      state.billingOffers.offers.find(
+        item => item.id === offerId
+      );
+
+    if (!offer) {
+      setStatus(
+        "Billing offer not found.",
+        "error"
+      );
+      return;
+    }
+
+    state.currentBillingOfferId =
+      offer.id;
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    productSelect.value =
+      String(offer.product_id);
+
+    productSelect.disabled = true;
+
+    document.getElementById(
+      "billingOfferCode"
+    ).value = offer.code;
+
+    document.getElementById(
+      "billingOfferName"
+    ).value = offer.name;
+
+    document.getElementById(
+      "billingOfferDescription"
+    ).value = offer.description || "";
+
+    document.getElementById(
+      "billingOfferStatus"
+    ).value = offer.status;
+
+    document.getElementById(
+      "billingOfferChargeType"
+    ).value = offer.charge_type;
+
+    document.getElementById(
+      "billingOfferCurrency"
+    ).value = offer.currency;
+
+    document.getElementById(
+      "billingOfferMinimumAmount"
+    ).value = (
+      offer.minimum_amount_cents / 100
+    ).toFixed(2);
+
+    document.getElementById(
+      "billingOfferMaximumAmount"
+    ).value = (
+      offer.maximum_amount_cents / 100
+    ).toFixed(2);
+
+    document.getElementById(
+      "billingOfferInterval"
+    ).value =
+      offer.billing_interval || "";
+
+    document.getElementById(
+      "billingOfferServicePeriod"
+    ).value =
+      offer.service_period_days || "";
+
+    document.getElementById(
+      "saveBillingOfferButton"
+    ).textContent = "Save Offer";
+
+    document.getElementById(
+      "cancelBillingOfferEditButton"
+    ).classList.remove("hidden");
+
+    document.getElementById(
+      "billingOfferForm"
+    ).scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  async function saveBillingOffer(
+    event
+  ) {
+    event.preventDefault();
+
+    const productId = Number(
+      document.getElementById(
+        "billingOfferProductId"
+      ).value
+    );
+
+    const product =
+      state.overview.products.find(
+        item => item.id === productId
+      );
+
+    const chargeType =
+      document.getElementById(
+        "billingOfferChargeType"
+      ).value;
+
+    const interval =
+      document.getElementById(
+        "billingOfferInterval"
+      ).value || null;
+
+    const minimumAmount = Number(
+      document.getElementById(
+        "billingOfferMinimumAmount"
+      ).value
+    );
+
+    const maximumAmount = Number(
+      document.getElementById(
+        "billingOfferMaximumAmount"
+      ).value
+    );
+
+    const servicePeriodValue =
+      document.getElementById(
+        "billingOfferServicePeriod"
+      ).value.trim();
+
+    if (!product) {
+      setStatus(
+        "Select a product.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(minimumAmount)
+      || !Number.isFinite(maximumAmount)
+      || minimumAmount < 0
+      || maximumAmount < minimumAmount
+    ) {
+      setStatus(
+        "Enter a valid minimum and maximum price.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      chargeType === "subscription"
+      && !interval
+    ) {
+      setStatus(
+        "Subscription offers require "
+        + "a billing interval.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      chargeType !== "subscription"
+      && interval
+    ) {
+      setStatus(
+        "Only subscription offers can "
+        + "have a billing interval.",
+        "error"
+      );
+      return;
+    }
+
+    const payload = {
+      product_id: productId,
+      code: document.getElementById(
+        "billingOfferCode"
+      ).value.trim(),
+      name: document.getElementById(
+        "billingOfferName"
+      ).value.trim(),
+      description:
+        document.getElementById(
+          "billingOfferDescription"
+        ).value.trim() || null,
+      status:
+        document.getElementById(
+          "billingOfferStatus"
+        ).value,
+      charge_type: chargeType,
+      currency:
+        document.getElementById(
+          "billingOfferCurrency"
+        ).value.trim().toUpperCase(),
+      minimum_amount_cents:
+        Math.round(minimumAmount * 100),
+      maximum_amount_cents:
+        Math.round(maximumAmount * 100),
+      billing_interval: interval,
+      service_period_days:
+        servicePeriodValue
+          ? Number(servicePeriodValue)
+          : null,
+    };
+
+    const action =
+      state.currentBillingOfferId
+        ? "update"
+        : "create";
+
+    const confirmed = window.confirm(
+      `${
+        action === "create"
+          ? "Create"
+          : "Update"
+      } ${product.name} offer "${
+        payload.name
+      }"? This changes catalog metadata only `
+      + "and does not charge a client."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const button =
+      document.getElementById(
+        "saveBillingOfferButton"
+      );
+
+    try {
+      button.disabled = true;
+      button.textContent = "Saving...";
+
+      const endpoint =
+        state.currentBillingOfferId
+          ? (
+              "/admin/billing/offers/"
+              + state.currentBillingOfferId
+            )
+          : "/admin/billing/offers";
+
+      await apiRequest(
+        endpoint,
+        {
+          method:
+            state.currentBillingOfferId
+              ? "PUT"
+              : "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+
+      resetBillingOfferForm();
+      await loadBilling();
+
+      setStatus(
+        "Billing offer saved. "
+        + "No charge was created.",
+        "success"
+      );
+
+    } catch (error) {
+      button.disabled = false;
+      button.textContent =
+        state.currentBillingOfferId
+          ? "Save Offer"
+          : "Create Offer";
+
+      setStatus(error.message, "error");
+    }
+  }
+
+  document.getElementById(
+    "billingOfferForm"
+  ).addEventListener(
+    "submit",
+    saveBillingOffer
+  );
+
   async function loadBilling() {
     try {
       setStatus(
         "Loading centralized billing..."
       );
 
-      state.billing =
-        await apiRequest("/admin/billing");
+      const [
+        billing,
+        billingOffers,
+      ] = await Promise.all([
+        apiRequest("/admin/billing"),
+        apiRequest("/admin/billing/offers"),
+      ]);
+
+      state.billing = billing;
+      state.billingOffers =
+        billingOffers;
 
       renderBillingDirectory(
         state.billing
+      );
+
+      renderBillingOfferCatalog(
+        state.billingOffers
       );
 
       setStatus(
@@ -4449,6 +5179,8 @@
 
       state.overview = null;
       state.billing = null;
+      state.billingOffers = null;
+      state.currentBillingOfferId = null;
       state.currentProductId = null;
       state.currentTenantId = null;
       state.currentUserId = null;

@@ -7,6 +7,7 @@ from app.models.tenant_membership import TenantMembership
 from app.models.tenant import Tenant
 from app.models.lead import Lead
 from app.models.billing_account import BillingAccount
+from app.models.billing_offer import BillingOffer
 
 __all__ = [
     "Product",
@@ -18,4 +19,5 @@ __all__ = [
     "Tenant",
     "Lead",
     "BillingAccount",
+    "BillingOffer",
 ]

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 from zoneinfo import (
     ZoneInfo,
     ZoneInfoNotFoundError,
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import (
     BillingAccount,
+    BillingOffer,
     Lead,
     Product,
     AdminAuditLog,
@@ -717,7 +719,11 @@ def admin_user_detail(
 from typing import Literal
 
 from fastapi import HTTPException, Response, status
-from pydantic import BaseModel, field_validator
+from pydantic import (
+    BaseModel,
+    field_validator,
+    model_validator,
+)
 
 
 class TenantTimezoneUpdate(BaseModel):
@@ -756,6 +762,161 @@ class MembershipCreate(BaseModel):
 
 class MembershipUpdate(BaseModel):
     role: Literal["owner", "member"]
+
+
+class BillingOfferWrite(BaseModel):
+    product_id: int
+    code: str
+    name: str
+    description: str | None = None
+    status: Literal[
+        "draft",
+        "active",
+        "archived",
+    ] = "draft"
+    charge_type: Literal[
+        "one_time",
+        "subscription",
+        "custom_quote",
+    ]
+    currency: str = "USD"
+    minimum_amount_cents: int
+    maximum_amount_cents: int
+    billing_interval: Literal[
+        "month",
+        "year",
+    ] | None = None
+    service_period_days: int | None = None
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip().lower()
+
+        if not re.fullmatch(
+            r"[a-z0-9]+(?:-[a-z0-9]+)*",
+            normalized,
+        ):
+            raise ValueError(
+                "Offer code must use lowercase "
+                "letters, numbers, and hyphens"
+            )
+
+        return normalized
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        if not normalized:
+            raise ValueError(
+                "Offer name is required"
+            )
+
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("currency")
+    @classmethod
+    def validate_offer_currency(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip().upper()
+
+        if (
+            len(normalized) != 3
+            or not normalized.isalpha()
+        ):
+            raise ValueError(
+                "Currency must be a "
+                "three-letter code"
+            )
+
+        return normalized
+
+    @field_validator(
+        "minimum_amount_cents",
+        "maximum_amount_cents",
+    )
+    @classmethod
+    def validate_amount(
+        cls,
+        value: int,
+    ) -> int:
+        if value < 0:
+            raise ValueError(
+                "Offer amounts cannot be negative"
+            )
+
+        return value
+
+    @field_validator("service_period_days")
+    @classmethod
+    def validate_service_period(
+        cls,
+        value: int | None,
+    ) -> int | None:
+        if (
+            value is not None
+            and value <= 0
+        ):
+            raise ValueError(
+                "Service period must be positive"
+            )
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_price_structure(
+        self,
+    ):
+        if (
+            self.minimum_amount_cents
+            > self.maximum_amount_cents
+        ):
+            raise ValueError(
+                "Minimum amount cannot exceed "
+                "maximum amount"
+            )
+
+        if (
+            self.charge_type == "subscription"
+            and self.billing_interval is None
+        ):
+            raise ValueError(
+                "Subscription offers require "
+                "a billing interval"
+            )
+
+        if (
+            self.charge_type != "subscription"
+            and self.billing_interval is not None
+        ):
+            raise ValueError(
+                "Only subscription offers can "
+                "have a billing interval"
+            )
+
+        return self
 
 
 class BillingAccountUpdate(BaseModel):
@@ -811,6 +972,39 @@ class BillingAccountUpdate(BaseModel):
         return normalized or None
 
 
+def billing_offer_data(
+    offer: BillingOffer,
+) -> dict:
+    return {
+        "id": offer.id,
+        "product_id": offer.product_id,
+        "code": offer.code,
+        "name": offer.name,
+        "description": offer.description,
+        "status": offer.status,
+        "charge_type": offer.charge_type,
+        "currency": offer.currency,
+        "minimum_amount_cents":
+            offer.minimum_amount_cents,
+        "maximum_amount_cents":
+            offer.maximum_amount_cents,
+        "billing_interval":
+            offer.billing_interval,
+        "service_period_days":
+            offer.service_period_days,
+        "created_at": (
+            offer.created_at.isoformat()
+            if offer.created_at
+            else None
+        ),
+        "updated_at": (
+            offer.updated_at.isoformat()
+            if offer.updated_at
+            else None
+        ),
+    }
+
+
 def billing_account_data(
     account: BillingAccount | None,
 ) -> dict | None:
@@ -839,6 +1033,257 @@ def billing_account_data(
             else None
         ),
     }
+
+
+@router.get("/billing/offers")
+def admin_billing_offer_directory(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    rows = db.execute(
+        select(
+            BillingOffer,
+            Product,
+        )
+        .join(
+            Product,
+            Product.id
+            == BillingOffer.product_id,
+        )
+        .order_by(
+            Product.name,
+            BillingOffer.status,
+            BillingOffer.name,
+            BillingOffer.id,
+        )
+    ).all()
+
+    offers = [
+        offer
+        for offer, _ in rows
+    ]
+
+    return {
+        "counts": {
+            "offers": len(offers),
+            "draft": sum(
+                offer.status == "draft"
+                for offer in offers
+            ),
+            "active": sum(
+                offer.status == "active"
+                for offer in offers
+            ),
+            "archived": sum(
+                offer.status == "archived"
+                for offer in offers
+            ),
+        },
+        "offers": [
+            {
+                **billing_offer_data(offer),
+                "product": {
+                    "id": product.id,
+                    "name": product.name,
+                    "slug": product.slug,
+                },
+            }
+            for offer, product in rows
+        ],
+    }
+
+
+@router.post(
+    "/billing/offers",
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_billing_offer(
+    payload: BillingOfferWrite,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    product = db.get(
+        Product,
+        payload.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found",
+        )
+
+    existing = db.scalar(
+        select(BillingOffer).where(
+            BillingOffer.product_id
+            == product.id,
+            BillingOffer.code
+            == payload.code,
+        )
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Offer code already exists "
+                "for this product"
+            ),
+        )
+
+    offer = BillingOffer(
+        product_id=product.id,
+        code=payload.code,
+        name=payload.name,
+        description=payload.description,
+        status=payload.status,
+        charge_type=payload.charge_type,
+        currency=payload.currency,
+        minimum_amount_cents=(
+            payload.minimum_amount_cents
+        ),
+        maximum_amount_cents=(
+            payload.maximum_amount_cents
+        ),
+        billing_interval=(
+            payload.billing_interval
+        ),
+        service_period_days=(
+            payload.service_period_days
+        ),
+    )
+
+    db.add(offer)
+    db.flush()
+
+    after_data = billing_offer_data(
+        offer
+    )
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="billing_offer.created",
+        target_type="billing_offer",
+        target_id=offer.id,
+        before_data=None,
+        after_data=after_data,
+    )
+
+    db.commit()
+    db.refresh(offer)
+
+    return billing_offer_data(offer)
+
+
+@router.put(
+    "/billing/offers/{offer_id}"
+)
+def admin_update_billing_offer(
+    offer_id: int,
+    payload: BillingOfferWrite,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    offer = db.get(
+        BillingOffer,
+        offer_id,
+    )
+
+    if offer is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Billing offer not found",
+        )
+
+    if payload.product_id != offer.product_id:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Billing offers cannot be moved "
+                "between products"
+            ),
+        )
+
+    duplicate = db.scalar(
+        select(BillingOffer).where(
+            BillingOffer.product_id
+            == offer.product_id,
+            BillingOffer.code
+            == payload.code,
+            BillingOffer.id
+            != offer.id,
+        )
+    )
+
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Offer code already exists "
+                "for this product"
+            ),
+        )
+
+    requested_data = {
+        "code": payload.code,
+        "name": payload.name,
+        "description": payload.description,
+        "status": payload.status,
+        "charge_type": payload.charge_type,
+        "currency": payload.currency,
+        "minimum_amount_cents":
+            payload.minimum_amount_cents,
+        "maximum_amount_cents":
+            payload.maximum_amount_cents,
+        "billing_interval":
+            payload.billing_interval,
+        "service_period_days":
+            payload.service_period_days,
+    }
+
+    if all(
+        getattr(offer, field) == value
+        for field, value
+        in requested_data.items()
+    ):
+        return billing_offer_data(offer)
+
+    before_data = billing_offer_data(
+        offer
+    )
+
+    for field, value in requested_data.items():
+        setattr(
+            offer,
+            field,
+            value,
+        )
+
+    db.flush()
+
+    after_data = billing_offer_data(
+        offer
+    )
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="billing_offer.updated",
+        target_type="billing_offer",
+        target_id=offer.id,
+        before_data=before_data,
+        after_data=after_data,
+    )
+
+    db.commit()
+    db.refresh(offer)
+
+    return billing_offer_data(offer)
 
 
 @router.get("/billing")
