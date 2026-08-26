@@ -57,6 +57,10 @@ def main():
         data=payload,
         headers={
             "Content-Type": "application/json",
+            "User-Agent": (
+                "Mozilla/5.0 "
+                "FieldLookersReleaseVerification/1.0"
+            ),
         },
         method="POST",
     )
