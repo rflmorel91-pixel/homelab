@@ -5,15 +5,29 @@ on:
     branches:
       - main
     paths:
+      - "saas/jobflow/app/**"
       - "saas/jobflow/backend/**"
+      - "saas/jobflow/nginx/**"
+      - "saas/jobflow/scripts/**"
+      - "saas/jobflow/systemd/**"
+      - "saas/jobflow/docker-compose.yml"
       - "saas/jobflow/docs/developer/**"
+      - "saas/jobflow/docs/deployment/**"
+      - "saas/jobflow/docs/recovery/**"
       - ".github/workflows/saas-platform.yml"
   pull_request:
     branches:
       - main
     paths:
+      - "saas/jobflow/app/**"
       - "saas/jobflow/backend/**"
+      - "saas/jobflow/nginx/**"
+      - "saas/jobflow/scripts/**"
+      - "saas/jobflow/systemd/**"
+      - "saas/jobflow/docker-compose.yml"
       - "saas/jobflow/docs/developer/**"
+      - "saas/jobflow/docs/deployment/**"
+      - "saas/jobflow/docs/recovery/**"
       - ".github/workflows/saas-platform.yml"
 
 permissions:

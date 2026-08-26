@@ -28,7 +28,7 @@ shared platform runtime and developer tools.
 
 Current platform package version:
 
-`0.1.0`
+`0.1.1`
 
 ### Platform Contract Version
 
