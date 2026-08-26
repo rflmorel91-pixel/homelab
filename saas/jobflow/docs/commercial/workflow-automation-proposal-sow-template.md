@@ -493,6 +493,8 @@ Total fixed price: **$[TOTAL PRICE] USD**
 
 ### Billing method
 
+Complete `workflow-automation-manual-invoicing.md` for every engagement.
+
 FieldLookers will issue invoices using its approved manual billing procedure and hosted payment-provider invoice page.
 
 FieldLookers will not collect or store raw card numbers, bank credentials, security codes, or payment-authentication data.
@@ -694,6 +696,7 @@ By approving this Statement of Work, each party confirms that it:
 - [ ] Change-control process is included
 - [ ] Fixed price is within the approved range or separately justified
 - [ ] Deposit and final-payment amounts equal the total price
+- [ ] Manual invoicing record and Stripe invoice references prepared
 - [ ] Schedule accounts for dependencies
 - [ ] Handoff and support boundaries are explicit
 - [ ] Ownership or license option is selected and reviewed
