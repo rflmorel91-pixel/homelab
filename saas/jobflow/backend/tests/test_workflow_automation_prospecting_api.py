@@ -124,7 +124,7 @@ def test_operator_can_create_campaign(
         "prospecting/campaigns",
         json={
             "name": (
-                "New York Product #6 Prospects"
+                "New York Workflow Automation Package Prospects"
             ),
             "geography": "New York State",
             "segments": [

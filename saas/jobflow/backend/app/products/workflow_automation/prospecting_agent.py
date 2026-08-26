@@ -741,7 +741,7 @@ def run_campaign(
                     item.segment
                 ),
                 message=(
-                    "Agent-qualified Product #6 "
+                    "Agent-qualified Workflow Automation Package "
                     "prospect. Review evidence and "
                     "the outreach draft in the "
                     "prospecting queue before "

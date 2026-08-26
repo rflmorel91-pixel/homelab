@@ -15,7 +15,7 @@ PROSPECTING_PAGE = (
 def test_prospecting_operator_page_exists():
     text = PROSPECTING_PAGE.read_text()
 
-    assert "Product #6 Prospecting Agent" in text
+    assert "Workflow Automation Package — Prospecting" in text
     assert "New York State" in text
     assert "Small IT providers" in text
     assert "Home-service businesses" not in text
