@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import select
 
 from app.models import (
@@ -936,3 +938,135 @@ def test_operator_can_suppress_before_send(
     )
 
     assert audit is not None
+
+
+def test_due_follow_ups_are_ordered_and_filtered(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+
+    second_lead = Lead(
+        product_id=1,
+        business_name="Earlier Follow-Up IT",
+        contact_name="Earlier contact",
+        email="hello@earlier-follow-up.example",
+        phone=None,
+        service_type="Small IT provider partnership",
+        message="Earlier follow-up test",
+        status="new",
+    )
+    db_session.add(second_lead)
+    db_session.flush()
+
+    earlier_candidate = ProspectCandidate(
+        campaign_id=candidate.campaign_id,
+        lead_id=second_lead.id,
+        business_name="Earlier Follow-Up IT",
+        website_url="https://earlier-follow-up.example",
+        normalized_domain="earlier-follow-up.example",
+        segment="small_it_provider",
+        location="Albany, New York",
+        contact_name="Earlier contact",
+        email="hello@earlier-follow-up.example",
+        phone=None,
+        evidence=[],
+        fit_score=80,
+        score_reasons=["Small IT provider"],
+        disqualifiers=[],
+        outreach_subject="Earlier workflow question",
+        outreach_body="Earlier approved draft.",
+        review_status="approved",
+    )
+    db_session.add(earlier_candidate)
+
+    now = datetime.now(
+        timezone.utc
+    ).replace(tzinfo=None)
+
+    candidate.review_status = "approved"
+    candidate.outreach_sent_at = (
+        now - timedelta(days=7)
+    )
+    candidate.follow_up_due_at = (
+        now + timedelta(days=2)
+    )
+
+    earlier_candidate.outreach_sent_at = (
+        now - timedelta(days=8)
+    )
+    earlier_candidate.follow_up_due_at = (
+        now - timedelta(days=1)
+    )
+    db_session.commit()
+
+    endpoint = (
+        "/api/v1/products/"
+        "workflow-automation/"
+        "prospecting/follow-ups/due"
+    )
+
+    response = client.get(endpoint)
+
+    assert response.status_code == 200
+    assert [
+        item["candidate_id"]
+        for item in response.json()
+    ] == [
+        earlier_candidate.id,
+        candidate.id,
+    ]
+
+    earlier_candidate.follow_up_completed_at = now
+    db_session.commit()
+
+    assert [
+        item["candidate_id"]
+        for item in client.get(endpoint).json()
+    ] == [candidate.id]
+
+    candidate.reply_received_at = now
+    candidate.reply_outcome = "interested"
+    db_session.commit()
+    assert client.get(endpoint).json() == []
+
+    candidate.reply_received_at = None
+    candidate.reply_outcome = None
+    candidate.suppressed_at = now
+    candidate.suppression_reason = "Unsubscribe request"
+    db_session.commit()
+    assert client.get(endpoint).json() == []
+
+    candidate.suppressed_at = None
+    candidate.suppression_reason = None
+
+    lead = db_session.get(
+        Lead,
+        candidate.lead_id,
+    )
+    assert lead is not None
+    lead.status = "closed"
+    db_session.commit()
+
+    assert client.get(endpoint).json() == []
+
+
+def test_due_follow_ups_require_operator(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    operator.is_platform_admin = False
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/products/"
+        "workflow-automation/"
+        "prospecting/follow-ups/due"
+    )
+
+    assert response.status_code == 403

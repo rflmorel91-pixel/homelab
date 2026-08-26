@@ -36,6 +36,7 @@ from app.products.workflow_automation.prospecting_schemas import (
     CampaignRunAccepted,
     CandidateRead,
     CandidateReview,
+    DueFollowUpRead,
     FollowUpRecord,
     ManualCandidateCreate,
     OutreachSentRecord,
@@ -441,6 +442,66 @@ def list_candidates(
     )
 
     return list(db.scalars(statement))
+
+
+@router.get(
+    "/follow-ups/due",
+    response_model=list[DueFollowUpRead],
+)
+def list_due_follow_ups(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_operator),
+):
+    statement = (
+        select(
+            ProspectCandidate,
+            Lead,
+        )
+        .join(
+            Lead,
+            Lead.id
+            == ProspectCandidate.lead_id,
+        )
+        .where(
+            ProspectCandidate.review_status
+            == "approved",
+            ProspectCandidate.outreach_sent_at
+            .is_not(None),
+            ProspectCandidate.follow_up_due_at
+            .is_not(None),
+            ProspectCandidate.follow_up_completed_at
+            .is_(None),
+            ProspectCandidate.reply_received_at
+            .is_(None),
+            ProspectCandidate.suppressed_at
+            .is_(None),
+            Lead.status != "closed",
+        )
+        .order_by(
+            ProspectCandidate.follow_up_due_at.asc(),
+            ProspectCandidate.id.asc(),
+        )
+    )
+
+    return [
+        DueFollowUpRead(
+            candidate_id=candidate.id,
+            lead_id=lead.id,
+            business_name=candidate.business_name,
+            contact_name=candidate.contact_name,
+            email=candidate.email,
+            outreach_sent_at=(
+                candidate.outreach_sent_at
+            ),
+            follow_up_due_at=(
+                candidate.follow_up_due_at
+            ),
+        )
+        for candidate, lead in db.execute(
+            statement
+        ).all()
+    ]
+
 
 
 @router.put(

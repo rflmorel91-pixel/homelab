@@ -472,6 +472,20 @@
   </section>
 
   <section class="panel">
+    <h2>Follow-Up Actions</h2>
+
+    <p class="meta">
+      Outreach requiring action, ordered by scheduled date.
+      Replied, completed, closed, and suppressed contacts are
+      excluded automatically.
+    </p>
+
+    <div id="dueFollowUpList">
+      <p class="meta">Loading follow-ups...</p>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Outreach Review Queue</h2>
 
     <div style="max-width: 260px;">
@@ -502,6 +516,9 @@
 
   const candidateList =
     document.getElementById("candidateList");
+
+  const dueFollowUpList =
+    document.getElementById("dueFollowUpList");
 
   const reviewFilter =
     document.getElementById("reviewFilter");
@@ -674,9 +691,15 @@
         }`
       : "";
 
-    const candidates = await apiRequest(
-      `/candidates${query}`
-    );
+    const [
+      candidates,
+      dueFollowUps,
+    ] = await Promise.all([
+      apiRequest(`/candidates${query}`),
+      apiRequest("/follow-ups/due"),
+    ]);
+
+    renderDueFollowUps(dueFollowUps);
 
     if (candidates.length === 0) {
       candidateList.innerHTML =
@@ -704,7 +727,10 @@
       ).join("");
 
       return `
-        <div class="card">
+        <div
+          class="card"
+          id="candidate-${candidate.id}"
+        >
           <div class="card-heading">
             <div>
               <h3>${escapeHtml(candidate.business_name)}</h3>
@@ -825,12 +851,168 @@
   }
 
 
-  function formatActivityDate(value) {
+  function parseActivityDate(value) {
     if (!value) {
-      return "";
+      return null;
     }
 
-    return new Date(value).toLocaleString();
+    const hasTimezone = (
+      value.endsWith("Z")
+      || /[+-]\d{2}:\d{2}$/.test(value)
+    );
+
+    return new Date(
+      hasTimezone ? value : `${value}Z`
+    );
+  }
+
+
+  function formatActivityDate(value) {
+    const date = parseActivityDate(value);
+
+    return date
+      ? date.toLocaleString()
+      : "";
+  }
+
+
+  function renderDueFollowUps(items) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const groups = [
+      {
+        title: "Overdue",
+        items: items.filter(
+          item =>
+            parseActivityDate(item.follow_up_due_at)
+            < today
+        ),
+      },
+      {
+        title: "Due Today",
+        items: items.filter(item => {
+          const due = parseActivityDate(
+            item.follow_up_due_at
+          );
+
+          return due >= today && due < tomorrow;
+        }),
+      },
+      {
+        title: "Upcoming",
+        items: items.filter(
+          item =>
+            parseActivityDate(item.follow_up_due_at)
+            >= tomorrow
+        ),
+      },
+    ];
+
+    dueFollowUpList.innerHTML = groups.map(group => `
+      <div class="card">
+        <div class="card-heading">
+          <h3>${escapeHtml(group.title)}</h3>
+          <span class="status">
+            ${group.items.length}
+          </span>
+        </div>
+
+        ${
+          group.items.length
+            ? group.items.map(item => `
+              <div class="card">
+                <strong>
+                  ${escapeHtml(item.business_name)}
+                </strong>
+
+                <div class="meta">
+                  Due:
+                  ${escapeHtml(
+                    formatActivityDate(
+                      item.follow_up_due_at
+                    )
+                  )}
+                </div>
+
+                ${
+                  item.contact_name
+                    ? `
+                      <div class="meta">
+                        Contact:
+                        ${escapeHtml(item.contact_name)}
+                      </div>
+                    `
+                    : ""
+                }
+
+                ${
+                  item.email
+                    ? `
+                      <div class="meta">
+                        Email:
+                        ${escapeHtml(item.email)}
+                      </div>
+                    `
+                    : ""
+                }
+
+                <div class="actions">
+                  <a
+                    class="button button-light"
+                    href="#candidate-${item.candidate_id}"
+                    onclick="
+                      showCandidate(
+                        ${item.candidate_id}
+                      );
+                      return false;
+                    "
+                  >
+                    Candidate #${item.candidate_id}
+                  </a>
+
+                  <a
+                    class="button button-light"
+                    href="/commercialization#lead-${item.lead_id}"
+                  >
+                    Pipeline Lead #${item.lead_id}
+                  </a>
+
+                  <button
+                    onclick="recordFollowUp(
+                      ${item.candidate_id},
+                      this
+                    )"
+                  >
+                    Record Follow-Up
+                  </button>
+                </div>
+              </div>
+            `).join("")
+            : '<p class="meta">No follow-ups.</p>'
+        }
+      </div>
+    `).join("");
+  }
+
+
+  async function showCandidate(candidateId) {
+    reviewFilter.value = "approved";
+    await loadCandidates();
+
+    const candidate = document.getElementById(
+      `candidate-${candidateId}`
+    );
+
+    if (candidate) {
+      candidate.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
   }
 
 

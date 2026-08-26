@@ -11,6 +11,12 @@ PROSPECTING_PAGE = (
     / "prospecting.html"
 )
 
+COMMERCIALIZATION_PAGE = (
+    WORKSPACE_ROOT
+    / "app"
+    / "commercialization.html"
+)
+
 
 def test_prospecting_operator_page_exists():
     text = PROSPECTING_PAGE.read_text()
@@ -96,3 +102,23 @@ def test_prospecting_page_tracks_manual_outreach():
         in text
     )
     assert "It never sends messages." in text
+
+
+def test_operator_page_has_due_follow_up_view():
+    text = PROSPECTING_PAGE.read_text()
+
+    assert 'id="dueFollowUpList"' in text
+    assert 'apiRequest("/follow-ups/due")' in text
+    assert '"Overdue"' in text
+    assert '"Due Today"' in text
+    assert '"Upcoming"' in text
+    assert "showCandidate" in text
+    assert "/commercialization#lead-" in text
+    assert "Record Follow-Up" in text
+
+    commercialization_text = (
+        COMMERCIALIZATION_PAGE.read_text()
+    )
+    assert 'id="lead-${lead.id}"' in (
+        commercialization_text
+    )

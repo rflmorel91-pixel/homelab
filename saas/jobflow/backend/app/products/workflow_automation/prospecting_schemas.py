@@ -105,6 +105,20 @@ class CandidateRead(BaseModel):
     )
 
 
+class DueFollowUpRead(BaseModel):
+    candidate_id: int
+    lead_id: int
+    business_name: str
+    contact_name: str | None
+    email: str | None
+    outreach_sent_at: datetime
+    follow_up_due_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
 class CandidateReview(BaseModel):
     decision: Literal[
         "approved",
