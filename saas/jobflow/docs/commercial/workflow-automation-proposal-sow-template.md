@@ -518,6 +518,8 @@ Do not send this document with unresolved payment placeholders.
 
 ### Included handoff
 
+Complete `workflow-automation-acceptance-template.md` and `workflow-automation-secure-handoff-template.md` for every engagement.
+
 FieldLookers will provide:
 
 - [OPERATING DOCUMENTATION]
@@ -699,6 +701,7 @@ By approving this Statement of Work, each party confirms that it:
 - [ ] Manual invoicing record and Stripe invoice references prepared
 - [ ] Schedule accounts for dependencies
 - [ ] Handoff and support boundaries are explicit
+- [ ] Written acceptance and secure handoff records prepared
 - [ ] Ownership or license option is selected and reviewed
 - [ ] Governing agreement and legal terms are identified
 - [ ] No credentials or unnecessary sensitive data appear
