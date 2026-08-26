@@ -226,6 +226,71 @@ class ProspectCandidate(Base):
         )
     )
 
+    outreach_channel: Mapped[str | None] = (
+        mapped_column(
+            String(50),
+            nullable=True,
+        )
+    )
+
+    outreach_sent_at: Mapped[datetime | None] = (
+        mapped_column(
+            DateTime,
+            nullable=True,
+        )
+    )
+
+    follow_up_due_at: Mapped[datetime | None] = (
+        mapped_column(
+            DateTime,
+            nullable=True,
+            index=True,
+        )
+    )
+
+    follow_up_completed_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    reply_received_at: Mapped[datetime | None] = (
+        mapped_column(
+            DateTime,
+            nullable=True,
+        )
+    )
+
+    reply_outcome: Mapped[str | None] = (
+        mapped_column(
+            String(100),
+            nullable=True,
+        )
+    )
+
+    operator_notes: Mapped[str | None] = (
+        mapped_column(
+            Text,
+            nullable=True,
+        )
+    )
+
+    suppressed_at: Mapped[datetime | None] = (
+        mapped_column(
+            DateTime,
+            nullable=True,
+            index=True,
+        )
+    )
+
+    suppression_reason: Mapped[str | None] = (
+        mapped_column(
+            Text,
+            nullable=True,
+        )
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,

@@ -807,6 +807,8 @@
             }
           </div>
 
+          ${renderOutreachControls(candidate)}
+
           ${
             candidate.lead_id
               ? `
@@ -820,6 +822,180 @@
         </div>
       `;
     }).join("");
+  }
+
+
+  function formatActivityDate(value) {
+    if (!value) {
+      return "";
+    }
+
+    return new Date(value).toLocaleString();
+  }
+
+
+  function renderOutreachControls(candidate) {
+    const details = [];
+
+    if (candidate.outreach_sent_at) {
+      details.push(
+        `Sent by ${escapeHtml(
+          label(candidate.outreach_channel)
+        )} on ${escapeHtml(
+          formatActivityDate(
+            candidate.outreach_sent_at
+          )
+        )}`
+      );
+    } else {
+      details.push("Not recorded as sent");
+    }
+
+    if (candidate.follow_up_due_at) {
+      details.push(
+        `Follow-up due: ${escapeHtml(
+          formatActivityDate(
+            candidate.follow_up_due_at
+          )
+        )}`
+      );
+    }
+
+    if (candidate.follow_up_completed_at) {
+      details.push(
+        `Follow-up completed: ${escapeHtml(
+          formatActivityDate(
+            candidate.follow_up_completed_at
+          )
+        )}`
+      );
+    }
+
+    if (candidate.reply_received_at) {
+      details.push(
+        `Reply: ${escapeHtml(
+          label(candidate.reply_outcome)
+        )} on ${escapeHtml(
+          formatActivityDate(
+            candidate.reply_received_at
+          )
+        )}`
+      );
+    }
+
+    if (candidate.suppressed_at) {
+      details.push(
+        `Do Not Contact: ${escapeHtml(
+          candidate.suppression_reason
+        )}`
+      );
+    }
+
+    const buttons = [];
+
+    if (
+      candidate.review_status === "approved"
+      && !candidate.outreach_sent_at
+      && !candidate.suppressed_at
+    ) {
+      buttons.push(`
+        <button
+          onclick="recordOutreachSent(
+            ${candidate.id},
+            this
+          )"
+        >
+          Mark Sent
+        </button>
+      `);
+    }
+
+    if (
+      candidate.outreach_sent_at
+      && !candidate.follow_up_completed_at
+      && !candidate.reply_received_at
+      && !candidate.suppressed_at
+    ) {
+      buttons.push(`
+        <button
+          class="button-light"
+          onclick="recordFollowUp(
+            ${candidate.id},
+            this
+          )"
+        >
+          Record Follow-Up
+        </button>
+      `);
+    }
+
+    if (
+      candidate.outreach_sent_at
+      && !candidate.reply_received_at
+    ) {
+      buttons.push(`
+        <button
+          class="button-light"
+          onclick="recordReply(
+            ${candidate.id},
+            this
+          )"
+        >
+          Record Reply
+        </button>
+      `);
+    }
+
+    if (!candidate.suppressed_at) {
+      buttons.push(`
+        <button
+          class="button-danger"
+          onclick="recordSuppression(
+            ${candidate.id},
+            this
+          )"
+        >
+          Do Not Contact
+        </button>
+      `);
+    }
+
+    return `
+      <div
+        style="
+          margin-top: 16px;
+          padding: 14px;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          background: #f8fafc;
+        "
+      >
+        <strong>Outreach activity</strong>
+
+        <ul class="meta">
+          ${details.map(
+            detail => `<li>${detail}</li>`
+          ).join("")}
+        </ul>
+
+        ${
+          candidate.operator_notes
+            ? `
+              <div class="meta">
+                Notes:
+                ${escapeHtml(
+                  candidate.operator_notes
+                )}
+              </div>
+            `
+            : ""
+        }
+
+        <div class="actions">
+          ${buttons.join("")}
+        </div>
+      </div>
+    `;
   }
 
 
@@ -955,6 +1131,275 @@
         "success"
       );
 
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+    }
+  }
+
+
+  async function recordOutreachSent(
+    candidateId,
+    button
+  ) {
+    const channel = window.prompt(
+      "Channel: email, contact_form, phone, or other",
+      "email"
+    );
+
+    if (channel === null) {
+      return;
+    }
+
+    const allowedChannels = [
+      "email",
+      "contact_form",
+      "phone",
+      "other"
+    ];
+
+    if (!allowedChannels.includes(channel)) {
+      setStatus("Unsupported outreach channel.", "error");
+      return;
+    }
+
+    const sentAt = window.prompt(
+      "Sent timestamp",
+      new Date().toISOString()
+    );
+
+    if (sentAt === null) {
+      return;
+    }
+
+    const followUpDueAt = window.prompt(
+      "Follow-up due timestamp, or leave blank",
+      ""
+    );
+
+    if (followUpDueAt === null) {
+      return;
+    }
+
+    const notes = window.prompt(
+      "Operator notes, or leave blank",
+      "Manually sent by operator."
+    );
+
+    if (notes === null) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      await apiRequest(
+        `/candidates/${candidateId}/outreach/sent`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            channel,
+            sent_at: sentAt,
+            follow_up_due_at:
+              followUpDueAt || null,
+            notes: notes || null
+          })
+        }
+      );
+
+      setStatus(
+        "Manual outreach recorded as sent.",
+        "success"
+      );
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+    }
+  }
+
+
+  async function recordFollowUp(
+    candidateId,
+    button
+  ) {
+    const completedAt = window.prompt(
+      "Follow-up completion timestamp",
+      new Date().toISOString()
+    );
+
+    if (completedAt === null) {
+      return;
+    }
+
+    const notes = window.prompt(
+      "Operator notes, or leave blank",
+      "One manual follow-up completed."
+    );
+
+    if (notes === null) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      await apiRequest(
+        `/candidates/${candidateId}/outreach/follow-up`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            completed_at: completedAt,
+            notes: notes || null
+          })
+        }
+      );
+
+      setStatus(
+        "Follow-up recorded.",
+        "success"
+      );
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+    }
+  }
+
+
+  async function recordReply(
+    candidateId,
+    button
+  ) {
+    const outcome = window.prompt(
+      "Outcome: interested, not_interested, "
+      + "needs_follow_up, unsubscribe, or other",
+      "interested"
+    );
+
+    if (outcome === null) {
+      return;
+    }
+
+    const allowedOutcomes = [
+      "interested",
+      "not_interested",
+      "needs_follow_up",
+      "unsubscribe",
+      "other"
+    ];
+
+    if (!allowedOutcomes.includes(outcome)) {
+      setStatus("Unsupported reply outcome.", "error");
+      return;
+    }
+
+    if (
+      outcome === "unsubscribe"
+      && !window.confirm(
+        "This permanently suppresses the candidate. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    const receivedAt = window.prompt(
+      "Reply timestamp",
+      new Date().toISOString()
+    );
+
+    if (receivedAt === null) {
+      return;
+    }
+
+    const notes = window.prompt(
+      "Operator notes, or leave blank",
+      ""
+    );
+
+    if (notes === null) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      await apiRequest(
+        `/candidates/${candidateId}/outreach/reply`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            received_at: receivedAt,
+            outcome,
+            notes: notes || null
+          })
+        }
+      );
+
+      setStatus(
+        outcome === "unsubscribe"
+          ? "Reply recorded and candidate suppressed."
+          : "Reply recorded.",
+        "success"
+      );
+      await loadCandidates();
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.disabled = false;
+    }
+  }
+
+
+  async function recordSuppression(
+    candidateId,
+    button
+  ) {
+    const reason = window.prompt(
+      "Do Not Contact reason",
+      "Unsubscribe or suppression request"
+    );
+
+    if (reason === null) {
+      return;
+    }
+
+    if (!reason.trim()) {
+      setStatus(
+        "A suppression reason is required.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Permanently mark this candidate Do Not Contact?"
+      )
+    ) {
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      await apiRequest(
+        `/candidates/${candidateId}/outreach/suppression`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            suppressed_at:
+              new Date().toISOString(),
+            reason,
+            notes: "Recorded by operator."
+          })
+        }
+      );
+
+      setStatus(
+        "Candidate marked Do Not Contact.",
+        "success"
+      );
       await loadCandidates();
     } catch (error) {
       setStatus(error.message, "error");

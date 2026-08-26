@@ -36,7 +36,11 @@ from app.products.workflow_automation.prospecting_schemas import (
     CampaignRunAccepted,
     CandidateRead,
     CandidateReview,
+    FollowUpRecord,
     ManualCandidateCreate,
+    OutreachSentRecord,
+    ReplyRecord,
+    SuppressionRecord,
 )
 
 
@@ -535,6 +539,500 @@ def review_candidate(
                     candidate.lead_id,
             },
         )
+    )
+
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
+
+
+def _activity_time(
+    value: datetime,
+) -> datetime:
+    if value.tzinfo is None:
+        return value
+
+    return value.astimezone(
+        timezone.utc
+    ).replace(
+        tzinfo=None
+    )
+
+
+def _activity_snapshot(
+    candidate: ProspectCandidate,
+) -> dict:
+    def iso(
+        value: datetime | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        return value.isoformat()
+
+    return {
+        "outreach_channel":
+            candidate.outreach_channel,
+        "outreach_sent_at":
+            iso(candidate.outreach_sent_at),
+        "follow_up_due_at":
+            iso(candidate.follow_up_due_at),
+        "follow_up_completed_at":
+            iso(
+                candidate.follow_up_completed_at
+            ),
+        "reply_received_at":
+            iso(candidate.reply_received_at),
+        "reply_outcome":
+            candidate.reply_outcome,
+        "operator_notes":
+            candidate.operator_notes,
+        "suppressed_at":
+            iso(candidate.suppressed_at),
+        "suppression_reason":
+            candidate.suppression_reason,
+        "lead_id":
+            candidate.lead_id,
+    }
+
+
+def _candidate_or_404(
+    candidate_id: int,
+    db: Session,
+) -> ProspectCandidate:
+    candidate = db.get(
+        ProspectCandidate,
+        candidate_id,
+    )
+
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Prospect candidate not found",
+        )
+
+    return candidate
+
+
+def _add_activity_audit(
+    *,
+    db: Session,
+    operator: User,
+    candidate: ProspectCandidate,
+    action: str,
+    before_data: dict,
+) -> None:
+    db.add(
+        AdminAuditLog(
+            operator_user_id=operator.id,
+            action=(
+                "workflow_automation."
+                f"{action}"
+            ),
+            target_type="prospect_candidate",
+            target_id=candidate.id,
+            tenant_id=None,
+            before_data=before_data,
+            after_data=_activity_snapshot(
+                candidate
+            ),
+        )
+    )
+
+
+@router.post(
+    "/candidates/{candidate_id}/"
+    "outreach/sent",
+    response_model=CandidateRead,
+)
+def record_outreach_sent(
+    candidate_id: int,
+    payload: OutreachSentRecord,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    candidate = _candidate_or_404(
+        candidate_id,
+        db,
+    )
+
+    if candidate.review_status != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only an approved candidate can "
+                "be marked sent"
+            ),
+        )
+
+    if candidate.suppressed_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Suppressed candidate cannot be "
+                "contacted"
+            ),
+        )
+
+    if candidate.outreach_sent_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Outreach has already been "
+                "recorded as sent"
+            ),
+        )
+
+    sent_at = _activity_time(
+        payload.sent_at
+    )
+    follow_up_due_at = (
+        _activity_time(
+            payload.follow_up_due_at
+        )
+        if payload.follow_up_due_at
+        is not None
+        else None
+    )
+
+    if (
+        follow_up_due_at is not None
+        and follow_up_due_at < sent_at
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Follow-up due time cannot be "
+                "before the sent time"
+            ),
+        )
+
+    lead = (
+        db.get(
+            Lead,
+            candidate.lead_id,
+        )
+        if candidate.lead_id is not None
+        else None
+    )
+
+    if (
+        lead is not None
+        and lead.status in {
+            "closed",
+            "converted",
+        }
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Associated lead is not eligible "
+                "for outreach"
+            ),
+        )
+
+    before_data = _activity_snapshot(
+        candidate
+    )
+
+    candidate.outreach_channel = (
+        payload.channel
+    )
+    candidate.outreach_sent_at = sent_at
+    candidate.follow_up_due_at = (
+        follow_up_due_at
+    )
+
+    if payload.notes is not None:
+        candidate.operator_notes = (
+            payload.notes
+        )
+
+    if (
+        lead is not None
+        and lead.status == "new"
+    ):
+        lead.status = "contacted"
+
+    _add_activity_audit(
+        db=db,
+        operator=operator,
+        candidate=candidate,
+        action="outreach_sent",
+        before_data=before_data,
+    )
+
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
+
+
+@router.post(
+    "/candidates/{candidate_id}/"
+    "outreach/follow-up",
+    response_model=CandidateRead,
+)
+def record_follow_up(
+    candidate_id: int,
+    payload: FollowUpRecord,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    candidate = _candidate_or_404(
+        candidate_id,
+        db,
+    )
+
+    if candidate.outreach_sent_at is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Outreach must be recorded as "
+                "sent before a follow-up"
+            ),
+        )
+
+    if candidate.suppressed_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Suppressed candidate cannot "
+                "receive a follow-up"
+            ),
+        )
+
+    if (
+        candidate.follow_up_completed_at
+        is not None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Follow-up has already been "
+                "recorded"
+            ),
+        )
+
+    completed_at = _activity_time(
+        payload.completed_at
+    )
+
+    if (
+        completed_at
+        < candidate.outreach_sent_at
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Follow-up completion cannot be "
+                "before the sent time"
+            ),
+        )
+
+    before_data = _activity_snapshot(
+        candidate
+    )
+
+    candidate.follow_up_completed_at = (
+        completed_at
+    )
+
+    if payload.notes is not None:
+        candidate.operator_notes = (
+            payload.notes
+        )
+
+    _add_activity_audit(
+        db=db,
+        operator=operator,
+        candidate=candidate,
+        action="follow_up_recorded",
+        before_data=before_data,
+    )
+
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
+
+
+@router.post(
+    "/candidates/{candidate_id}/"
+    "outreach/reply",
+    response_model=CandidateRead,
+)
+def record_reply(
+    candidate_id: int,
+    payload: ReplyRecord,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    candidate = _candidate_or_404(
+        candidate_id,
+        db,
+    )
+
+    if candidate.outreach_sent_at is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Outreach must be recorded as "
+                "sent before a reply"
+            ),
+        )
+
+    if candidate.reply_received_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Reply has already been "
+                "recorded"
+            ),
+        )
+
+    received_at = _activity_time(
+        payload.received_at
+    )
+
+    if (
+        received_at
+        < candidate.outreach_sent_at
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Reply time cannot be before "
+                "the sent time"
+            ),
+        )
+
+    before_data = _activity_snapshot(
+        candidate
+    )
+
+    candidate.reply_received_at = (
+        received_at
+    )
+    candidate.reply_outcome = (
+        payload.outcome
+    )
+
+    if payload.notes is not None:
+        candidate.operator_notes = (
+            payload.notes
+        )
+
+    if payload.outcome == "unsubscribe":
+        candidate.suppressed_at = (
+            received_at
+        )
+        candidate.suppression_reason = (
+            "Unsubscribe request"
+        )
+
+        if candidate.lead_id is not None:
+            lead = db.get(
+                Lead,
+                candidate.lead_id,
+            )
+
+            if (
+                lead is not None
+                and lead.status in {
+                    "new",
+                    "contacted",
+                }
+            ):
+                lead.status = "closed"
+
+    _add_activity_audit(
+        db=db,
+        operator=operator,
+        candidate=candidate,
+        action="reply_recorded",
+        before_data=before_data,
+    )
+
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
+
+
+@router.post(
+    "/candidates/{candidate_id}/"
+    "outreach/suppression",
+    response_model=CandidateRead,
+)
+def record_suppression(
+    candidate_id: int,
+    payload: SuppressionRecord,
+    db: Session = Depends(get_db),
+    operator: User = Depends(
+        get_current_operator
+    ),
+):
+    candidate = _candidate_or_404(
+        candidate_id,
+        db,
+    )
+
+    if candidate.suppressed_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Candidate is already "
+                "suppressed"
+            ),
+        )
+
+    before_data = _activity_snapshot(
+        candidate
+    )
+
+    candidate.suppressed_at = (
+        _activity_time(
+            payload.suppressed_at
+        )
+    )
+    candidate.suppression_reason = (
+        payload.reason
+    )
+
+    if payload.notes is not None:
+        candidate.operator_notes = (
+            payload.notes
+        )
+
+    if candidate.lead_id is not None:
+        lead = db.get(
+            Lead,
+            candidate.lead_id,
+        )
+
+        if (
+            lead is not None
+            and lead.status in {
+                "new",
+                "contacted",
+            }
+        ):
+            lead.status = "closed"
+
+    _add_activity_audit(
+        db=db,
+        operator=operator,
+        candidate=candidate,
+        action="candidate_suppressed",
+        before_data=before_data,
     )
 
     db.commit()

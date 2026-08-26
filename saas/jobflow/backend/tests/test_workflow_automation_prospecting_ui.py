@@ -73,3 +73,26 @@ def test_prospecting_page_supports_manual_intake():
         in text
     )
     assert "No message was sent." in text
+
+
+def test_prospecting_page_tracks_manual_outreach():
+    text = PROSPECTING_PAGE.read_text()
+
+    assert "Outreach activity" in text
+    assert "Mark Sent" in text
+    assert "Record Follow-Up" in text
+    assert "Record Reply" in text
+    assert "Do Not Contact" in text
+    assert "recordOutreachSent" in text
+    assert "recordFollowUp" in text
+    assert "recordReply" in text
+    assert "recordSuppression" in text
+    assert "outreach/sent" in text
+    assert "outreach/follow-up" in text
+    assert "outreach/reply" in text
+    assert "outreach/suppression" in text
+    assert (
+        "This permanently suppresses the candidate"
+        in text
+    )
+    assert "It never sends messages." in text

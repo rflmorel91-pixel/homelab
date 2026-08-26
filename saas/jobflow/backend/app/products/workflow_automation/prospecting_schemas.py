@@ -88,6 +88,15 @@ class CandidateRead(BaseModel):
     review_status: str
     reviewed_by_user_id: int | None
     reviewed_at: datetime | None
+    outreach_channel: str | None
+    outreach_sent_at: datetime | None
+    follow_up_due_at: datetime | None
+    follow_up_completed_at: datetime | None
+    reply_received_at: datetime | None
+    reply_outcome: str | None
+    operator_notes: str | None
+    suppressed_at: datetime | None
+    suppression_reason: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -103,6 +112,49 @@ class CandidateReview(BaseModel):
     ]
     outreach_subject: RequiredText | None = None
     outreach_body: RequiredText | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OutreachSentRecord(BaseModel):
+    channel: Literal[
+        "email",
+        "contact_form",
+        "phone",
+        "other",
+    ]
+    sent_at: datetime
+    follow_up_due_at: datetime | None = None
+    notes: RequiredText | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class FollowUpRecord(BaseModel):
+    completed_at: datetime
+    notes: RequiredText | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ReplyRecord(BaseModel):
+    received_at: datetime
+    outcome: Literal[
+        "interested",
+        "not_interested",
+        "needs_follow_up",
+        "unsubscribe",
+        "other",
+    ]
+    notes: RequiredText | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SuppressionRecord(BaseModel):
+    suppressed_at: datetime
+    reason: RequiredText
+    notes: RequiredText | None = None
 
     model_config = ConfigDict(extra="forbid")
 

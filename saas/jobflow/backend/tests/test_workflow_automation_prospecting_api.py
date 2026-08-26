@@ -621,3 +621,318 @@ def test_manual_candidate_rejects_duplicate_domain(
     )
 
     assert response.status_code == 409
+
+
+def test_only_approved_candidate_can_be_marked_sent(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+
+    endpoint = (
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent"
+    )
+    payload = {
+        "channel": "email",
+        "sent_at": "2026-08-25T19:00:00-04:00",
+    }
+
+    response = client.post(
+        endpoint,
+        json=payload,
+    )
+
+    assert response.status_code == 409
+
+    candidate.review_status = "rejected"
+    db_session.commit()
+
+    response = client.post(
+        endpoint,
+        json=payload,
+    )
+
+    assert response.status_code == 409
+
+
+def test_operator_records_sent_outreach(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+    candidate.review_status = "approved"
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent",
+        json={
+            "channel": "email",
+            "sent_at": (
+                "2026-08-25T19:51:00-04:00"
+            ),
+            "follow_up_due_at": (
+                "2026-09-01T09:00:00-04:00"
+            ),
+            "notes": (
+                "Manually sent through Outlook."
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["outreach_channel"] == "email"
+    assert payload["outreach_sent_at"] is not None
+    assert payload["follow_up_due_at"] is not None
+    assert payload["operator_notes"] == (
+        "Manually sent through Outlook."
+    )
+
+    db_session.expire_all()
+
+    lead = db_session.get(
+        Lead,
+        candidate.lead_id,
+    )
+
+    assert lead.status == "contacted"
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "outreach_sent"
+            )
+        )
+    )
+
+    assert audit is not None
+
+
+def test_operator_records_follow_up(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+    candidate.review_status = "approved"
+    db_session.commit()
+
+    sent_response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent",
+        json={
+            "channel": "email",
+            "sent_at": (
+                "2026-08-25T19:00:00-04:00"
+            ),
+            "follow_up_due_at": (
+                "2026-09-01T09:00:00-04:00"
+            ),
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/follow-up",
+        json={
+            "completed_at": (
+                "2026-09-01T09:15:00-04:00"
+            ),
+            "notes": (
+                "One manual follow-up sent."
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.json()[
+            "follow_up_completed_at"
+        ]
+        is not None
+    )
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "follow_up_recorded"
+            )
+        )
+    )
+
+    assert audit is not None
+
+
+def test_unsubscribe_reply_suppresses_candidate(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+    candidate.review_status = "approved"
+    db_session.commit()
+
+    sent_response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent",
+        json={
+            "channel": "email",
+            "sent_at": (
+                "2026-08-25T19:00:00-04:00"
+            ),
+        },
+    )
+
+    assert sent_response.status_code == 200
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/reply",
+        json={
+            "received_at": (
+                "2026-08-25T22:08:00-04:00"
+            ),
+            "outcome": "unsubscribe",
+            "notes": "Explicit unsubscribe reply.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["reply_outcome"] == (
+        "unsubscribe"
+    )
+    assert payload["suppressed_at"] is not None
+    assert payload["suppression_reason"] == (
+        "Unsubscribe request"
+    )
+
+    db_session.expire_all()
+
+    lead = db_session.get(
+        Lead,
+        candidate.lead_id,
+    )
+
+    assert lead.status == "closed"
+
+    follow_up_response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/follow-up",
+        json={
+            "completed_at": (
+                "2026-09-01T09:00:00-04:00"
+            ),
+        },
+    )
+
+    assert follow_up_response.status_code == 409
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "reply_recorded"
+            )
+        )
+    )
+
+    assert audit is not None
+
+
+def test_operator_can_suppress_before_send(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+    candidate.review_status = "approved"
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/suppression",
+        json={
+            "suppressed_at": (
+                "2026-08-26T09:00:00-04:00"
+            ),
+            "reason": "Do not contact request",
+            "notes": "Recorded by operator.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["suppressed_at"] is not None
+
+    sent_response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent",
+        json={
+            "channel": "email",
+            "sent_at": (
+                "2026-08-26T10:00:00-04:00"
+            ),
+        },
+    )
+
+    assert sent_response.status_code == 409
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == (
+                "workflow_automation."
+                "candidate_suppressed"
+            )
+        )
+    )
+
+    assert audit is not None
