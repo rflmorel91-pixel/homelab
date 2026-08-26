@@ -329,6 +329,8 @@ When a dependency is delayed, the parties will review and document the revised s
 
 ## 14. Data, Access, and Security Boundaries
 
+Complete the controls in `workflow-automation-credential-data-handling.md` for every engagement.
+
 ### Approved data
 
 - [DATA CATEGORY]
@@ -685,6 +687,8 @@ By approving this Statement of Work, each party confirms that it:
 - [ ] Responsibilities and dependencies have owners
 - [ ] Exclusions are project-specific
 - [ ] Data and access boundaries are approved
+- [ ] Credential and data-handling record completed
+- [ ] Incident contacts and secure-transfer method recorded
 - [ ] Acceptance criteria are observable and testable
 - [ ] Acceptance approver is identified
 - [ ] Change-control process is included
