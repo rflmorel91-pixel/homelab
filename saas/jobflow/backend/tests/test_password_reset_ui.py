@@ -9,7 +9,7 @@ def test_renewaldesk_exposes_password_reset_request():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert 'id="forgotPasswordButton"' in page
     assert 'id="passwordResetRequestForm"' in page
