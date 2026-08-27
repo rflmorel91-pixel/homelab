@@ -13,6 +13,23 @@ OMV_USER="Rafael"
 OMV_KEY="$HOME/.ssh/jobflow_omv_backup"
 OMV_BACKUP_DIR="/srv/dev-disk-by-uuid-b3f81412-c245-4670-9fc1-1d0c80c74fe5/Data/jobflow-backups"
 
+report_backup_exit() {
+  local backup_exit_status=$?
+  trap - EXIT
+
+  if [ "$backup_exit_status" -eq 0 ]; then
+    if ! python3 "$PROJECT_DIR/scripts/report-backup-health.py" success; then
+      exit 1
+    fi
+  else
+    python3 "$PROJECT_DIR/scripts/report-backup-health.py" failure || true
+  fi
+
+  exit "$backup_exit_status"
+}
+
+trap report_backup_exit EXIT
+
 mkdir -p "$BACKUP_DIR"
 
 docker exec jobflow-db pg_dump \
@@ -43,6 +60,10 @@ find "$BACKUP_DIR" \
   -name 'jobflow-*.dump' \
   -mtime +7 \
   -delete
+
+python3 "$PROJECT_DIR/scripts/replicate-jobflow-backup.py" \
+  --project-dir "$PROJECT_DIR" \
+  --upload "$BACKUP_FILE"
 
 date --iso-8601=seconds > "$STATUS_FILE"
 if [[ -n "${UPTIME_KUMA_PUSH_URL:-}" ]]; then
