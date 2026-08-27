@@ -27,7 +27,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/health')"
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/ready', timeout=4)"
         ]
       interval: 10s
       timeout: 5s

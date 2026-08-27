@@ -449,6 +449,7 @@ smoke_status 200 "$BASE_URL/renewaldesk" "RenewalDesk landing"
 smoke_status 200 "$BASE_URL/workflow-automation" "Workflow Automation landing"
 smoke_status 200 "$BASE_URL/admin" "Administration page"
 smoke_status 200 "$BASE_URL/api/v1/health" "API health"
+smoke_status 200 "$BASE_URL/api/v1/ready" "API readiness"
 
 printf '\n===== ACCESS-CONTROL SMOKE CHECK =====\n'
 smoke_status \

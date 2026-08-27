@@ -13,7 +13,10 @@ from app.api.invitations import (
 from app.api.password_reset import router as password_reset_router
 from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
-from app.database import SessionLocal
+from app.database import DATABASE_URL, SessionLocal
+from app.platform.readiness import (
+    Readiness, expected_migration_heads, router as readiness_router,
+)
 from app.platform import (
     discover_product_models,
     discover_products,
@@ -30,7 +33,8 @@ discover_product_models()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(application: FastAPI):
+    application.state.platform_readiness = None
     db = SessionLocal()
 
     try:
@@ -41,7 +45,16 @@ async def lifespan(_: FastAPI):
     finally:
         db.close()
 
-    yield
+    application.state.platform_readiness = Readiness(
+        DATABASE_URL,
+        expected_migration_heads(),
+        list_products(),
+        list_products,
+    )
+    try:
+        yield
+    finally:
+        application.state.platform_readiness = None
 
 
 app = FastAPI(
@@ -50,6 +63,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+app.include_router(readiness_router)
 
 app.include_router(
     admin_router,
