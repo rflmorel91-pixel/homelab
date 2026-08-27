@@ -22,7 +22,7 @@ def test_admin_invitation_form_uses_platform_api():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="inviteUserForm"' in page
     assert 'id="invitationLeadId"' in page
@@ -123,7 +123,7 @@ def test_commercial_client_uses_secure_user_invitation():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "<h3>Invite Client User</h3>" in page
     assert 'id="clientInvitationName"' in page
@@ -152,7 +152,7 @@ def test_client_invitation_lifecycle_is_manageable():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "<h3>Client Invitations</h3>" in page
     assert 'id="clientInvitationRows"' in page

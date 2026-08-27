@@ -1,0 +1,3915 @@
+
+  const API_BASE = "/api/v1";
+
+  const state = {
+    overview: null,
+    billing: null,
+    billingOffers: null,
+    currentBillingOfferId: null,
+    currentProductId: null,
+    currentTenantId: null,
+    currentUserId: null,
+    currentAccessKind: null,
+    tenantNavigationGeneration: 0,
+  };
+
+  function currentAccessLabel() {
+    return state.currentAccessKind === "client"
+      ? "Client"
+      : "Workspace";
+  }
+
+  function currentAccessLabelLower() {
+    return currentAccessLabel().toLowerCase();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function setStatus(message, type = "") {
+    const banner =
+      document.getElementById("statusBanner");
+
+    banner.textContent = message;
+    banner.className =
+      `status-banner${type ? ` ${type}` : ""}`;
+  }
+
+  async function apiRequest(path, options = {}) {
+    const headers = {
+      ...(options.headers || {}),
+    };
+
+    if (
+      options.body !== undefined
+      && !headers["Content-Type"]
+    ) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const response = await fetch(
+      `${API_BASE}${path}`,
+      {
+        ...options,
+        credentials: "same-origin",
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      let detail =
+        `Request failed (${response.status})`;
+
+      try {
+        const payload = await response.json();
+
+        if (payload.detail) {
+          detail = payload.detail;
+        }
+      } catch {
+        // Keep fallback error.
+      }
+
+      if (response.status === 401) {
+        throw new Error(
+          "Session expired. Sign in again before continuing."
+        );
+      }
+
+      throw new Error(detail);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+  function showView(viewName) {
+    const views = {
+      overview:
+        document.getElementById("overviewView"),
+      products:
+        document.getElementById("productsView"),
+      tenants:
+        document.getElementById("tenantsView"),
+      billing:
+        document.getElementById("billingView"),
+      users:
+        document.getElementById("usersView"),
+      activity:
+        document.getElementById("activityView"),
+    };
+
+    Object.entries(views).forEach(
+      ([name, element]) => {
+        element.classList.toggle(
+          "hidden",
+          name !== viewName
+        );
+      }
+    );
+
+    document
+      .querySelectorAll(".nav-button")
+      .forEach(button => {
+        button.classList.toggle(
+          "active",
+          button.dataset.view === viewName
+        );
+      });
+  }
+
+  function userBadges(user) {
+    const badges = [];
+
+    badges.push(
+      user.is_active
+        ? '<span class="badge success">Active</span>'
+        : '<span class="badge">Inactive</span>'
+    );
+
+    if (user.is_platform_admin) {
+      badges.push(
+        '<span class="badge admin">Platform Admin</span>'
+      );
+    }
+
+    return badges.join("");
+  }
+
+  function renderUserRows(users) {
+    if (!users.length) {
+      return '<div class="empty">No users found.</div>';
+    }
+
+    return users.map(user => `
+      <div class="list-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(user.display_name)}
+          </strong>
+
+          <span>
+            ${escapeHtml(user.email)}
+          </span>
+        </div>
+
+        <div class="row-secondary">
+          ${userBadges(user)}
+        </div>
+
+        <div class="row-actions">
+          <button
+            class="btn"
+            type="button"
+            data-open-user="${user.id}"
+          >
+            View
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function productForTenant(tenant) {
+    return state.overview.products.find(
+      product => product.id === tenant.product_id
+    );
+  }
+
+  function renderClientRows(clients) {
+    if (!clients.length) {
+      return '<div class="empty">No clients found.</div>';
+    }
+
+    return clients.map(client => {
+      const product = productForTenant(client);
+
+      return `
+        <div class="list-row">
+          <div class="row-primary">
+            <strong>
+              ${escapeHtml(
+                product ? product.name : "Product"
+              )}
+              · Client #${client.client_number}
+            </strong>
+
+            <span>
+              ${escapeHtml(client.name)}
+              · ${escapeHtml(client.slug)}
+            </span>
+          </div>
+
+          <div class="row-secondary">
+            Commercial client workspace
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="btn"
+              type="button"
+              data-open-tenant="${client.id}"
+            >
+              Manage Client
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderValidationWorkspaceRows(workspaces) {
+    if (!workspaces.length) {
+      return `
+        <div class="empty">
+          No validation workspaces found.
+        </div>
+      `;
+    }
+
+    return workspaces.map(workspace => {
+      const product = productForTenant(workspace);
+
+      return `
+        <div class="list-row">
+          <div class="row-primary">
+            <strong>
+              ${escapeHtml(workspace.name)}
+            </strong>
+
+            <span>
+              ${escapeHtml(
+                product ? product.name : "Product"
+              )}
+              · ${escapeHtml(workspace.slug)}
+            </span>
+          </div>
+
+          <div class="row-secondary">
+            Validation workspace · Internal #${workspace.id}
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="btn"
+              type="button"
+              data-open-tenant="${workspace.id}"
+            >
+              Manage Workspace
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderProductRows(products) {
+    if (!products.length) {
+      return `
+        <div class="empty-state">
+          No products found.
+        </div>
+      `;
+    }
+
+    return products.map(product => `
+      <div class="list-row">
+        <div class="list-main">
+          <strong>${escapeHtml(product.name)}</strong>
+          <span>
+            ${escapeHtml(product.slug)}
+            · workspace ${escapeHtml(product.workspace_key)}
+          </span>
+        </div>
+
+        <div class="list-meta">
+          <span class="badge ${
+            product.status === "active" ? "success" : ""
+          }">
+            ${escapeHtml(product.status)}
+          </span>
+
+          <span>
+            ${product.client_count} client${
+              product.client_count === 1 ? "" : "s"
+            }
+            ·
+            ${product.validation_workspace_count} validation
+            workspace${
+              product.validation_workspace_count === 1 ? "" : "s"
+            }
+            ·
+            ${product.active_lead_count} active lead${
+              product.active_lead_count === 1 ? "" : "s"
+            }
+            ·
+            ${product.converted_lead_count} converted
+          </span>
+        </div>
+
+        <div class="row-actions">
+          <button
+            class="btn"
+            type="button"
+            data-open-product="${product.id}"
+          >
+            Manage Tenant / Product
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function renderOverview() {
+    const data = state.overview;
+
+    document.getElementById(
+      "productCount"
+    ).textContent = data.counts.products;
+
+    document.getElementById(
+      "userCount"
+    ).textContent = data.counts.users;
+
+    document.getElementById(
+      "activeUserCount"
+    ).textContent = data.counts.active_users;
+
+    document.getElementById(
+      "tenantCount"
+    ).textContent = data.counts.clients;
+
+    document.getElementById(
+      "membershipCount"
+    ).textContent = data.counts.memberships;
+
+    document.getElementById(
+      "platformAdminCount"
+    ).textContent = data.counts.platform_admins;
+
+    document.getElementById(
+      "overviewProductList"
+    ).innerHTML =
+      renderProductRows(data.products);
+
+    document.getElementById(
+      "productList"
+    ).innerHTML =
+      renderProductRows(data.products);
+
+    const clients = data.tenants.filter(
+      tenant => tenant.client_number !== null
+    );
+
+    const validationWorkspaces = data.tenants.filter(
+      tenant => tenant.client_number === null
+    );
+
+    document.getElementById(
+      "overviewTenantList"
+    ).innerHTML =
+      renderClientRows(clients);
+
+    document.getElementById(
+      "overviewValidationList"
+    ).innerHTML =
+      renderValidationWorkspaceRows(
+        validationWorkspaces
+      );
+
+    document.getElementById(
+      "overviewUserList"
+    ).innerHTML =
+      renderUserRows(data.users);
+
+    renderTenantDirectory();
+    renderUserDirectory();
+  }
+
+  function renderTenantDirectory() {
+    const query =
+      document.getElementById("tenantSearch")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const matches =
+      state.overview.tenants.filter(tenant => {
+        const product = productForTenant(tenant);
+
+        return (
+          tenant.name.toLowerCase().includes(query)
+          || tenant.slug.toLowerCase().includes(query)
+          || (
+            product
+            && product.name.toLowerCase().includes(query)
+          )
+        );
+      });
+
+    const clients = matches.filter(
+      tenant => tenant.client_number !== null
+    );
+
+    const validationWorkspaces = matches.filter(
+      tenant => tenant.client_number === null
+    );
+
+    document.getElementById(
+      "tenantList"
+    ).innerHTML = renderClientRows(clients);
+
+    document.getElementById(
+      "validationTenantList"
+    ).innerHTML =
+      renderValidationWorkspaceRows(
+        validationWorkspaces
+      );
+  }
+
+  function renderUserDirectory() {
+    const query =
+      document.getElementById("userSearch")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const users =
+      state.overview.users.filter(user =>
+        user.display_name
+          .toLowerCase()
+          .includes(query)
+        || user.email
+          .toLowerCase()
+          .includes(query)
+      );
+
+    document.getElementById(
+      "userList"
+    ).innerHTML = renderUserRows(users);
+  }
+
+  async function refreshOverview() {
+    state.overview =
+      await apiRequest("/admin/overview");
+
+    renderOverview();
+  }
+
+  async function openUser(userId) {
+    try {
+      setStatus("Loading user...");
+
+      const data =
+        await apiRequest(
+          `/admin/users/${userId}`
+        );
+
+      state.currentUserId = userId;
+
+      const memberships =
+        data.memberships.length
+          ? data.memberships.map(
+              membership => `
+                <div class="list-row">
+                  <div class="row-primary">
+                    <strong>
+                      ${escapeHtml(
+                        membership.tenant_name
+                      )}
+                    </strong>
+
+                    <span>
+                      ${escapeHtml(
+                        membership.tenant_slug
+                      )}
+                    </span>
+                  </div>
+
+                  <div class="row-secondary">
+                    Role:
+                    ${escapeHtml(membership.role)}
+                  </div>
+
+                  <div></div>
+                </div>
+              `
+            ).join("")
+          : '<div class="empty">No memberships.</div>';
+
+      document.getElementById(
+        "userDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${escapeHtml(data.user.display_name)}
+            </h2>
+
+            <p>
+              ${escapeHtml(data.user.email)}
+              · User #${data.user.id}
+            </p>
+          </div>
+
+          <div>
+            ${userBadges(data.user)}
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>
+              ${data.user.is_active ? "Active" : "Inactive"}
+            </strong>
+            <span>Account Status</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>
+              ${data.user.is_platform_admin ? "Yes" : "No"}
+            </strong>
+            <span>Platform Administrator</span>
+          </div>
+        </div>
+
+        <div class="panel admin-user-panel">
+          <div class="panel-header">
+            <div>
+              <h2>User Administration</h2>
+              <p>
+                Manage platform access with lockout protection.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="membership-row">
+              <div class="row-primary">
+                <strong>Account status</strong>
+                <span>
+                  Inactive users cannot authenticate or use the platform.
+                </span>
+              </div>
+
+              <select
+                data-user-active="${data.user.id}"
+                data-original-active="${data.user.is_active}"
+              >
+                <option
+                  value="true"
+                  ${data.user.is_active ? "selected" : ""}
+                >
+                  Active
+                </option>
+
+                <option
+                  value="false"
+                  ${!data.user.is_active ? "selected" : ""}
+                >
+                  Inactive
+                </option>
+              </select>
+
+              <div></div>
+            </div>
+
+            <div class="membership-row">
+              <div class="row-primary">
+                <strong>Platform administrator</strong>
+                <span>
+                  Grants access to the FieldLookers platform control center.
+                </span>
+              </div>
+
+              <select
+                data-user-platform-admin="${data.user.id}"
+                data-original-platform-admin="${data.user.is_platform_admin}"
+              >
+                <option
+                  value="false"
+                  ${!data.user.is_platform_admin
+                    ? "selected"
+                    : ""}
+                >
+                  No
+                </option>
+
+                <option
+                  value="true"
+                  ${data.user.is_platform_admin
+                    ? "selected"
+                    : ""}
+                >
+                  Yes
+                </option>
+              </select>
+
+              <div></div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Client &amp; Workspace Access</h3>
+        <div class="list">
+          ${memberships}
+        </div>
+      `;
+
+      const userDetailPanel =
+        document.getElementById("userDetailPanel");
+
+      userDetailPanel.classList.remove("hidden");
+
+      showView("users");
+
+      userDetailPanel.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      setStatus(
+        "User details loaded.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  function membershipRow(tenantId, membership) {
+    return `
+      <div class="membership-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(membership.display_name)}
+          </strong>
+
+          <span>
+            ${escapeHtml(membership.user_email)}
+          </span>
+        </div>
+
+        <select
+          data-membership-role="${membership.id}"
+          data-tenant-id="${tenantId}"
+          data-original-role="${escapeHtml(membership.role)}"
+        >
+          <option
+            value="member"
+            ${membership.role === "member"
+              ? "selected"
+              : ""}
+          >
+            Member
+          </option>
+
+          <option
+            value="owner"
+            ${membership.role === "owner"
+              ? "selected"
+              : ""}
+          >
+            Owner
+          </option>
+        </select>
+
+        <div class="membership-actions">
+          <button
+            class="btn danger"
+            type="button"
+            data-remove-membership="${membership.id}"
+            data-tenant-id="${tenantId}"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function openProduct(productId) {
+    try {
+      setStatus("Loading product...");
+
+      const data = await apiRequest(
+        `/admin/products/${productId}`
+      );
+
+      state.currentProductId = productId;
+
+      const clientRows = data.clients.length
+        ? data.clients.map(client => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(data.product.name)}
+                  · Client #${client.client_number}
+                </strong>
+
+                <span>
+                  ${escapeHtml(client.name)}
+                  · ${escapeHtml(client.slug)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                ${escapeHtml(client.status)}
+              </div>
+
+              <div class="row-actions">
+                <button
+                  class="btn"
+                  type="button"
+                  data-open-tenant="${client.id}"
+                >
+                  Manage Client
+                </button>
+              </div>
+            </div>
+          `).join("")
+        : '<div class="empty">No clients.</div>';
+
+      const userRows = data.users.length
+        ? data.users.map(user => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(user.display_name)}
+                </strong>
+
+                <span>
+                  ${escapeHtml(user.email)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                Client #${user.client_number}
+                · ${escapeHtml(user.client_name)}
+                · ${escapeHtml(user.role)}
+                · ${user.is_active ? "Active" : "Inactive"}
+              </div>
+
+              <div class="row-actions">
+                <button
+                  class="btn"
+                  type="button"
+                  data-open-user="${user.user_id}"
+                >
+                  View User
+                </button>
+              </div>
+            </div>
+          `).join("")
+        : `
+            <div class="empty">
+              No users have access to this product's clients.
+            </div>
+          `;
+
+      const activeLeadRows = data.active_leads.length
+        ? data.active_leads.map(lead => `
+            <div class="list-row">
+              <div class="row-primary">
+                <strong>
+                  ${escapeHtml(lead.business_name)}
+                </strong>
+
+                <span>
+                  ${escapeHtml(lead.contact_name)}
+                  · ${escapeHtml(lead.email)}
+                </span>
+              </div>
+
+              <div class="row-secondary">
+                Lead #${lead.id}
+                · ${escapeHtml(lead.service_type)}
+                · ${escapeHtml(lead.status)}
+              </div>
+            </div>
+          `).join("")
+        : `
+            <div class="empty">
+              No active leads for this product.
+            </div>
+          `;
+
+      const convertedRows = data.converted_history.length
+        ? data.converted_history.map(lead => {
+            const client = data.clients.find(
+              item =>
+                item.id === lead.converted_tenant_id
+            );
+
+            const validationWorkspace =
+              data.validation_workspaces.find(
+                item =>
+                  item.id === lead.converted_tenant_id
+              );
+
+            const destination = client
+              ? `Client #${client.client_number} · ${
+                  escapeHtml(client.name)
+                }`
+              : validationWorkspace
+                ? `Validation Workspace · ${
+                    escapeHtml(validationWorkspace.name)
+                  }`
+                : "Converted destination unavailable";
+
+            return `
+              <div class="list-row">
+                <div class="row-primary">
+                  <strong>
+                    ${escapeHtml(lead.business_name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(lead.contact_name)}
+                    · ${escapeHtml(lead.email)}
+                  </span>
+                </div>
+
+                <div class="row-secondary">
+                  Lead #${lead.id}
+                  · ${escapeHtml(lead.service_type)}
+                  · ${destination}
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `
+            <div class="empty">
+              No converted records for this product.
+            </div>
+          `;
+
+      const validationRows =
+        data.validation_workspaces.length
+          ? data.validation_workspaces.map(workspace => `
+              <div class="list-row">
+                <div class="row-primary">
+                  <strong>
+                    ${escapeHtml(workspace.name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(workspace.slug)}
+                  </span>
+                </div>
+
+                <div class="row-secondary">
+                  Validation workspace
+                  · ${escapeHtml(workspace.status)}
+                </div>
+
+                <div class="row-actions">
+                  <button
+                    class="btn"
+                    type="button"
+                    data-open-tenant="${workspace.id}"
+                  >
+                    Manage Workspace
+                  </button>
+                </div>
+              </div>
+            `).join("")
+          : `
+              <div class="empty">
+                No validation workspaces.
+              </div>
+            `;
+
+      document.getElementById(
+        "productDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${escapeHtml(data.product.name)}
+            </h2>
+
+            <p>
+              ${escapeHtml(data.product.slug)}
+              · workspace
+              ${escapeHtml(data.product.workspace_key)}
+            </p>
+          </div>
+
+          <span class="badge ${
+            data.product.status === "active"
+              ? "success"
+              : ""
+          }">
+            ${escapeHtml(data.product.status)}
+          </span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>${data.counts.clients}</strong>
+            <span>Clients</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.users}</strong>
+            <span>Users</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.active_leads}</strong>
+            <span>Active Leads</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>${data.counts.converted_records}</strong>
+            <span>Converted Records</span>
+          </div>
+
+          <div class="detail-card">
+            <strong>
+              ${data.counts.validation_workspaces}
+            </strong>
+            <span>Validation Workspaces</span>
+          </div>
+        </div>
+
+        <h3>Clients</h3>
+        <div class="list">
+          ${clientRows}
+        </div>
+
+        <h3>Users</h3>
+        <div class="list">
+          ${userRows}
+        </div>
+
+        <h3>Active Leads</h3>
+        <div class="list">
+          ${activeLeadRows}
+        </div>
+
+        <div class="row-actions">
+          <a
+            class="btn"
+            href="/commercialization"
+          >
+            Manage Product Leads
+          </a>
+        </div>
+
+        <h3>Converted History</h3>
+        <div class="list">
+          ${convertedRows}
+        </div>
+
+        <h3>Validation Workspaces</h3>
+        <div class="list">
+          ${validationRows}
+        </div>
+      `;
+
+      document.getElementById(
+        "productDetailPanel"
+      ).classList.remove("hidden");
+
+      showView("products");
+
+      setStatus(
+        `${data.product.name} management loaded.`,
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function openTenant(tenantId) {
+    const navigationGeneration =
+      ++state.tenantNavigationGeneration;
+
+    state.currentTenantId = null;
+    state.currentAccessKind = null;
+
+    document.getElementById(
+      "tenantDetailPanel"
+    ).classList.add("hidden");
+
+    try {
+      setStatus("Loading client or workspace...");
+
+      const data =
+        await apiRequest(
+          `/admin/tenants/${tenantId}`
+        );
+
+      if (
+        navigationGeneration
+        !== state.tenantNavigationGeneration
+      ) {
+        return;
+      }
+
+      if (
+        state.currentProductId
+        !== data.tenant.product_id
+      ) {
+        await openProduct(
+          data.tenant.product_id
+        );
+
+        if (
+          navigationGeneration
+          !== state.tenantNavigationGeneration
+        ) {
+          return;
+        }
+      }
+
+      const invitationData =
+        data.tenant.client_number
+          ? await apiRequest(
+              `/admin/tenants/${tenantId}/user-invitations`
+            )
+          : {invitations: []};
+
+      if (
+        navigationGeneration
+        !== state.tenantNavigationGeneration
+      ) {
+        return;
+      }
+
+      state.currentTenantId = tenantId;
+      state.currentAccessKind =
+        data.tenant.client_number
+          ? "client"
+          : "workspace";
+
+      const invitationRows =
+        invitationData.invitations.length
+          ? invitationData.invitations.map(
+              invitation => `
+                <div class="row">
+                  <div>
+                    <strong>
+                      ${escapeHtml(invitation.display_name)}
+                    </strong>
+
+                    <div class="row-secondary">
+                      ${escapeHtml(invitation.email)}
+                    </div>
+
+                    <div class="row-secondary">
+                      ${escapeHtml(invitation.role)}
+                      · ${escapeHtml(invitation.status)}
+                      · Expires:
+                      ${escapeHtml(
+                        new Date(
+                          invitation.expires_at
+                        ).toLocaleString()
+                      )}
+                    </div>
+                  </div>
+
+                  <div class="row-actions">
+                    ${
+                      invitation.status === "pending"
+                        ? `
+                          <button
+                            class="btn danger"
+                            type="button"
+                            data-revoke-client-invitation="${
+                              invitation.id
+                            }"
+                            data-tenant-id="${tenantId}"
+                          >
+                            Revoke
+                          </button>
+                        `
+                        : ""
+                    }
+                  </div>
+                </div>
+              `
+            ).join("")
+          : `
+            <div class="empty">
+              No client invitations.
+            </div>
+          `;
+
+      const memberUserIds =
+        new Set(
+          data.memberships.map(
+            membership => membership.user_id
+          )
+        );
+
+      const eligibleUsers =
+        state.overview.users.filter(
+          user => !memberUserIds.has(user.id)
+        );
+
+      const userOptions =
+        eligibleUsers.length
+          ? eligibleUsers.map(user => `
+              <option value="${user.id}">
+                ${escapeHtml(user.display_name)}
+                (${escapeHtml(user.email)})
+              </option>
+            `).join("")
+          : '<option value="">No eligible users</option>';
+
+      const membershipControl =
+        data.tenant.client_number
+          ? `
+            <h3>Invite Client User</h3>
+
+            <p class="row-secondary">
+              Create a secure activation link tied to
+              Client #${data.tenant.client_number}.
+              The link is displayed once and expires after 72 hours.
+            </p>
+
+            <div class="membership-form">
+              <input
+                id="clientInvitationName"
+                type="text"
+                placeholder="Full name"
+                autocomplete="name"
+              >
+
+              <input
+                id="clientInvitationEmail"
+                type="email"
+                placeholder="Email address"
+                autocomplete="email"
+              >
+
+              <select id="clientInvitationRole">
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+
+              <button
+                id="createClientInvitationButton"
+                class="btn primary"
+                type="button"
+              >
+                Create Invitation
+              </button>
+            </div>
+
+            <div
+              id="clientInvitationResult"
+              class="invitation-result hidden"
+            >
+              <strong>Client activation link created</strong>
+
+              <p>
+                Share this link only with the intended client user.
+              </p>
+
+              <div class="invitation-link-row">
+                <input
+                  id="clientInvitationActivationLink"
+                  type="text"
+                  readonly
+                >
+
+                <button
+                  id="copyClientInvitationButton"
+                  class="btn"
+                  type="button"
+                >
+                  Copy Link
+                </button>
+              </div>
+
+              <div
+                id="clientInvitationContext"
+                class="row-secondary"
+              ></div>
+
+              <div
+                id="clientInvitationExpiration"
+                class="row-secondary"
+              ></div>
+            </div>
+
+            <h3>Client Invitations</h3>
+
+            <div
+              id="clientInvitationRows"
+              class="list"
+            >
+              ${invitationRows}
+            </div>
+          `
+          : `
+            <h3>Add Internal Membership</h3>
+
+            <p class="row-secondary">
+              Assign an existing platform or internal user to this
+              validation workspace.
+            </p>
+
+            <div class="membership-form">
+              <select id="newMembershipUser">
+                <option value="">Select user</option>
+                ${userOptions}
+              </select>
+
+              <select id="newMembershipRole">
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+
+              <button
+                id="addMembershipButton"
+                class="btn primary"
+                type="button"
+              >
+                Add Membership
+              </button>
+            </div>
+          `;
+
+      const billing =
+        data.billing_account || {
+          billing_mode: "manual",
+          provider: "manual",
+          status: "pending",
+          currency: "USD",
+        };
+
+      const membershipRows =
+        data.memberships.length
+          ? data.memberships.map(
+              membership =>
+                membershipRow(
+                  tenantId,
+                  membership
+                )
+            ).join("")
+          : '<div class="empty">No memberships.</div>';
+
+      document.getElementById(
+        "tenantDetail"
+      ).innerHTML = `
+        <div class="detail-heading">
+          <div>
+            <h2>
+              ${
+                data.tenant.client_number
+                  ? `${
+                      escapeHtml(
+                        (
+                          state.overview.products.find(
+                            product =>
+                              product.id
+                              === data.tenant.product_id
+                          ) || {name: "Product"}
+                        ).name
+                      )
+                    } · Client #${data.tenant.client_number}`
+                  : escapeHtml(data.tenant.name)
+              }
+            </h2>
+
+            <p>
+              ${
+                data.tenant.client_number
+                  ? `Account: ${escapeHtml(data.tenant.name)}`
+                  : "Validation workspace"
+              }
+              · ${escapeHtml(data.tenant.slug)}
+            </p>
+
+            <div class="admin-tenant-status">
+              <span class="badge">
+                ${
+                  data.tenant.status === "active"
+                    ? "Active"
+                    : "Suspended"
+                }
+              </span>
+
+              ${
+                data.tenant.suspended_at
+                  ? `
+                    <span class="row-secondary">
+                      Suspended:
+                      ${escapeHtml(
+                        new Date(
+                          data.tenant.suspended_at
+                        ).toLocaleString()
+                      )}
+                    </span>
+                  `
+                  : ""
+              }
+            </div>
+          </div>
+
+          <div class="membership-actions">
+            ${
+              data.tenant.status === "active"
+                ? `
+                  <button
+                    class="btn danger"
+                    type="button"
+                    data-suspend-tenant="${data.tenant.id}"
+                  >
+                    ${
+                      data.tenant.client_number
+                        ? "Suspend Client"
+                        : "Suspend Workspace"
+                    }
+                  </button>
+                `
+                : `
+                  <button
+                    class="btn primary"
+                    type="button"
+                    data-reactivate-tenant="${data.tenant.id}"
+                  >
+                    ${
+                      data.tenant.client_number
+                        ? "Reactivate Client"
+                        : "Reactivate Workspace"
+                    }
+                  </button>
+                `
+            }
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>${data.counts.memberships}</strong>
+            <span>Memberships</span>
+          </div>
+        </div>
+
+        <h3>
+          ${
+            data.tenant.client_number
+              ? "Client"
+              : "Workspace"
+          } Timezone
+        </h3>
+
+        <p class="row-secondary">
+          Reminder emails are scheduled for 9:00 AM
+          in this IANA timezone.
+        </p>
+
+        <div class="timezone-form">
+          <input
+            id="tenantTimezoneInput"
+            type="text"
+            list="tenantTimezoneOptions"
+            value="${escapeHtml(
+              data.tenant.timezone_name
+            )}"
+            placeholder="America/New_York"
+            autocomplete="off"
+            spellcheck="false"
+          >
+
+          <datalist id="tenantTimezoneOptions">
+            <option value="UTC"></option>
+            <option value="America/New_York"></option>
+            <option value="America/Chicago"></option>
+            <option value="America/Denver"></option>
+            <option value="America/Phoenix"></option>
+            <option value="America/Los_Angeles"></option>
+            <option value="America/Anchorage"></option>
+            <option value="Pacific/Honolulu"></option>
+          </datalist>
+
+          <button
+            id="saveTenantTimezoneButton"
+            class="btn primary"
+            type="button"
+            data-save-tenant-timezone="${
+              data.tenant.id
+            }"
+          >
+            Save Timezone
+          </button>
+        </div>
+
+        <h3>Platform Billing</h3>
+
+        <p class="row-secondary">
+          Operator-managed billing metadata for this
+          ${
+            data.tenant.client_number
+              ? "client"
+              : "validation workspace"
+          }.
+          Saving this form does not charge the customer
+          or contact a payment provider.
+        </p>
+
+        <div class="billing-form">
+          <label class="billing-field">
+            <span>Billing offer</span>
+            <select id="tenantBillingOfferId">
+              <option value="">
+                Select an active offer
+              </option>
+              ${
+                data.billing_offers
+                  .filter(
+                    offer =>
+                      offer.status === "active"
+                      || offer.id
+                        === billing.billing_offer_id
+                  )
+                  .map(offer => `
+                    <option
+                      value="${offer.id}"
+                      data-currency="${
+                        escapeHtml(offer.currency)
+                      }"
+                      data-charge-type="${
+                        escapeHtml(
+                          offer.charge_type
+                        )
+                      }"
+                      ${
+                        offer.id
+                        === billing.billing_offer_id
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${escapeHtml(offer.name)}
+                      · ${
+                        escapeHtml(
+                          formatBillingOfferPrice(
+                            offer.minimum_amount_cents,
+                            offer.currency
+                          )
+                        )
+                      }
+                      ${
+                        offer.service_period_days
+                          ? `· ${
+                              offer.service_period_days
+                            } days`
+                          : ""
+                      }
+                      ${
+                        offer.status !== "active"
+                          ? `· ${
+                              escapeHtml(offer.status)
+                            }`
+                          : ""
+                      }
+                    </option>
+                  `)
+                  .join("")
+              }
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Billing mode</span>
+            <select id="tenantBillingMode">
+              <option
+                value="manual"
+                ${
+                  billing.billing_mode === "manual"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Manual
+              </option>
+              <option
+                value="subscription"
+                ${
+                  billing.billing_mode
+                    === "subscription"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Subscription
+              </option>
+              <option
+                value="fixed_scope"
+                ${
+                  billing.billing_mode
+                    === "fixed_scope"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Fixed scope
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Billing contact name</span>
+            <input
+              id="tenantBillingContactName"
+              type="text"
+              maxlength="200"
+              value="${escapeHtml(
+                billing.billing_contact_name || ""
+              )}"
+              autocomplete="name"
+            >
+          </label>
+
+          <label class="billing-field">
+            <span>Billing contact email</span>
+            <input
+              id="tenantBillingContactEmail"
+              type="email"
+              maxlength="320"
+              value="${escapeHtml(
+                billing.billing_contact_email || ""
+              )}"
+              autocomplete="email"
+            >
+          </label>
+
+          <label class="billing-field">
+            <span>Provider</span>
+            <select
+              id="tenantBillingProvider"
+              disabled
+            >
+              <option value="manual" selected>
+                Manual
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Billing status</span>
+            <select id="tenantBillingStatus">
+              <option
+                value="pending"
+                ${
+                  billing.status === "pending"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Pending
+              </option>
+              <option
+                value="active"
+                ${
+                  billing.status === "active"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+              <option
+                value="past_due"
+                ${
+                  billing.status === "past_due"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Past due
+              </option>
+              <option
+                value="canceled"
+                ${
+                  billing.status === "canceled"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Canceled
+              </option>
+            </select>
+          </label>
+
+          <label class="billing-field">
+            <span>Currency</span>
+            <input
+              id="tenantBillingCurrency"
+              type="text"
+              maxlength="3"
+              value="${escapeHtml(
+                billing.currency || "USD"
+              )}"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </label>
+
+          <button
+            id="saveTenantBillingButton"
+            class="btn primary"
+            type="button"
+            data-save-tenant-billing="${
+              data.tenant.id
+            }"
+          >
+            Save Billing
+          </button>
+        </div>
+
+        ${membershipControl}
+
+        <h3>Memberships</h3>
+
+        <div id="membershipRows">
+          ${membershipRows}
+        </div>
+      `;
+
+      const tenantDetailPanel =
+        document.getElementById("tenantDetailPanel");
+
+      tenantDetailPanel.classList.remove("hidden");
+
+      const billingOfferSelect =
+        document.getElementById(
+          "tenantBillingOfferId"
+        );
+
+      if (billingOfferSelect) {
+        billingOfferSelect.addEventListener(
+          "change",
+          event => {
+            const selectedOption =
+              event.target.selectedOptions[0];
+
+            if (
+              !selectedOption
+              || !selectedOption.value
+            ) {
+              return;
+            }
+
+            const offerCurrency =
+              selectedOption.dataset.currency;
+
+            const chargeType =
+              selectedOption.dataset.chargeType;
+
+            if (offerCurrency) {
+              document.getElementById(
+                "tenantBillingCurrency"
+              ).value = offerCurrency;
+            }
+
+            const billingModeSelect =
+              document.getElementById(
+                "tenantBillingMode"
+              );
+
+            if (chargeType === "subscription") {
+              billingModeSelect.value =
+                "subscription";
+            } else if (
+              chargeType === "one_time"
+            ) {
+              billingModeSelect.value =
+                "fixed_scope";
+            } else {
+              billingModeSelect.value =
+                "manual";
+            }
+          }
+        );
+      }
+
+      showView("products");
+
+      tenantDetailPanel.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      setStatus(
+        `${currentAccessLabel()} details loaded.`,
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function suspendTenant(tenantId) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
+    if (
+      !window.confirm(
+        `Suspend this ${accessLabelLower}? `
+        + `${accessLabel} access will be blocked `
+        + "until reactivated."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setStatus(
+        `Suspending ${accessLabelLower}...`
+      );
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/suspend`,
+        {
+          method: "POST",
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        `${accessLabel} suspended. Access is now blocked.`,
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function reactivateTenant(tenantId) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
+    if (
+      !window.confirm(
+        `Reactivate this ${accessLabelLower} `
+        + "and restore access?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setStatus(
+        `Reactivating ${accessLabelLower}...`
+      );
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/reactivate`,
+        {
+          method: "POST",
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        `${accessLabel} reactivated. Access restored.`,
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function saveTenantTimezone(
+    tenantId
+  ) {
+    const accessLabel = currentAccessLabel();
+    const accessLabelLower =
+      currentAccessLabelLower();
+
+    const input =
+      document.getElementById(
+        "tenantTimezoneInput"
+      );
+
+    const button =
+      document.getElementById(
+        "saveTenantTimezoneButton"
+      );
+
+    const timezoneName =
+      input ? input.value.trim() : "";
+
+    if (!timezoneName) {
+      setStatus(
+        "Enter an IANA timezone.",
+        "error"
+      );
+      return;
+    }
+
+    const tenant =
+      state.overview.tenants.find(
+        item => item.id === tenantId
+      );
+
+    const product =
+      tenant
+        ? productForTenant(tenant)
+        : null;
+
+    const targetLabel =
+      tenant
+        ? (
+            tenant.client_number !== null
+              ? `${
+                  product
+                    ? product.name
+                    : "Product"
+                } · Client #${
+                  tenant.client_number
+                }`
+              : `${
+                  product
+                    ? product.name
+                    : "Product"
+                } · ${tenant.name}`
+          )
+        : `Workspace #${tenantId}`;
+
+    const confirmed = window.confirm(
+      `Save billing metadata for ${
+        targetLabel
+      }? This does not create a charge.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving...";
+      }
+
+      setStatus(
+        `Updating ${accessLabelLower} timezone...`
+      );
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/timezone`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            timezone_name: timezoneName,
+          }),
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        `${accessLabel} timezone updated.`,
+        "success"
+      );
+
+    } catch (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Timezone";
+      }
+
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function saveTenantBilling(
+    tenantId
+  ) {
+    const button =
+      document.getElementById(
+        "saveTenantBillingButton"
+      );
+
+    const billingOfferSelect =
+      document.getElementById(
+        "tenantBillingOfferId"
+      );
+
+    const billingOfferId = Number(
+      billingOfferSelect.value
+    );
+
+    if (
+      !Number.isInteger(billingOfferId)
+      || billingOfferId <= 0
+    ) {
+      setStatus(
+        "Select an active billing offer.",
+        "error"
+      );
+      return;
+    }
+
+    const billingMode =
+      document.getElementById(
+        "tenantBillingMode"
+      ).value;
+
+    const billingStatus =
+      document.getElementById(
+        "tenantBillingStatus"
+      ).value;
+
+    const currency =
+      document.getElementById(
+        "tenantBillingCurrency"
+      ).value.trim().toUpperCase();
+
+    const billingContactName =
+      document.getElementById(
+        "tenantBillingContactName"
+      ).value.trim();
+
+    const billingContactEmail =
+      document.getElementById(
+        "tenantBillingContactEmail"
+      ).value.trim().toLowerCase();
+
+    if (!billingContactName) {
+      setStatus(
+        "Enter a billing contact name.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !billingContactEmail.includes("@")
+      || billingContactEmail.startsWith("@")
+      || billingContactEmail.endsWith("@")
+    ) {
+      setStatus(
+        "Enter a valid billing contact email.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      currency.length !== 3
+      || !/^[A-Z]{3}$/.test(currency)
+    ) {
+      setStatus(
+        "Enter a three-letter currency code.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving...";
+      }
+
+      setStatus(
+        "Updating platform billing metadata..."
+      );
+
+      await apiRequest(
+        `/admin/tenants/${tenantId}/billing`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            billing_offer_id: billingOfferId,
+            billing_mode: billingMode,
+            provider: "manual",
+            status: billingStatus,
+            currency,
+            billing_contact_name:
+              billingContactName,
+            billing_contact_email:
+              billingContactEmail,
+            provider_customer_id: null,
+            provider_subscription_id: null,
+          }),
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        "Platform billing metadata updated. "
+        + "No charge was created.",
+        "success"
+      );
+
+    } catch (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Billing";
+      }
+
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function createClientInvitation() {
+    const displayName =
+      document.getElementById(
+        "clientInvitationName"
+      ).value.trim();
+
+    const email =
+      document.getElementById(
+        "clientInvitationEmail"
+      ).value.trim();
+
+    const role =
+      document.getElementById(
+        "clientInvitationRole"
+      ).value;
+
+    if (!displayName || !email) {
+      setStatus(
+        "Enter the client user's name and email.",
+        "error"
+      );
+      return;
+    }
+
+    const result =
+      document.getElementById(
+        "clientInvitationResult"
+      );
+
+    result.classList.add("hidden");
+    setStatus("Creating secure client invitation...");
+
+    try {
+      const invitation =
+        await apiRequest(
+          (
+            `/admin/tenants/${state.currentTenantId}`
+            + "/user-invitations"
+          ),
+          {
+            method: "POST",
+            body: JSON.stringify({
+              display_name: displayName,
+              email,
+              role,
+            }),
+          }
+        );
+
+      const activationUrl =
+        `${window.location.origin}${
+          invitation.activation_path
+        }`;
+
+      document.getElementById(
+        "clientInvitationActivationLink"
+      ).value = activationUrl;
+
+      document.getElementById(
+        "clientInvitationContext"
+      ).textContent =
+        `${invitation.product.name} · `
+        + `Client #${invitation.client.client_number} · `
+        + `${invitation.client.name} · `
+        + `${invitation.display_name} · `
+        + `${invitation.role}`;
+
+      document.getElementById(
+        "clientInvitationExpiration"
+      ).textContent =
+        `Expires: ${
+          new Date(
+            invitation.expires_at
+          ).toLocaleString()
+        }`;
+
+      result.classList.remove("hidden");
+
+      document.getElementById(
+        "clientInvitationName"
+      ).value = "";
+
+      document.getElementById(
+        "clientInvitationEmail"
+      ).value = "";
+
+      setStatus(
+        "Secure client invitation created.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function copyClientInvitation() {
+    const input =
+      document.getElementById(
+        "clientInvitationActivationLink"
+      );
+
+    if (!input || !input.value) {
+      setStatus(
+        "No client activation link is available.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        input.value
+      );
+
+      setStatus(
+        "Client activation link copied.",
+        "success"
+      );
+
+    } catch {
+      input.select();
+
+      setStatus(
+        "Copy the selected activation link.",
+        "success"
+      );
+    }
+  }
+
+  async function revokeClientInvitation(
+    tenantId,
+    invitationId
+  ) {
+    if (
+      !window.confirm(
+        "Revoke this pending client invitation?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        (
+          `/admin/tenants/${tenantId}`
+          + `/user-invitations/${invitationId}/revoke`
+        ),
+        {
+          method: "POST",
+        }
+      );
+
+      await openTenant(tenantId);
+
+      setStatus(
+        "Client invitation revoked.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function addMembership() {
+    const userId =
+      document.getElementById(
+        "newMembershipUser"
+      ).value;
+
+    const role =
+      document.getElementById(
+        "newMembershipRole"
+      ).value;
+
+    if (!userId) {
+      setStatus(
+        "Select a user before adding a membership.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/admin/tenants/${state.currentTenantId}/memberships`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: Number(userId),
+            role,
+          }),
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(state.currentTenantId);
+
+      setStatus(
+        "Membership added.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function saveMembership(
+    membershipId,
+    tenantId
+  ) {
+    const select =
+      document.querySelector(
+        `[data-membership-role="${membershipId}"]`
+      );
+
+    if (!select) {
+      setStatus(
+        "Membership control not found.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/admin/memberships/${membershipId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            role: select.value,
+          }),
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        "Membership role updated.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function removeMembership(
+    membershipId,
+    tenantId
+  ) {
+    if (
+      !window.confirm(
+        "Remove this user from the tenant?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `/admin/memberships/${membershipId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      await refreshOverview();
+      await openTenant(tenantId);
+
+      setStatus(
+        "Membership removed.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  document.addEventListener(
+    "click",
+    async event => {
+      const navButton =
+        event.target.closest("[data-view]");
+
+      if (navButton) {
+        const viewName =
+          navButton.dataset.view;
+
+        showView(viewName);
+
+        if (viewName === "billing") {
+          await loadBilling();
+        }
+
+        if (viewName === "activity") {
+          await loadActivity();
+        }
+
+        return;
+      }
+
+      const productButton =
+        event.target.closest("[data-open-product]");
+
+      if (productButton) {
+        await openProduct(
+          Number(productButton.dataset.openProduct)
+        );
+        return;
+      }
+
+      const tenantButton =
+        event.target.closest("[data-open-tenant]");
+
+      if (tenantButton) {
+        await openTenant(
+          Number(tenantButton.dataset.openTenant)
+        );
+        return;
+      }
+
+      const userButton =
+        event.target.closest("[data-open-user]");
+
+      if (userButton) {
+        await openUser(
+          Number(userButton.dataset.openUser)
+        );
+        return;
+      }
+
+      const editBillingOfferButton =
+        event.target.closest(
+          "[data-edit-billing-offer]"
+        );
+
+      if (editBillingOfferButton) {
+        editBillingOffer(
+          Number(
+            editBillingOfferButton.dataset
+              .editBillingOffer
+          )
+        );
+        return;
+      }
+
+      const cancelBillingOfferEditButton =
+        event.target.closest(
+          "#cancelBillingOfferEditButton"
+        );
+
+      if (cancelBillingOfferEditButton) {
+        resetBillingOfferForm();
+
+        setStatus(
+          "Billing offer edit canceled.",
+          "success"
+        );
+        return;
+      }
+
+      const refreshBillingButton =
+        event.target.closest(
+          "#refreshBillingButton"
+        );
+
+      if (refreshBillingButton) {
+        await loadBilling();
+        return;
+      }
+
+      const refreshActivityButton =
+        event.target.closest(
+          "#refreshActivityButton"
+        );
+
+      if (refreshActivityButton) {
+        await loadActivity();
+        return;
+      }
+
+      const suspendTenantButton =
+        event.target.closest(
+          "[data-suspend-tenant]"
+        );
+
+      if (suspendTenantButton) {
+        await suspendTenant(
+          Number(
+            suspendTenantButton.dataset.suspendTenant
+          )
+        );
+        return;
+      }
+
+      const reactivateTenantButton =
+        event.target.closest(
+          "[data-reactivate-tenant]"
+        );
+
+      if (reactivateTenantButton) {
+        await reactivateTenant(
+          Number(
+            reactivateTenantButton.dataset.reactivateTenant
+          )
+        );
+        return;
+      }
+
+      const saveTimezoneButton =
+        event.target.closest(
+          "[data-save-tenant-timezone]"
+        );
+
+      if (saveTimezoneButton) {
+        await saveTenantTimezone(
+          Number(
+            saveTimezoneButton.dataset
+              .saveTenantTimezone
+          )
+        );
+        return;
+      }
+
+      const saveBillingButton =
+        event.target.closest(
+          "[data-save-tenant-billing]"
+        );
+
+      if (saveBillingButton) {
+        await saveTenantBilling(
+          Number(
+            saveBillingButton.dataset
+              .saveTenantBilling
+          )
+        );
+        return;
+      }
+
+      const clientInvitationButton =
+        event.target.closest(
+          "#createClientInvitationButton"
+        );
+
+      if (clientInvitationButton) {
+        await createClientInvitation();
+        return;
+      }
+
+      const copyClientInvitationButton =
+        event.target.closest(
+          "#copyClientInvitationButton"
+        );
+
+      if (copyClientInvitationButton) {
+        await copyClientInvitation();
+        return;
+      }
+
+      const revokeClientInvitationButton =
+        event.target.closest(
+          "[data-revoke-client-invitation]"
+        );
+
+      if (revokeClientInvitationButton) {
+        await revokeClientInvitation(
+          Number(
+            revokeClientInvitationButton.dataset.tenantId
+          ),
+          Number(
+            revokeClientInvitationButton.dataset
+              .revokeClientInvitation
+          )
+        );
+        return;
+      }
+
+      const addButton =
+        event.target.closest("#addMembershipButton");
+
+      if (addButton) {
+        await addMembership();
+        return;
+      }
+
+      const removeButton =
+        event.target.closest(
+          "[data-remove-membership]"
+        );
+
+      if (removeButton) {
+        await removeMembership(
+          Number(removeButton.dataset.removeMembership),
+          Number(removeButton.dataset.tenantId)
+        );
+      }
+    }
+  );
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const activeSelect = event.target.closest(
+        "[data-user-active]"
+      );
+
+      if (!activeSelect) {
+        return;
+      }
+
+      const userId = Number(
+        activeSelect.dataset.userActive
+      );
+
+      const previousValue =
+        activeSelect.dataset.originalActive;
+
+      const nextValue =
+        activeSelect.value === "true";
+
+      if (
+        !nextValue
+        && !window.confirm(
+          "Deactivate this user? They will no longer be able to sign in."
+        )
+      ) {
+        activeSelect.value = previousValue;
+        return;
+      }
+
+      setStatus("Updating user status...");
+
+      try {
+        await apiRequest(
+          `/admin/users/${userId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              is_active: nextValue,
+            }),
+          }
+        );
+
+        await refreshOverview();
+        await openUser(userId);
+
+        setStatus(
+          "User status updated.",
+          "success"
+        );
+
+      } catch (error) {
+        activeSelect.value = previousValue;
+
+        setStatus(
+          error.message,
+          "error"
+        );
+      }
+    }
+  );
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const adminSelect = event.target.closest(
+        "[data-user-platform-admin]"
+      );
+
+      if (!adminSelect) {
+        return;
+      }
+
+      const userId = Number(
+        adminSelect.dataset.userPlatformAdmin
+      );
+
+      const previousValue =
+        adminSelect.dataset.originalPlatformAdmin;
+
+      const nextValue =
+        adminSelect.value === "true";
+
+      if (
+        !nextValue
+        && !window.confirm(
+          "Revoke this user's platform administrator access?"
+        )
+      ) {
+        adminSelect.value = previousValue;
+        return;
+      }
+
+      if (
+        nextValue
+        && !window.confirm(
+          "Grant this user platform administrator access?"
+        )
+      ) {
+        adminSelect.value = previousValue;
+        return;
+      }
+
+      setStatus("Updating platform access...");
+
+      try {
+        await apiRequest(
+          `/admin/users/${userId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              is_platform_admin: nextValue,
+            }),
+          }
+        );
+
+        await refreshOverview();
+        await openUser(userId);
+
+        setStatus(
+          "Platform access updated.",
+          "success"
+        );
+
+      } catch (error) {
+        adminSelect.value = previousValue;
+
+        setStatus(
+          error.message,
+          "error"
+        );
+      }
+    }
+  );
+
+  document.addEventListener(
+    "change",
+    async event => {
+      const select = event.target.closest(
+        "[data-membership-role]"
+      );
+
+      if (!select) {
+        return;
+      }
+
+      const membershipId = Number(
+        select.dataset.membershipRole
+      );
+
+      const tenantId = Number(
+        select.dataset.tenantId
+      );
+
+      const previousRole =
+        select.dataset.originalRole;
+
+      setStatus("Updating membership role...");
+
+      try {
+        await apiRequest(
+          `/admin/memberships/${membershipId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              role: select.value,
+            }),
+          }
+        );
+
+        select.dataset.originalRole =
+          select.value;
+
+        await refreshOverview();
+        await openTenant(tenantId);
+
+        setStatus(
+          "Membership role updated.",
+          "success"
+        );
+
+      } catch (error) {
+        select.value = previousRole;
+
+        setStatus(
+          error.message,
+          "error"
+        );
+      }
+    }
+  );
+
+  document.getElementById(
+    "tenantSearch"
+  ).addEventListener(
+    "input",
+    renderTenantDirectory
+  );
+
+  document.getElementById(
+    "userSearch"
+  ).addEventListener(
+    "input",
+    renderUserDirectory
+  );
+
+  async function loadInvitationLeadOptions() {
+    const select =
+      document.getElementById(
+        "invitationLeadId"
+      );
+
+    const leads = await apiRequest("/leads/");
+
+    const qualifiedLeads = leads.filter(
+      lead =>
+        lead.status === "qualified"
+        && !lead.converted_tenant_id
+    );
+
+    if (qualifiedLeads.length === 0) {
+      select.innerHTML = `
+        <option value="">
+          No qualified, unprovisioned leads
+        </option>
+      `;
+      select.disabled = true;
+      return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = `
+      <option value="">
+        Select a qualified lead
+      </option>
+      ${
+        qualifiedLeads.map(lead => `
+          <option value="${lead.id}">
+            ${escapeHtml(lead.product_name)}
+            · ${escapeHtml(lead.business_name)}
+            · ${escapeHtml(lead.contact_name)}
+          </option>
+        `).join("")
+      }
+    `;
+  }
+
+  async function createUserInvitation(event) {
+    event.preventDefault();
+
+    const leadId = Number(
+      document.getElementById(
+        "invitationLeadId"
+      ).value
+    );
+
+    if (
+      !Number.isInteger(leadId)
+      || leadId <= 0
+    ) {
+      setStatus(
+        "Select a qualified lead.",
+        "error"
+      );
+      return;
+    }
+
+    const result =
+      document.getElementById(
+        "invitationResult"
+      );
+
+    result.classList.add("hidden");
+    setStatus("Creating secure invitation...");
+
+    try {
+      const invitation =
+        await apiRequest(
+          "/admin/user-invitations",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              lead_id: leadId,
+            }),
+          }
+        );
+
+      const activationUrl =
+        `${window.location.origin}${
+          invitation.activation_path
+        }`;
+
+      document.getElementById(
+        "invitationActivationLink"
+      ).value = activationUrl;
+
+      document.getElementById(
+        "invitationProductContext"
+      ).textContent =
+        `Product: ${invitation.product.name} `
+        + `(${invitation.product.slug}) · `
+        + `Lead #${invitation.lead.id} · `
+        + `${invitation.lead.business_name}`;
+
+      document.getElementById(
+        "invitationExpiration"
+      ).textContent =
+        `Expires: ${
+          new Date(
+            invitation.expires_at
+          ).toLocaleString()
+        }`;
+
+      result.classList.remove("hidden");
+
+      document.getElementById(
+        "invitationLeadId"
+      ).value = "";
+
+      setStatus(
+        "Lead-linked invitation created. "
+        + "Share the activation link securely.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(
+        error.message,
+        "error"
+      );
+    }
+  }
+
+  async function copyInvitationLink() {
+    const input =
+      document.getElementById(
+        "invitationActivationLink"
+      );
+
+    try {
+      await navigator.clipboard.writeText(
+        input.value
+      );
+
+      setStatus(
+        "Activation link copied.",
+        "success"
+      );
+
+    } catch {
+      input.focus();
+      input.select();
+
+      setStatus(
+        "Copy was blocked. The activation link is selected.",
+        "error"
+      );
+    }
+  }
+
+  document.getElementById(
+    "inviteUserForm"
+  ).addEventListener(
+    "submit",
+    createUserInvitation
+  );
+
+  document.getElementById(
+    "copyInvitationLinkButton"
+  ).addEventListener(
+    "click",
+    copyInvitationLink
+  );
+
+  function auditActionLabel(action) {
+    const labels = {
+      "membership.created":
+        "Membership added",
+      "membership.role_changed":
+        "Membership role changed",
+      "membership.removed":
+        "Membership removed",
+      "user.activated":
+        "User activated",
+      "user.deactivated":
+        "User deactivated",
+      "user.platform_admin_granted":
+        "Platform admin granted",
+      "user.platform_admin_revoked":
+        "Platform admin revoked",
+      "user.invitation_created":
+        "User invitation created",
+    };
+
+    return labels[action] || action;
+  }
+
+  function auditDetails(event) {
+    if (
+      event.before_data
+      && event.after_data
+    ) {
+      return `
+        ${escapeHtml(
+          JSON.stringify(event.before_data)
+        )}
+        →
+        ${escapeHtml(
+          JSON.stringify(event.after_data)
+        )}
+      `;
+    }
+
+    if (event.after_data) {
+      return escapeHtml(
+        JSON.stringify(event.after_data)
+      );
+    }
+
+    if (event.before_data) {
+      return escapeHtml(
+        JSON.stringify(event.before_data)
+      );
+    }
+
+    return "No additional details";
+  }
+
+  function renderActivity(data) {
+    document.getElementById(
+      "auditCount"
+    ).textContent = data.count;
+
+    const list =
+      document.getElementById("activityList");
+
+    if (!data.events.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No administrative activity recorded yet.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = data.events.map(event => `
+      <div class="list-row">
+        <div class="row-primary">
+          <strong>
+            ${escapeHtml(
+              auditActionLabel(event.action)
+            )}
+          </strong>
+
+          <span>
+            By
+            ${escapeHtml(
+              event.operator_display_name
+            )}
+            (${escapeHtml(event.operator_email)})
+          </span>
+        </div>
+
+        <div class="row-secondary">
+          <div>
+            ${escapeHtml(event.target_type)}
+            #${event.target_id}
+            ${
+              event.tenant_id
+                ? ` · Tenant #${event.tenant_id}`
+                : ""
+            }
+          </div>
+
+          <div class="admin-audit-details">
+            ${auditDetails(event)}
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <span class="badge">
+            ${escapeHtml(
+              new Date(
+                event.created_at
+              ).toLocaleString()
+            )}
+          </span>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function billingStatusBadge(
+    account
+  ) {
+    if (!account) {
+      return '<span class="badge">Unconfigured</span>';
+    }
+
+    const label = {
+      pending: "Pending",
+      active: "Active",
+      past_due: "Past due",
+      canceled: "Canceled",
+    }[account.status] || account.status;
+
+    return `
+      <span class="badge ${
+        account.status === "active"
+          ? "success"
+          : ""
+      }">
+        ${escapeHtml(label)}
+      </span>
+    `;
+  }
+
+  function renderBillingDirectory(
+    data
+  ) {
+    document.getElementById(
+      "billingTenantCount"
+    ).textContent = data.counts.tenants;
+
+    document.getElementById(
+      "billingClientCount"
+    ).textContent = data.counts.clients;
+
+    document.getElementById(
+      "billingConfiguredCount"
+    ).textContent = data.counts.configured;
+
+    document.getElementById(
+      "billingUnconfiguredCount"
+    ).textContent = data.counts.unconfigured;
+
+    document.getElementById(
+      "billingActiveCount"
+    ).textContent = data.counts.active;
+
+    document.getElementById(
+      "billingPastDueCount"
+    ).textContent = data.counts.past_due;
+
+    const list =
+      document.getElementById(
+        "billingAccountList"
+      );
+
+    if (!data.accounts.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No platform workspaces found.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML =
+      data.accounts.map(row => {
+        const account =
+          row.billing_account;
+
+        const accessLabel =
+          row.access_kind === "client"
+            ? (
+                row.tenant.client_number
+                  ? `Client #${
+                      row.tenant.client_number
+                    }`
+                  : "Client"
+              )
+            : "Validation workspace";
+
+        const billingSummary =
+          row.access_kind !== "client"
+            ? "Internal validation environment"
+            : (
+                account
+                  ? `
+                    ${escapeHtml(
+                      account.billing_mode
+                    )}
+                    · ${escapeHtml(
+                      account.provider
+                    )}
+                    · ${escapeHtml(
+                      account.currency
+                    )}
+                  `
+                  : "Billing setup required"
+              );
+
+        return `
+          <div class="list-row">
+            <div class="row-primary">
+              <strong>
+                ${escapeHtml(row.product.name)}
+                · ${
+                  row.access_kind === "client"
+                    ? `Client #${
+                        row.tenant.client_number
+                      }`
+                    : escapeHtml(
+                        row.tenant.name
+                      )
+                }
+              </strong>
+
+              <span>
+                ${
+                  row.access_kind === "client"
+                    ? `Account: ${
+                        escapeHtml(
+                          row.tenant.name
+                        )
+                      }`
+                    : "Validation workspace"
+                }
+                · ${escapeHtml(row.tenant.slug)}
+              </span>
+            </div>
+
+            <div class="row-secondary">
+              ${
+                row.access_kind === "client"
+                  ? billingStatusBadge(account)
+                  : (
+                      '<span class="badge">'
+                      + 'Not Billable</span>'
+                    )
+              }
+              <div>
+                ${billingSummary}
+              </div>
+            </div>
+
+            <div class="row-actions">
+              ${
+                row.access_kind === "client"
+                  ? `
+                    <button
+                      class="btn"
+                      type="button"
+                      data-open-tenant="${
+                        row.tenant.id
+                      }"
+                    >
+                      ${
+                        account
+                          ? "Manage Billing"
+                          : "Configure Billing"
+                      }
+                    </button>
+                  `
+                  : `
+                    <span class="row-secondary">
+                      Billing disabled
+                    </span>
+                  `
+              }
+            </div>
+          </div>
+        `;
+      }).join("");
+  }
+
+  function formatBillingOfferPrice(
+    amountCents,
+    currency
+  ) {
+    return new Intl.NumberFormat(
+      "en-US",
+      {
+        style: "currency",
+        currency,
+      }
+    ).format(amountCents / 100);
+  }
+
+  function renderBillingOfferCatalog(
+    data
+  ) {
+    document.getElementById(
+      "billingOfferCount"
+    ).textContent = data.counts.offers;
+
+    document.getElementById(
+      "billingOfferDraftCount"
+    ).textContent = data.counts.draft;
+
+    document.getElementById(
+      "billingOfferActiveCount"
+    ).textContent = data.counts.active;
+
+    document.getElementById(
+      "billingOfferArchivedCount"
+    ).textContent = data.counts.archived;
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    const selectedProduct =
+      productSelect.value;
+
+    productSelect.innerHTML = `
+      <option value="">
+        Select a product
+      </option>
+      ${state.overview.products.map(
+        product => `
+          <option value="${product.id}">
+            ${escapeHtml(product.name)}
+          </option>
+        `
+      ).join("")}
+    `;
+
+    if (
+      selectedProduct
+      && state.overview.products.some(
+        product =>
+          String(product.id)
+          === selectedProduct
+      )
+    ) {
+      productSelect.value =
+        selectedProduct;
+    }
+
+    const list =
+      document.getElementById(
+        "billingOfferList"
+      );
+
+    if (!data.offers.length) {
+      list.innerHTML = `
+        <div class="empty">
+          No billing offers configured.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML =
+      data.offers.map(offer => {
+        const minimum =
+          formatBillingOfferPrice(
+            offer.minimum_amount_cents,
+            offer.currency
+          );
+
+        const maximum =
+          formatBillingOfferPrice(
+            offer.maximum_amount_cents,
+            offer.currency
+          );
+
+        const price =
+          offer.minimum_amount_cents
+          === offer.maximum_amount_cents
+            ? minimum
+            : `${minimum}–${maximum}`;
+
+        const chargeLabel = {
+          one_time: "One time",
+          subscription: "Subscription",
+          custom_quote: "Custom quote",
+        }[offer.charge_type]
+          || offer.charge_type;
+
+        const statusLabel = {
+          draft: "Draft",
+          active: "Active",
+          archived: "Archived",
+        }[offer.status] || offer.status;
+
+        const detailParts = [
+          chargeLabel,
+          price,
+        ];
+
+        if (offer.billing_interval) {
+          detailParts.push(
+            offer.billing_interval
+            === "month"
+              ? "Monthly"
+              : "Annual"
+          );
+        }
+
+        if (offer.service_period_days) {
+          detailParts.push(
+            `${offer.service_period_days} days`
+          );
+        }
+
+        return `
+          <div class="list-row">
+            <div class="row-primary">
+              <strong>
+                ${escapeHtml(
+                  offer.product.name
+                )}
+                · ${escapeHtml(offer.name)}
+              </strong>
+
+              <span>
+                ${escapeHtml(offer.code)}
+              </span>
+            </div>
+
+            <div class="row-secondary">
+              <span class="badge ${
+                offer.status === "active"
+                  ? "success"
+                  : ""
+              }">
+                ${escapeHtml(statusLabel)}
+              </span>
+
+              <div>
+                ${detailParts.map(
+                  escapeHtml
+                ).join(" · ")}
+              </div>
+            </div>
+
+            <div class="row-actions">
+              <button
+                class="btn"
+                type="button"
+                data-edit-billing-offer="${
+                  offer.id
+                }"
+              >
+                Manage Offer
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+  }
+
+  function resetBillingOfferForm() {
+    const form =
+      document.getElementById(
+        "billingOfferForm"
+      );
+
+    form.reset();
+
+    document.getElementById(
+      "billingOfferCurrency"
+    ).value = "USD";
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    productSelect.disabled = false;
+
+    document.getElementById(
+      "saveBillingOfferButton"
+    ).textContent = "Create Offer";
+
+    document.getElementById(
+      "cancelBillingOfferEditButton"
+    ).classList.add("hidden");
+
+    state.currentBillingOfferId = null;
+  }
+
+  function editBillingOffer(
+    offerId
+  ) {
+    const offer =
+      state.billingOffers.offers.find(
+        item => item.id === offerId
+      );
+
+    if (!offer) {
+      setStatus(
+        "Billing offer not found.",
+        "error"
+      );
+      return;
+    }
+
+    state.currentBillingOfferId =
+      offer.id;
+
+    const productSelect =
+      document.getElementById(
+        "billingOfferProductId"
+      );
+
+    productSelect.value =
+      String(offer.product_id);
+
+    productSelect.disabled = true;
+
+    document.getElementById(
+      "billingOfferCode"
+    ).value = offer.code;
+
+    document.getElementById(
+      "billingOfferName"
+    ).value = offer.name;
+
+    document.getElementById(
+      "billingOfferDescription"
+    ).value = offer.description || "";
+
+    document.getElementById(
+      "billingOfferStatus"
+    ).value = offer.status;
+
+    document.getElementById(
+      "billingOfferChargeType"
+    ).value = offer.charge_type;
+
+    document.getElementById(
+      "billingOfferCurrency"
+    ).value = offer.currency;
+
+    document.getElementById(
+      "billingOfferMinimumAmount"
+    ).value = (
+      offer.minimum_amount_cents / 100
+    ).toFixed(2);
+
+    document.getElementById(
+      "billingOfferMaximumAmount"
+    ).value = (
+      offer.maximum_amount_cents / 100
+    ).toFixed(2);
+
+    document.getElementById(
+      "billingOfferInterval"
+    ).value =
+      offer.billing_interval || "";
+
+    document.getElementById(
+      "billingOfferServicePeriod"
+    ).value =
+      offer.service_period_days || "";
+
+    document.getElementById(
+      "saveBillingOfferButton"
+    ).textContent = "Save Offer";
+
+    document.getElementById(
+      "cancelBillingOfferEditButton"
+    ).classList.remove("hidden");
+
+    document.getElementById(
+      "billingOfferForm"
+    ).scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  async function saveBillingOffer(
+    event
+  ) {
+    event.preventDefault();
+
+    const productId = Number(
+      document.getElementById(
+        "billingOfferProductId"
+      ).value
+    );
+
+    const product =
+      state.overview.products.find(
+        item => item.id === productId
+      );
+
+    const chargeType =
+      document.getElementById(
+        "billingOfferChargeType"
+      ).value;
+
+    const interval =
+      document.getElementById(
+        "billingOfferInterval"
+      ).value || null;
+
+    const minimumAmount = Number(
+      document.getElementById(
+        "billingOfferMinimumAmount"
+      ).value
+    );
+
+    const maximumAmount = Number(
+      document.getElementById(
+        "billingOfferMaximumAmount"
+      ).value
+    );
+
+    const servicePeriodValue =
+      document.getElementById(
+        "billingOfferServicePeriod"
+      ).value.trim();
+
+    if (!product) {
+      setStatus(
+        "Select a product.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(minimumAmount)
+      || !Number.isFinite(maximumAmount)
+      || minimumAmount < 0
+      || maximumAmount < minimumAmount
+    ) {
+      setStatus(
+        "Enter a valid minimum and maximum price.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      chargeType === "subscription"
+      && !interval
+    ) {
+      setStatus(
+        "Subscription offers require "
+        + "a billing interval.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      chargeType !== "subscription"
+      && interval
+    ) {
+      setStatus(
+        "Only subscription offers can "
+        + "have a billing interval.",
+        "error"
+      );
+      return;
+    }
+
+    const payload = {
+      product_id: productId,
+      code: document.getElementById(
+        "billingOfferCode"
+      ).value.trim(),
+      name: document.getElementById(
+        "billingOfferName"
+      ).value.trim(),
+      description:
+        document.getElementById(
+          "billingOfferDescription"
+        ).value.trim() || null,
+      status:
+        document.getElementById(
+          "billingOfferStatus"
+        ).value,
+      charge_type: chargeType,
+      currency:
+        document.getElementById(
+          "billingOfferCurrency"
+        ).value.trim().toUpperCase(),
+      minimum_amount_cents:
+        Math.round(minimumAmount * 100),
+      maximum_amount_cents:
+        Math.round(maximumAmount * 100),
+      billing_interval: interval,
+      service_period_days:
+        servicePeriodValue
+          ? Number(servicePeriodValue)
+          : null,
+    };
+
+    const action =
+      state.currentBillingOfferId
+        ? "update"
+        : "create";
+
+    const confirmed = window.confirm(
+      `${
+        action === "create"
+          ? "Create"
+          : "Update"
+      } ${product.name} offer "${
+        payload.name
+      }"? This changes catalog metadata only `
+      + "and does not charge a client."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const button =
+      document.getElementById(
+        "saveBillingOfferButton"
+      );
+
+    try {
+      button.disabled = true;
+      button.textContent = "Saving...";
+
+      const endpoint =
+        state.currentBillingOfferId
+          ? (
+              "/admin/billing/offers/"
+              + state.currentBillingOfferId
+            )
+          : "/admin/billing/offers";
+
+      await apiRequest(
+        endpoint,
+        {
+          method:
+            state.currentBillingOfferId
+              ? "PUT"
+              : "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+
+      resetBillingOfferForm();
+      await loadBilling();
+
+      setStatus(
+        "Billing offer saved. "
+        + "No charge was created.",
+        "success"
+      );
+
+    } catch (error) {
+      button.disabled = false;
+      button.textContent =
+        state.currentBillingOfferId
+          ? "Save Offer"
+          : "Create Offer";
+
+      setStatus(error.message, "error");
+    }
+  }
+
+  document.getElementById(
+    "billingOfferForm"
+  ).addEventListener(
+    "submit",
+    saveBillingOffer
+  );
+
+  async function loadBilling() {
+    try {
+      setStatus(
+        "Loading centralized billing..."
+      );
+
+      const [
+        billing,
+        billingOffers,
+      ] = await Promise.all([
+        apiRequest("/admin/billing"),
+        apiRequest("/admin/billing/offers"),
+      ]);
+
+      state.billing = billing;
+      state.billingOffers =
+        billingOffers;
+
+      renderBillingDirectory(
+        state.billing
+      );
+
+      renderBillingOfferCatalog(
+        state.billingOffers
+      );
+
+      setStatus(
+        "Billing Platform loaded. "
+        + "No payment provider is active.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  async function loadActivity() {
+    try {
+      setStatus("Loading administrative activity...");
+
+      const data =
+        await apiRequest("/admin/audit-log");
+
+      renderActivity(data);
+
+      setStatus(
+        "Administrative activity loaded.",
+        "success"
+      );
+
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  }
+
+  const adminAuth =
+    document.getElementById("adminAuth");
+
+  const adminShell =
+    document.getElementById("adminShell");
+
+  const adminLoginForm =
+    document.getElementById("adminLoginForm");
+
+  const adminLoginEmail =
+    document.getElementById("adminLoginEmail");
+
+  const adminLoginPassword =
+    document.getElementById("adminLoginPassword");
+
+  const adminLoginError =
+    document.getElementById("adminLoginError");
+
+  const adminLogoutButton =
+    document.getElementById("adminLogoutButton");
+
+  function showAdminLogin(message = "") {
+    adminShell.classList.add("hidden");
+    adminAuth.classList.remove("hidden");
+
+    adminLoginError.textContent = message;
+    adminLoginError.classList.toggle(
+      "visible",
+      Boolean(message)
+    );
+  }
+
+  function showAdminShell() {
+    adminAuth.classList.add("hidden");
+    adminShell.classList.remove("hidden");
+
+    adminLoginError.textContent = "";
+    adminLoginError.classList.remove("visible");
+  }
+
+  adminLoginForm.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      adminLoginError.textContent = "";
+      adminLoginError.classList.remove("visible");
+
+      try {
+        await apiRequest("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email: adminLoginEmail.value,
+            password: adminLoginPassword.value,
+          }),
+        });
+
+        adminLoginPassword.value = "";
+
+        await initializeAdmin();
+
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const returnTo =
+          params.get("return");
+
+        if (
+          returnTo
+          && returnTo.startsWith("/")
+          && !returnTo.startsWith("//")
+        ) {
+          window.location.href = returnTo;
+        }
+
+      } catch (error) {
+        showAdminLogin(error.message);
+      }
+    }
+  );
+
+  adminLogoutButton.addEventListener(
+    "click",
+    async () => {
+      try {
+        await apiRequest("/auth/logout", {
+          method: "POST",
+        });
+      } catch {
+        // Complete local sign-out even if request fails.
+      }
+
+      state.overview = null;
+      state.billing = null;
+      state.billingOffers = null;
+      state.currentBillingOfferId = null;
+      state.currentProductId = null;
+      state.currentTenantId = null;
+      state.currentUserId = null;
+
+      showAdminLogin("Signed out.");
+    }
+  );
+
+  async function initializeAdmin() {
+    try {
+      await Promise.all([
+        refreshOverview(),
+        loadInvitationLeadOptions(),
+      ]);
+
+      showAdminShell();
+
+      document.getElementById(
+        "operatorLabel"
+      ).textContent =
+        "Platform administrator";
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const linkedTenantId =
+        Number(params.get("tenant"));
+
+      if (
+        Number.isInteger(linkedTenantId)
+        && linkedTenantId > 0
+      ) {
+        await openTenant(linkedTenantId);
+      } else {
+        setStatus(
+          "Platform administrator access verified.",
+          "success"
+        );
+      }
+
+    } catch (error) {
+      document.getElementById(
+        "operatorLabel"
+      ).textContent =
+        "Access unavailable";
+
+      showAdminLogin(
+        error.message.includes("Session expired")
+          ? ""
+          : error.message
+      );
+    }
+  }
+
+  initializeAdmin();
