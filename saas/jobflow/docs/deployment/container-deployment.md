@@ -149,6 +149,33 @@ JWT authentication was successfully performed through the public HTTPS hostname.
 
 Tenant-scoped API access was then verified using a bearer token and the `X-Tenant-ID` header.
 
+### Browser login contract — issue #18
+
+The updated browser login endpoint returns only
+`{"status": "signed_in"}`. It does not return an access token or token type
+in its JSON response.
+
+Authentication uses the `jobflow_access_token` cookie with Secure, HttpOnly,
+SameSite=Strict, Path=/, and a 30-minute lifetime. Logout deletes that cookie.
+Browser requests use cookies; tenant selection stored in localStorage is
+not an authentication credential.
+
+Backend bearer-token support remains available for existing internal callers
+and tests. The bearer verification above records historical deployment
+evidence, not instructions to retrieve a token from browser login.
+
+The release smoke-session helper uses a cookie jar and does not depend on
+the login response body.
+
+Verification on 2026-08-27:
+- 50 focused authentication, security, password-reset, and invitation tests passed.
+- Full backend suite: 556 tests passed.
+- Migration drift check: no new upgrade operations detected.
+- Git whitespace checks passed.
+
+Exact-commit CI and production verification of this change remain pending.
+
+
 The public API successfully returned existing PostgreSQL-backed customer records.
 
 ## Validated Request Path

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select
@@ -35,8 +37,7 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    status: Literal["signed_in"] = "signed_in"
 
 
 @router.post(
@@ -81,9 +82,7 @@ def login(
         path="/",
     )
 
-    return LoginResponse(
-        access_token=token,
-    )
+    return LoginResponse()
 
 
 

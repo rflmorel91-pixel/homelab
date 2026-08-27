@@ -31,7 +31,7 @@ def create_login_user(
     return user
 
 
-def test_login_returns_access_token(raw_client, db_session):
+def test_login_returns_status_without_token(raw_client, db_session):
     user = create_login_user(db_session)
 
     response = raw_client.post(
@@ -46,8 +46,10 @@ def test_login_returns_access_token(raw_client, db_session):
 
     body = response.json()
 
-    assert body["token_type"] == "bearer"
-    assert decode_access_token(body["access_token"]) == user.id
+    assert body == {"status": "signed_in"}
+    token = response.cookies["jobflow_access_token"]
+    assert decode_access_token(token) == user.id
+    assert token not in response.text
 
 
 def test_login_normalizes_email(
@@ -69,7 +71,7 @@ def test_login_normalizes_email(
 
     assert response.status_code == 200
     assert decode_access_token(
-        response.json()["access_token"]
+        response.cookies["jobflow_access_token"]
     ) == user.id
 
 
@@ -120,7 +122,7 @@ def test_login_rejects_inactive_user(raw_client, db_session):
     assert response.json()["detail"] == "Invalid email or password"
 
 
-def test_login_token_accesses_protected_tenant_resource(
+def test_cookie_login_logout_protected_resource_cycle(
     raw_client,
     db_session,
 ):
@@ -160,18 +162,26 @@ def test_login_token_accesses_protected_tenant_resource(
 
     assert login_response.status_code == 200
 
-    token = login_response.json()["access_token"]
+    assert login_response.json() == {"status": "signed_in"}
+    assert "Authorization" not in raw_client.headers
 
     response = raw_client.get(
         "/api/v1/customers/",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "X-Tenant-ID": str(tenant.id),
-        },
+        headers={"X-Tenant-ID": str(tenant.id)},
     )
-
     assert response.status_code == 200
     assert response.json() == []
+
+    logout_response = raw_client.post("/api/v1/auth/logout")
+    assert logout_response.status_code == 200
+    assert "jobflow_access_token" not in raw_client.cookies
+
+    denied = raw_client.get(
+        "/api/v1/customers/",
+        headers={"X-Tenant-ID": str(tenant.id)},
+    )
+    assert denied.status_code == 401
+    assert denied.json() == {"detail": "Authentication required"}
 
 
 def test_expired_access_token_returns_401(raw_client, db_session):
@@ -315,6 +325,10 @@ def test_logout_clears_authentication_cookie(raw_client, db_session):
 
     assert "jobflow_access_token=" in set_cookie
     assert "Max-Age=0" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Secure" in set_cookie
+    assert "SameSite=strict" in set_cookie
+    assert "Path=/" in set_cookie
 
 
 def test_authenticated_user_discovers_product_client_access(
