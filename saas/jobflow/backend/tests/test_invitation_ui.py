@@ -88,7 +88,7 @@ def test_renewaldesk_discovers_client_access():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert (
         '"/auth/products/renewaldesk/access"'
@@ -107,7 +107,7 @@ def test_renewaldesk_displays_discovered_client_context():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert 'id="clientContext"' in page
     assert "Client #${client.client_number}" in page
@@ -169,13 +169,13 @@ def test_renewaldesk_hides_delete_from_members():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert "let clientRole = null" in page
     assert "clientRole =" in page
     assert 'clientRole === "owner"' in page
     assert "client.role" in page
-    assert "onclick=\"deleteRenewal(" in page
+    assert 'data-delete-renewal="${item.id}"' in page
 
 
 
@@ -184,7 +184,7 @@ def test_renewaldesk_owner_can_manage_client_team():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert 'id="teamPanel"' in page
     assert 'id="teamInvitationForm"' in page
@@ -204,7 +204,7 @@ def test_renewaldesk_owner_can_manage_team_memberships():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk-app.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-2b95865bd9c7.js").read_text() + (WORKSPACE_ROOT / "app/assets/renewaldesk-app-8d37ae6e9662.css").read_text()
 
     assert "saveTeamMemberRole" in page
     assert "removeTeamMember" in page
@@ -222,3 +222,34 @@ def test_renewaldesk_owner_can_manage_team_memberships():
     assert 'method: "PUT"' in page
     assert 'method: "DELETE"' in page
     assert "Client must retain at least one owner" not in page
+
+
+def test_renewaldesk_uses_external_csp_assets():
+    import hashlib
+    import re
+    from html.parser import HTMLParser
+
+    class PageParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            attributes = dict(attrs)
+            assert tag != "style"
+            assert "style" not in attributes
+            assert not any(name.startswith("on") for name in attributes)
+            if tag == "script":
+                assert attributes.get("src", "").startswith("/assets/")
+
+    page = (WORKSPACE_ROOT / "app/renewaldesk-app.html").read_text()
+    PageParser().feed(page)
+    paths = re.findall(r'(?:src|href)="(/assets/renewaldesk-app-[^"]+)"', page)
+    assert len(paths) == 2
+    for path in paths:
+        content = (WORKSPACE_ROOT / "app" / path.lstrip("/")).read_bytes()
+        assert hashlib.sha256(content).hexdigest()[:12] in path
+        if path.endswith(".js"):
+            script = content.decode()
+            assert not re.search(r'\bon\w+\s*=', script)
+            assert not re.search(r'\bstyle\s*=', script)
+            for action in ("edit-renewal", "delete-renewal", "save-team-role",
+                           "remove-team-member", "revoke-team-invitation"):
+                assert f'button[data-{action}]' in script
+            assert 'Number.isSafeInteger(id)' in script
