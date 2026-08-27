@@ -9,7 +9,7 @@ def test_admin_displays_product_client_numbers():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "Client #${client.client_number}" in page
     assert "Client #${data.tenant.client_number}" in page
@@ -47,7 +47,7 @@ def test_admin_separates_clients_from_validation_workspaces():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'data-view="tenants"' not in page
     assert "<h1>Tenant / Products</h1>" in page
@@ -68,7 +68,7 @@ def test_admin_product_directory_opens_product_management():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="productDetailPanel"' in page
     assert 'id="productDetail"' in page
@@ -97,7 +97,7 @@ def test_admin_uses_shared_platform_branding():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "<title>FieldLookers Platform Administration</title>"

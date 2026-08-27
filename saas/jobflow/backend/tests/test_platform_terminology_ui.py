@@ -9,7 +9,7 @@ def test_admin_uses_fieldlookers_hierarchy():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "FieldLookers Platform Administration" in page
     assert "Tenant / Products" in page
@@ -27,7 +27,7 @@ def test_client_and_workspace_statuses_are_dynamic():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "currentAccessKind: null" in page
     assert "function currentAccessLabel()" in page
@@ -56,7 +56,7 @@ def test_internal_tenant_language_is_not_visible():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert '"Loading tenant..."' not in page
     assert '"Tenant details loaded."' not in page

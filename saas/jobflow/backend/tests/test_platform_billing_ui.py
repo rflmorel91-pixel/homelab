@@ -13,7 +13,7 @@ ADMIN_PAGE = (
 
 
 def test_admin_page_has_platform_billing_controls():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "Platform Billing" in page
     assert 'id="tenantBillingMode"' in page
@@ -28,7 +28,7 @@ def test_admin_page_has_platform_billing_controls():
 
 
 def test_admin_page_explains_manual_billing_safety():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "Saving this form does not charge "
@@ -42,7 +42,7 @@ def test_admin_page_explains_manual_billing_safety():
 
 
 def test_admin_page_updates_billing_through_api():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "/admin/tenants/${tenantId}/billing"
@@ -57,7 +57,7 @@ def test_admin_page_updates_billing_through_api():
 
 
 def test_admin_page_has_central_billing_workspace():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'data-view="billing"' in page
     assert "Billing Platform" in page
@@ -67,7 +67,7 @@ def test_admin_page_has_central_billing_workspace():
 
 
 def test_billing_workspace_has_system_summary():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="billingTenantCount"' in page
     assert 'id="billingClientCount"' in page
@@ -78,7 +78,7 @@ def test_billing_workspace_has_system_summary():
 
 
 def test_billing_workspace_loads_central_api():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         'apiRequest("/admin/billing")'
@@ -97,7 +97,7 @@ def test_billing_workspace_loads_central_api():
 
 
 def test_billing_uses_platform_client_identity():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         'row.access_kind === "client"'
@@ -115,7 +115,7 @@ def test_billing_uses_platform_client_identity():
 
 
 def test_billing_save_confirms_exact_target():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "const confirmed = window.confirm("
@@ -136,7 +136,7 @@ def test_billing_save_confirms_exact_target():
 
 
 def test_validation_workspaces_are_not_billable():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "<span>Clients</span>" in page
     assert "Not Billable" in page
@@ -148,7 +148,7 @@ def test_validation_workspaces_are_not_billable():
 
 
 def test_billing_workspace_has_offer_catalog():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "Offer Catalog" in page
     assert 'id="billingOfferForm"' in page
@@ -175,7 +175,7 @@ def test_billing_workspace_has_offer_catalog():
 
 
 def test_offer_catalog_has_status_summary():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="billingOfferCount"' in page
     assert (
@@ -193,7 +193,7 @@ def test_offer_catalog_has_status_summary():
 
 
 def test_offer_catalog_loads_protected_api():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         'apiRequest("/admin/billing/offers")'
@@ -210,7 +210,7 @@ def test_offer_catalog_loads_protected_api():
 
 
 def test_offer_form_converts_dollars_to_cents():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "Math.round(minimumAmount * 100)"
@@ -227,7 +227,7 @@ def test_offer_form_converts_dollars_to_cents():
 
 
 def test_offer_form_supports_create_and_update():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "async function saveBillingOffer("
@@ -252,7 +252,7 @@ def test_offer_form_supports_create_and_update():
 
 
 def test_offer_save_confirms_target_and_safety():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "const confirmed = window.confirm("
@@ -273,7 +273,7 @@ def test_offer_save_confirms_target_and_safety():
 
 
 def test_offer_edit_preserves_product_ownership():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "productSelect.disabled = true"
@@ -290,14 +290,14 @@ def test_offer_edit_preserves_product_ownership():
 
 
 def test_public_admin_hides_internal_product_number():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "Product #6" not in page
 
 
 
 def test_tenant_billing_assigns_catalog_offer():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="tenantBillingOfferId"' in page
     assert (
@@ -333,7 +333,7 @@ def test_tenant_billing_assigns_catalog_offer():
 
 
 def test_tenant_billing_collects_contact():
-    page = ADMIN_PAGE.read_text()
+    page = ADMIN_PAGE.read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         'id="tenantBillingContactName"'

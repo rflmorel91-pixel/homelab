@@ -9,7 +9,7 @@ def test_admin_exposes_audited_access_timezone_control():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "data.tenant.client_number" in page
     assert '"Client"' in page
