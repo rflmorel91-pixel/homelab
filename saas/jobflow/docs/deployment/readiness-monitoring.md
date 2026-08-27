@@ -4,20 +4,23 @@ Issue #17. Owner: Rafael Morel.
 
 ## Rollout status
 
-Source implementation and host testing completed on 2026-08-27:
+API release ea24f6ed0559b486cfb6f18a9342063acfeee3d2 was deployed and
+passed the complete production release gate on 2026-08-27 at 17:07:53 UTC.
 
-- 17 standalone readiness tests passed on dellpc.
-- 20 focused health/readiness tests passed against jobflow_test.
 - Full backend suite: 556 tests passed.
-- Migration drift check: no new upgrade operations detected.
-- Docker healthcheck source now targets /api/v1/ready with a four-second
-  HTTP timeout inside the existing five-second Docker timeout.
-- Release verification checks both liveness and readiness.
-- Release script shell syntax and Git whitespace checks passed.
+- Migration drift, six installed products, and exact-commit CI passed.
+- Docker API readiness and public liveness/readiness passed.
+- Authenticated and unauthenticated access-control smoke checks passed.
+- Uptime Kuma readiness monitor reports Up; notification channel enabled.
+- Hosted Healthchecks failure, missing-heartbeat, and recovery emails confirmed.
+- Minute timer automatically completed successful runs at 17:24 and 17:25 UTC.
 
-Production deployment, exact-commit CI, Docker readiness verification,
-external monitoring, and the complete production release gate remain pending.
-No production database outage was induced during testing.
+Monitoring implementation and CI coverage are being committed separately.
+CI for that follow-up commit remains pending.
+
+The HTTP probes originate in the homelab. Hosted Healthchecks independently
+detects missing reports; it is not an independent off-host HTTP probe.
+See readiness-heartbeat.md for monitoring details.
 
 ## Endpoints
 

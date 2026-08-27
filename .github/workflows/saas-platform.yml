@@ -192,3 +192,6 @@ jobs:
 
       - name: Run backup and restore unit tests
         run: python -B -m unittest discover -s scripts/tests -p 'test_backup*.py' -v
+
+      - name: Run readiness monitor tests
+        run: python -B -m unittest discover -s scripts/tests -p 'test_readiness_monitor.py' -v

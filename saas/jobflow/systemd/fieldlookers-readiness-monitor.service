@@ -1,0 +1,15 @@
+[Unit]
+Description=Report public FieldLookers readiness to hosted Healthchecks
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=rflmorel
+WorkingDirectory=/home/rflmorel/homelab/saas/jobflow
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+ExecStart=/usr/bin/python3 /home/rflmorel/homelab/saas/jobflow/scripts/check-platform-readiness.py
+TimeoutStartSec=45s
+TimeoutStopSec=5s
+NoNewPrivileges=true
