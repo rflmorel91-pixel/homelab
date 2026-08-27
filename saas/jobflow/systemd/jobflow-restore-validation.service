@@ -1,0 +1,17 @@
+[Unit]
+Description=Validate a FieldLookers PostgreSQL snapshot in an isolated container
+Requires=docker.service
+After=docker.service jobflow-backup.service
+
+[Service]
+Type=oneshot
+User=rflmorel
+WorkingDirectory=/home/rflmorel/homelab/saas/jobflow
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+ExecStart=/usr/bin/python3 /home/rflmorel/homelab/saas/jobflow/scripts/validate-jobflow-backup.py --latest --notify
+ExecStopPost=/usr/bin/python3 /home/rflmorel/homelab/saas/jobflow/scripts/validate-jobflow-backup.py --cleanup --notify
+TimeoutStartSec=15min
+TimeoutStopSec=3min
+KillMode=control-group
+Nice=10

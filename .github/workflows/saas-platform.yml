@@ -169,3 +169,26 @@ jobs:
 
       - name: Check migration drift
         run: python scripts/platform_alembic.py check
+
+  backup-tests:
+    name: Backup and Restore Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: saas/jobflow
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Check backup shell syntax
+        run: bash -n scripts/backup-jobflow-db.sh
+
+      - name: Run backup and restore unit tests
+        run: python -B -m unittest discover -s scripts/tests -p 'test_backup*.py' -v

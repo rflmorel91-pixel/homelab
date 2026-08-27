@@ -1,0 +1,11 @@
+[Unit]
+Description=Validate a FieldLookers PostgreSQL backup every Sunday at 03:30 UTC
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=jobflow-restore-validation.service
+
+[Install]
+WantedBy=timers.target

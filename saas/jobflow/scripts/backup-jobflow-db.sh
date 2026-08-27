@@ -32,11 +32,9 @@ trap report_backup_exit EXIT
 
 mkdir -p "$BACKUP_DIR"
 
-docker exec jobflow-db pg_dump \
-  -U jobflow \
-  -d jobflow \
-  -Fc \
-  > "$BACKUP_FILE"
+python3 "$PROJECT_DIR/scripts/create-jobflow-backup.py" \
+  --project-dir "$PROJECT_DIR" \
+  --output "$BACKUP_FILE"
 
 docker exec -i jobflow-db pg_restore \
   --list \
@@ -47,17 +45,18 @@ scp \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   "$BACKUP_FILE" \
+  "$BACKUP_FILE.manifest.json" \
   "$OMV_USER@$OMV_HOST:$OMV_BACKUP_DIR/"
 ssh \
   -i "$OMV_KEY" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   "$OMV_USER@$OMV_HOST" \
-  "find '$OMV_BACKUP_DIR' -type f -name 'jobflow-*.dump' -mtime +7 -delete"
+  "find '$OMV_BACKUP_DIR' -type f \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' \) -mtime +7 -delete"
 
 find "$BACKUP_DIR" \
   -type f \
-  -name 'jobflow-*.dump' \
+  \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' \) \
   -mtime +7 \
   -delete
 
