@@ -36,6 +36,24 @@ permissions:
   contents: read
 
 jobs:
+  nginx-security-headers:
+    name: Nginx Security Headers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Pull Nginx test image
+        run: docker pull nginx:1.31.3-alpine
+
+      - name: Verify hostname-scoped security headers
+        run: python -B saas/jobflow/scripts/tests/test_nginx_security_headers.py
+
   product-contract:
     name: Product Contract Validation
     runs-on: ubuntu-latest
