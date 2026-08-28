@@ -1,0 +1,117 @@
+# Standalone staging project. Never combine with production Compose.
+name: fieldlookers-staging
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql+psycopg://staging_user:${STAGING_DB_PASSWORD:?Initialize staging}@staging-db:5432/fieldlookers_staging
+  JWT_SECRET: ${STAGING_JWT_SECRET:?Initialize staging}
+  FIELDLOOKERS_STAGING_ONLY: "1"
+  PLATFORM_PUBLIC_BASE_URL: https://localhost:8443
+  FIELDLOOKERS_WORKFLOW_AUTOMATION_URL: https://localhost:8443/workflow-automation
+  FIELDLOOKERS_OUTREACH_POSTAL_ADDRESS: "SYNTHETIC STAGING DATA - NOT FOR OUTREACH"
+  OPENAI_API_KEY: ""
+  PLATFORM_SMTP_HOST: staging-mail
+  PLATFORM_SMTP_PORT: "1025"
+  PLATFORM_SMTP_USERNAME: ""
+  PLATFORM_SMTP_PASSWORD: ""
+  PLATFORM_SMTP_FROM_EMAIL: staging@example.test
+  PLATFORM_SMTP_USE_TLS: "false"
+  RENEWALDESK_SMTP_HOST: staging-mail
+  RENEWALDESK_SMTP_PORT: "1025"
+  RENEWALDESK_SMTP_USERNAME: ""
+  RENEWALDESK_SMTP_PASSWORD: ""
+  RENEWALDESK_SMTP_FROM_EMAIL: staging@example.test
+  RENEWALDESK_SMTP_USE_TLS: "false"
+
+services:
+  staging-db:
+    image: ${STAGING_DB_IMAGE:?Initialize staging}
+    restart: "no"
+    environment:
+      POSTGRES_DB: fieldlookers_staging
+      POSTGRES_USER: staging_user
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:?Initialize staging}
+    volumes:
+      - staging_database:/var/lib/postgresql/data
+    networks: [isolated]
+    mem_limit: 384m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U staging_user -d fieldlookers_staging"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  staging-migrate:
+    image: fieldlookers-staging-api:local
+    build:
+      context: ../backend
+    restart: "no"
+    environment: *app-environment
+    command: [python, scripts/platform_alembic.py, upgrade, head]
+    networks: [isolated]
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on:
+      staging-db:
+        condition: service_healthy
+
+  staging-api:
+    image: fieldlookers-staging-api:local
+    build:
+      context: ../backend
+    restart: "no"
+    environment: *app-environment
+    volumes:
+      - ./bootstrap_admin.py:/staging/bootstrap_admin.py:ro
+    networks: [isolated]
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on:
+      staging-migrate:
+        condition: service_completed_successfully
+      staging-mail:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  staging-mail:
+    image: ${STAGING_MAIL_IMAGE:?Initialize staging}
+    restart: "no"
+    environment:
+      MP_MAX_MESSAGES: "100"
+      MP_SMTP_RELAY_CONFIG: ""
+      MP_SMTP_FORWARD_CONFIG: ""
+    networks: [isolated]
+    mem_limit: 128m
+    cpus: 0.25
+
+  staging-web:
+    image: ${STAGING_WEB_IMAGE:?Initialize staging}
+    restart: "no"
+    volumes:
+      - ../app:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./.runtime/tls/server.crt:/etc/nginx/staging/server.crt:ro
+      - ./.runtime/tls/server.key:/etc/nginx/staging/server.key:ro
+    ports:
+      - "127.0.0.1:18443:443"
+      - "127.0.0.1:18025:8025"
+    networks: [isolated, ingress]
+    mem_limit: 128m
+    cpus: 0.25
+    depends_on:
+      staging-api:
+        condition: service_healthy
+
+networks:
+  isolated:
+    internal: true
+  ingress:
+    internal: false
+
+volumes:
+  staging_database:
