@@ -21,6 +21,8 @@ def test_commercialization_displays_client_number():
         WORKSPACE_ROOT
         / "app"
         / "commercialization.html"
+    ).read_text() + (
+        WORKSPACE_ROOT / "app/assets/commercialization-38f725758156.js"
     ).read_text()
 
     assert "lead.converted_client_number" in page
@@ -116,3 +118,38 @@ def test_admin_uses_shared_platform_branding():
     assert "Client Workspace" not in page
     assert "<strong>JobFlow</strong>" not in page
     assert "<title>JobFlow Administration</title>" not in page
+
+
+def test_commercialization_csp_assets():
+    import hashlib
+    import re
+    from html.parser import HTMLParser
+
+    page = (WORKSPACE_ROOT / "app/commercialization.html").read_text()
+
+    class CspParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            attributes = dict(attrs)
+            assert tag != "style"
+            assert "style" not in attributes
+            assert not any(name.startswith("on") for name in attributes)
+            if tag == "script":
+                assert attributes.get("src")
+
+    CspParser().feed(page)
+    references = re.findall(
+        r'(?:src|href)="(/assets/commercialization-[a-f0-9]{12}\.(?:js|css))"',
+        page,
+    )
+    assert len(references) == 2
+    for reference in references:
+        asset = WORKSPACE_ROOT / "app" / reference.lstrip("/")
+        content = asset.read_bytes()
+        assert hashlib.sha256(content).hexdigest()[:12] in asset.name
+        if asset.suffix == ".js":
+            script = content.decode()
+            assert not re.search(r"\bon\w+\s*=|\bstyle\s*=", script)
+            assert 'leadList.addEventListener("click"' in script
+            for action in ("status", "provision", "reopen"):
+                assert f'data-lead-action="{action}"' in script
+                assert f'case "{action}":' in script

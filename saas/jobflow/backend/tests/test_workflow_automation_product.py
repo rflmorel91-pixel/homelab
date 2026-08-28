@@ -373,6 +373,8 @@ def test_commercialization_separates_service_actions():
         workspace_root
         / "app"
         / "commercialization.html"
+    ).read_text() + (
+        workspace_root / "app/assets/commercialization-38f725758156.js"
     ).read_text()
 
     assert (
