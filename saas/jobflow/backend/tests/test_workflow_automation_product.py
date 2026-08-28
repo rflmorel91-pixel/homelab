@@ -242,6 +242,8 @@ def test_workflow_automation_public_page():
         workspace_root
         / "app"
         / "workflow-automation.html"
+    ).read_text() + (
+        workspace_root / "app/assets/workflow-automation-89375014da6d.js"
     ).read_text()
 
     assert (
@@ -398,6 +400,8 @@ def test_workflow_automation_page_supports_it_partners():
         workspace_root
         / "app"
         / "workflow-automation.html"
+    ).read_text() + (
+        workspace_root / "app/assets/workflow-automation-89375014da6d.js"
     ).read_text()
 
     assert "IT provider partnerships" in page
@@ -428,6 +432,8 @@ def test_workflow_automation_page_hides_internal_number():
         workspace_root
         / "app"
         / "workflow-automation.html"
+    ).read_text() + (
+        workspace_root / "app/assets/workflow-automation-89375014da6d.js"
     ).read_text()
 
     assert (

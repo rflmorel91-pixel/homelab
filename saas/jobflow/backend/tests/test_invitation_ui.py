@@ -74,6 +74,8 @@ def test_renewaldesk_landing_handles_activation_return():
         WORKSPACE_ROOT
         / "app"
         / "renewaldesk.html"
+    ).read_text() + (
+        WORKSPACE_ROOT / "app/assets/renewaldesk-2f7dab9b5768.js"
     ).read_text()
 
     assert 'id="activationNotice"' in page
