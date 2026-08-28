@@ -1,0 +1,231 @@
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 24px;
+    }
+
+    .header-inner,
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .brand {
+      font-size: 23px;
+      font-weight: bold;
+    }
+
+    .meta {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    header .meta {
+      color: #cbd5e1;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    main {
+      padding: 32px 24px 80px;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel h1,
+    .panel h2,
+    .panel h3 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      padding: 10px;
+      font: inherit;
+      background: white;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .button,
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 15px;
+      background: #111827;
+      color: white;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .button-light {
+      background: white;
+      color: #111827;
+    }
+
+    .button-secondary {
+      background: #475569;
+    }
+
+    .button-danger {
+      background: #991b1b;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      padding: 19px;
+      margin-top: 15px;
+    }
+
+    .card-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 14px;
+    }
+
+    .score,
+    .status {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #e2e8f0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .score {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      color: #991b1b;
+      font-weight: bold;
+    }
+
+    .success {
+      color: #166534;
+      font-weight: bold;
+    }
+
+    .notice {
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+    }
+
+    ul {
+      margin-top: 7px;
+    }
+
+    .evidence a {
+      color: #1d4ed8;
+      text-decoration: underline;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 650px) {
+      .header-inner,
+      .card-heading {
+        display: block;
+      }
+
+      .button-light {
+        display: inline-block;
+        margin-top: 14px;
+      }
+    }
+
+    .segment-checkbox {
+      width: auto;
+    }
+
+    #agentStatus {
+      margin-top: 15px;
+    }
+
+    .field-spacing {
+      margin-top: 16px;
+    }
+
+    .review-filter {
+      max-width: 260px;
+    }
+
+    .candidate-website {
+      color: #1d4ed8; text-decoration: underline;
+    }
+
+    .draft-spacing {
+      margin-top: 12px;
+    }
+
+    .pipeline-spacing {
+      margin-top: 10px;
+    }
+
+    .outreach-activity {
+      margin-top: 16px; padding: 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc;
+    }
