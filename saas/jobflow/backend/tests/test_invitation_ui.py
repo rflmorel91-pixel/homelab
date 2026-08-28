@@ -6,10 +6,9 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
 def test_activation_page_uses_fragment_token():
     page = (
-        WORKSPACE_ROOT
-        / "app"
-        / "accept-invitation.html"
-    ).read_text()
+        (WORKSPACE_ROOT / "app/accept-invitation.html").read_text()
+        + (WORKSPACE_ROOT / "app/assets/accept-invitation-f0f3c6a68515.js").read_text()
+    )
 
     assert 'window.location.hash.slice(1)' in page
     assert 'hash.get("token")' in page
@@ -59,10 +58,9 @@ def test_nginx_routes_and_limits_invitation_acceptance():
 
 def test_activation_continues_to_linked_product_landing():
     page = (
-        WORKSPACE_ROOT
-        / "app"
-        / "accept-invitation.html"
-    ).read_text()
+        (WORKSPACE_ROOT / "app/accept-invitation.html").read_text()
+        + (WORKSPACE_ROOT / "app/assets/accept-invitation-f0f3c6a68515.js").read_text()
+    )
 
     assert "payload.product.workspace_route" in page
     assert "window.location.assign(workspaceUrl)" in page
@@ -253,3 +251,35 @@ def test_renewaldesk_uses_external_csp_assets():
                            "remove-team-member", "revoke-team-invitation"):
                 assert f'button[data-{action}]' in script
             assert 'Number.isSafeInteger(id)' in script
+
+
+def test_accept_invitation_uses_external_csp_assets():
+    import hashlib
+    from html.parser import HTMLParser
+
+    class AssetParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.assets = []
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            assert tag != "style"
+            assert "style" not in attrs
+            assert not any(key.startswith("on") for key in attrs)
+            if tag == "script":
+                assert attrs.get("src", "").startswith("/assets/")
+                self.assets.append(attrs["src"])
+            if tag == "link" and attrs.get("rel") == "stylesheet":
+                assert attrs.get("href", "").startswith("/assets/")
+                self.assets.append(attrs["href"])
+
+    page = (WORKSPACE_ROOT / "app/accept-invitation.html").read_text()
+    parser = AssetParser()
+    parser.feed(page)
+    assert len(parser.assets) == 2
+    assert {Path(path).suffix for path in parser.assets} == {".js", ".css"}
+    for path in parser.assets:
+        content = (WORKSPACE_ROOT / "app" / path.lstrip("/")).read_bytes()
+        assert hashlib.sha256(content).hexdigest()[:12] in Path(path).name
+    assert 'content="no-referrer"' in page
