@@ -118,6 +118,9 @@ def test_operator_page_has_due_follow_up_view():
 
     commercialization_text = (
         COMMERCIALIZATION_PAGE.read_text()
+        + (
+            WORKSPACE_ROOT / "app/assets/commercialization-38f725758156.js"
+        ).read_text()
     )
     assert 'id="lead-${lead.id}"' in (
         commercialization_text
