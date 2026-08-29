@@ -23,7 +23,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE = "nginx:1.31.3-alpine"
 CONTAINER = ""
-EXPECTED_CSP = "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; script-src 'self' https://static.cloudflareinsights.com; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'; worker-src 'none'"
+EXPECTED_CSP = "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'; worker-src 'none'"
 
 
 def docker(*args, input=None, timeout=15):
