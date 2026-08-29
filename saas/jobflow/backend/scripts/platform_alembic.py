@@ -1,3 +1,5 @@
+import ast
+from collections.abc import Iterable
 import os
 from pathlib import Path
 import sys
@@ -40,6 +42,68 @@ def workspace_root(
         return Path.cwd().resolve()
 
     return Path(value).resolve()
+
+
+def migration_revision(
+    path: Path,
+) -> str:
+    tree = ast.parse(
+        path.read_text(),
+        filename=str(path),
+    )
+
+    for statement in tree.body:
+        value = None
+
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.target.id == "revision"
+        ):
+            value = statement.value
+
+        elif isinstance(statement, ast.Assign):
+            if any(
+                isinstance(target, ast.Name)
+                and target.id == "revision"
+                for target in statement.targets
+            ):
+                value = statement.value
+
+        if (
+            isinstance(value, ast.Constant)
+            and isinstance(value.value, str)
+            and value.value
+        ):
+            return value.value
+
+    raise ValueError(
+        f"Migration does not declare revision: {path}"
+    )
+
+
+def validate_revision_ownership(
+    version_locations: Iterable[Path],
+) -> dict[str, Path]:
+    owners: dict[str, Path] = {}
+
+    for location in version_locations:
+        for path in sorted(location.glob("*.py")):
+            if path.name == "__init__.py":
+                continue
+
+            revision = migration_revision(path)
+
+            if revision in owners:
+                raise ValueError(
+                    "Duplicate migration revision "
+                    f"{revision}: "
+                    f"{owners[revision]} and {path}"
+                )
+
+            owners[revision] = path
+
+    return owners
 
 
 def build_config(
@@ -116,6 +180,14 @@ def build_config(
         "path_separator",
         "space",
     )
+
+    revision_owners = validate_revision_ownership(
+        unique_locations
+    )
+
+    config.attributes[
+        "revision_owners"
+    ] = revision_owners
 
     config.attributes[
         "workspace_root"

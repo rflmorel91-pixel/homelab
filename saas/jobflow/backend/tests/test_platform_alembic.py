@@ -210,3 +210,77 @@ def test_cli_does_not_require_jwt_secret(
         result.stdout + result.stderr
     )
     assert "(head)" in result.stdout
+
+def test_canonical_platform_migration_location():
+    from scripts.platform_alembic import (
+        platform_migration_root,
+    )
+
+    backend_root = Path(__file__).resolve().parents[1]
+    expected = (
+        backend_root
+        / "app"
+        / "platform"
+        / "migrations"
+    )
+
+    assert platform_migration_root() == expected
+    assert not (backend_root / "migrations").exists()
+
+
+def test_revision_ownership_accepts_unique_revisions(
+    tmp_path,
+):
+    from scripts.platform_alembic import (
+        validate_revision_ownership,
+    )
+
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    (first / "aaa_first.py").write_text(
+        'revision = "aaa"\n'
+    )
+    (second / "bbb_second.py").write_text(
+        'revision: str = "bbb"\n'
+    )
+
+    owners = validate_revision_ownership(
+        (first, second)
+    )
+
+    assert set(owners) == {"aaa", "bbb"}
+
+
+def test_revision_ownership_rejects_duplicates(
+    tmp_path,
+):
+    import pytest
+
+    from scripts.platform_alembic import (
+        validate_revision_ownership,
+    )
+
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    (first / "duplicate_one.py").write_text(
+        'revision = "duplicate"\n'
+    )
+    (second / "duplicate_two.py").write_text(
+        'revision: str = "duplicate"\n'
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Duplicate migration revision duplicate"
+        ),
+    ):
+        validate_revision_ownership(
+            (first, second)
+        )

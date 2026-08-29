@@ -200,3 +200,14 @@ manifest for exact original count comparison. Keep that limitation explicit.
 - Docker tmpfs caveats: https://docs.docker.com/engine/storage/tmpfs/
 - systemd service cleanup: https://www.freedesktop.org/software/systemd/man/systemd.service.html
 - Healthchecks scheduling: https://healthchecks.io/docs/configuring_checks/
+
+## Canonical migration verification
+
+Restore validation compares the restored database revision against the
+single migration graph assembled by
+`backend/scripts/platform_alembic.py`. Platform revisions are loaded
+from `backend/app/platform/migrations/versions/`, and product revisions
+are loaded from their product-owned migration directories.
+
+The legacy `backend/migrations/` tree must not exist. Do not recreate it
+during recovery and do not rewrite an applied revision identifier.

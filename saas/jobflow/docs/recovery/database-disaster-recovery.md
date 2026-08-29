@@ -287,3 +287,17 @@ OpenMediaVault provides a second copy of JobFlow database backups outside the Ub
 This protects against loss of the local JobFlow backup directory or failure of the Ubuntu VM storage.
 
 OpenMediaVault is still part of the same physical homelab environment, so it should be treated as off-host backup protection rather than full geographic off-site disaster recovery.
+
+## Canonical migration ownership during recovery
+
+The authoritative migration graph is assembled by
+`backend/scripts/platform_alembic.py`. Shared and historical platform
+revisions live under
+`backend/app/platform/migrations/versions/`, while active products own
+their revisions under
+`backend/app/products/<product>/migrations/versions/`.
+
+Do not restore or recreate the removed `backend/migrations/` duplicate
+tree. Do not rename, copy or rewrite an applied revision. After a
+database restore, use the platform wrapper to compare `current` and
+`heads`, then run its migration drift check.
