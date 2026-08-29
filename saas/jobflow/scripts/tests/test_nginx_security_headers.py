@@ -102,11 +102,12 @@ class SecurityHeaders(unittest.TestCase):
         html.mkdir()
         for name in ("index.html", "request.html", "reset-password.html",
                      "accept-invitation.html", "admin.html",
+                     "commercialization.html", "prospecting.html",
                      "renewaldesk.html", "renewaldesk-app.html",
                      "workflow-automation.html"):
             shutil.copyfile(ROOT / "app" / name, html / name)
         shutil.copytree(ROOT / "app/assets", html / "assets")
-        for name in ("app", "commercialization", "prospecting"):
+        for name in ("app",):
             (html / f"{name}.html").write_text(f"Excluded fixture: {name}\n")
         CONTAINER = "jobflow-header-test-" + uuid.uuid4().hex[:12]
         cls.addClassCleanup(cls.remove_container)
@@ -177,8 +178,14 @@ class SecurityHeaders(unittest.TestCase):
             "/renewaldesk-app.html": (200, True),
             "/renewaldesk-app.html?probe=1": (200, True),
             "/renewaldesk/app/": (200, False),
-            "/commercialization": (200, False),
-            "/prospecting": (200, False),
+            "/commercialization": (200, True),
+            "/commercialization.html": (200, True),
+            "/commercialization?probe=1": (200, True),
+            "/commercialization/": (200, False),
+            "/prospecting": (200, True),
+            "/prospecting.html": (200, True),
+            "/prospecting?probe=1": (200, True),
+            "/prospecting/": (200, False),
             "/reset-password": (200, True),
             "/reset-password.html": (200, True),
             "/reset-password?probe=1": (200, True),
@@ -244,6 +251,10 @@ class SecurityHeaders(unittest.TestCase):
                             name = "accept-invitation"
                         elif path.startswith("/admin"):
                             name = "admin"
+                        elif path.startswith("/commercialization"):
+                            name = "commercialization"
+                        elif path.startswith("/prospecting"):
+                            name = "prospecting"
                         elif (
                             path.startswith("/renewaldesk/app")
                             or path.startswith("/renewaldesk-app.html")
@@ -284,6 +295,8 @@ class SecurityHeaders(unittest.TestCase):
             "reset-password",
             "accept-invitation",
             "admin",
+            "commercialization",
+            "prospecting",
             "renewaldesk",
             "renewaldesk-app",
             "workflow-automation",
