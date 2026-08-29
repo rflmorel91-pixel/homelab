@@ -101,13 +101,13 @@ class SecurityHeaders(unittest.TestCase):
         html = root / "html"
         html.mkdir()
         for name in ("index.html", "request.html", "reset-password.html",
-                     "accept-invitation.html", "renewaldesk.html",
-                     "renewaldesk-app.html", "workflow-automation.html"):
+                     "accept-invitation.html", "admin.html",
+                     "renewaldesk.html", "renewaldesk-app.html",
+                     "workflow-automation.html"):
             shutil.copyfile(ROOT / "app" / name, html / name)
         shutil.copytree(ROOT / "app/assets", html / "assets")
         for name in ("app", "commercialization", "prospecting"):
             (html / f"{name}.html").write_text(f"Excluded fixture: {name}\n")
-        # admin.html deliberately absent: /admin exercises a real 404.
         CONTAINER = "jobflow-header-test-" + uuid.uuid4().hex[:12]
         cls.addClassCleanup(cls.remove_container)
         docker(
@@ -187,7 +187,10 @@ class SecurityHeaders(unittest.TestCase):
             "/accept-invitation.html": (200, True),
             "/accept-invitation?probe=1": (200, True),
             "/accept-invitation/": (200, False),
-            "/admin": (404, False),
+            "/admin": (200, True),
+            "/admin.html": (200, True),
+            "/admin?probe=1": (200, True),
+            "/admin/": (200, False),
             "/api/v1/admin/overview": (401, False),
             "/api/not-found": (404, False),
         }
@@ -239,6 +242,8 @@ class SecurityHeaders(unittest.TestCase):
                             name = "reset-password"
                         elif path.startswith("/accept-invitation"):
                             name = "accept-invitation"
+                        elif path.startswith("/admin"):
+                            name = "admin"
                         elif (
                             path.startswith("/renewaldesk/app")
                             or path.startswith("/renewaldesk-app.html")
@@ -278,6 +283,7 @@ class SecurityHeaders(unittest.TestCase):
             "request",
             "reset-password",
             "accept-invitation",
+            "admin",
             "renewaldesk",
             "renewaldesk-app",
             "workflow-automation",
