@@ -284,3 +284,14 @@ def test_revision_ownership_rejects_duplicates(
         validate_revision_ownership(
             (first, second)
         )
+
+
+def test_api_image_uses_canonical_migrations():
+    backend_root = Path(__file__).resolve().parents[1]
+    dockerfile = (
+        backend_root
+        / "Dockerfile"
+    ).read_text()
+
+    assert "COPY app ./app" in dockerfile
+    assert "COPY migrations " not in dockerfile
