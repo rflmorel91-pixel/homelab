@@ -100,12 +100,13 @@ class SecurityHeaders(unittest.TestCase):
         )
         html = root / "html"
         html.mkdir()
-        for name in ("index.html", "request.html", "renewaldesk.html",
+        for name in ("index.html", "request.html", "reset-password.html",
+                     "accept-invitation.html", "renewaldesk.html",
                      "workflow-automation.html"):
             shutil.copyfile(ROOT / "app" / name, html / name)
         shutil.copytree(ROOT / "app/assets", html / "assets")
-        for name in ("app", "renewaldesk-app", "commercialization", "prospecting",
-                     "reset-password", "accept-invitation"):
+        for name in ("app", "renewaldesk-app", "commercialization",
+                     "prospecting"):
             (html / f"{name}.html").write_text(f"Excluded fixture: {name}\n")
         # admin.html deliberately absent: /admin exercises a real 404.
         CONTAINER = "jobflow-header-test-" + uuid.uuid4().hex[:12]
@@ -175,8 +176,14 @@ class SecurityHeaders(unittest.TestCase):
             "/renewaldesk/app": (200, False),
             "/commercialization": (200, False),
             "/prospecting": (200, False),
-            "/reset-password": (200, False),
-            "/accept-invitation": (200, False),
+            "/reset-password": (200, True),
+            "/reset-password.html": (200, True),
+            "/reset-password?probe=1": (200, True),
+            "/reset-password/": (200, False),
+            "/accept-invitation": (200, True),
+            "/accept-invitation.html": (200, True),
+            "/accept-invitation?probe=1": (200, True),
+            "/accept-invitation/": (200, False),
             "/admin": (404, False),
             "/api/v1/admin/overview": (401, False),
             "/api/not-found": (404, False),
@@ -225,6 +232,10 @@ class SecurityHeaders(unittest.TestCase):
                             name = "index"
                         elif path.startswith("/request"):
                             name = "request"
+                        elif path.startswith("/reset-password"):
+                            name = "reset-password"
+                        elif path.startswith("/accept-invitation"):
+                            name = "accept-invitation"
                         elif path.startswith("/renewaldesk"):
                             name = "renewaldesk"
                         else:
@@ -254,7 +265,14 @@ class SecurityHeaders(unittest.TestCase):
                 if tag == "link" and attrs.get("rel") == "stylesheet":
                     self.assets.append(attrs.get("href", ""))
 
-        for page in ("index", "request", "renewaldesk", "workflow-automation"):
+        for page in (
+            "index",
+            "request",
+            "reset-password",
+            "accept-invitation",
+            "renewaldesk",
+            "workflow-automation",
+        ):
             with self.subTest(page=page):
                 parser = Assets()
                 parser.feed((ROOT / "app" / f"{page}.html").read_text())
