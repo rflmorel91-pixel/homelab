@@ -100,12 +100,12 @@ class SecurityHeaders(unittest.TestCase):
         )
         html = root / "html"
         html.mkdir()
-        (html / "index.html").write_text("Header test index\n")
-        for name in ("renewaldesk.html", "workflow-automation.html"):
+        for name in ("index.html", "request.html", "renewaldesk.html",
+                     "workflow-automation.html"):
             shutil.copyfile(ROOT / "app" / name, html / name)
         shutil.copytree(ROOT / "app/assets", html / "assets")
         for name in ("app", "renewaldesk-app", "commercialization", "prospecting",
-                     "reset-password", "accept-invitation", "request"):
+                     "reset-password", "accept-invitation"):
             (html / f"{name}.html").write_text(f"Excluded fixture: {name}\n")
         # admin.html deliberately absent: /admin exercises a real 404.
         CONTAINER = "jobflow-header-test-" + uuid.uuid4().hex[:12]
@@ -150,7 +150,17 @@ class SecurityHeaders(unittest.TestCase):
         }
         # path -> (status, approved final document on the approved host)
         paths = {
-            "/": (200, False),
+            "/": (200, True),
+            "/?probe=1": (200, True),
+            "/index.html": (200, True),
+            "/index.html?probe=1": (200, True),
+            "/request": (200, False),
+            "/request.html": (200, True),
+            "/request.html?probe=1": (200, True),
+            "/request/synthetic-client": (200, True),
+            "/request/synthetic-client/": (200, True),
+            "/request/synthetic-client?probe=1": (200, True),
+            "/request/double/path": (200, False),
             "/renewaldesk": (200, True),
             "/renewaldesk.html": (200, True),
             "/renewaldesk?probe=1": (200, True),
@@ -167,7 +177,6 @@ class SecurityHeaders(unittest.TestCase):
             "/prospecting": (200, False),
             "/reset-password": (200, False),
             "/accept-invitation": (200, False),
-            "/request/synthetic-client": (200, False),
             "/admin": (404, False),
             "/api/v1/admin/overview": (401, False),
             "/api/not-found": (404, False),
@@ -205,7 +214,21 @@ class SecurityHeaders(unittest.TestCase):
                         [EXPECTED_CSP],
                     )
                     if document:
-                        name = "renewaldesk" if path.startswith("/renewaldesk") else "workflow-automation"
+                        if path == "/" or path.startswith("/?"):
+                            hostname = host.partition(":")[0].lower()
+                            name = (
+                                "renewaldesk"
+                                if hostname == "renewaldesk.fieldlookers.com"
+                                else "index"
+                            )
+                        elif path.startswith("/index.html"):
+                            name = "index"
+                        elif path.startswith("/request"):
+                            name = "request"
+                        elif path.startswith("/renewaldesk"):
+                            name = "renewaldesk"
+                        else:
+                            name = "workflow-automation"
                         self.assertEqual(response.read(), (ROOT / "app" / f"{name}.html").read_bytes())
                     for name, value in {
                         "X-Content-Type-Options": "nosniff",
@@ -231,7 +254,7 @@ class SecurityHeaders(unittest.TestCase):
                 if tag == "link" and attrs.get("rel") == "stylesheet":
                     self.assets.append(attrs.get("href", ""))
 
-        for page in ("renewaldesk", "workflow-automation"):
+        for page in ("index", "request", "renewaldesk", "workflow-automation"):
             with self.subTest(page=page):
                 parser = Assets()
                 parser.feed((ROOT / "app" / f"{page}.html").read_text())
