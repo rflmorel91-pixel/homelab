@@ -10,6 +10,8 @@ on:
       - "saas/jobflow/nginx/**"
       - "saas/jobflow/staging/**"
       - "saas/jobflow/scripts/**"
+      - "saas/jobflow/security/**"
+      - "saas/jobflow/docs/security/**"
       - "saas/jobflow/systemd/**"
       - "saas/jobflow/docker-compose.yml"
       - "saas/jobflow/docs/developer/**"
@@ -25,6 +27,8 @@ on:
       - "saas/jobflow/nginx/**"
       - "saas/jobflow/staging/**"
       - "saas/jobflow/scripts/**"
+      - "saas/jobflow/security/**"
+      - "saas/jobflow/docs/security/**"
       - "saas/jobflow/systemd/**"
       - "saas/jobflow/docker-compose.yml"
       - "saas/jobflow/docs/developer/**"
@@ -215,3 +219,23 @@ jobs:
 
       - name: Run readiness monitor tests
         run: python -B -m unittest discover -s scripts/tests -p 'test_readiness_monitor.py' -v
+
+  security-scanning:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout complete repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Test container finding policy
+        run: >-
+          python -B -m unittest
+          saas/jobflow/scripts/tests/test_container_security_policy.py
+          -v
+
+      - name: Scan dependencies, secrets and images
+        run: saas/jobflow/scripts/run-security-scans.sh
