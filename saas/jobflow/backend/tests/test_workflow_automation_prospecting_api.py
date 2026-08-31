@@ -644,6 +644,9 @@ def test_only_approved_candidate_can_be_marked_sent(
     payload = {
         "channel": "email",
         "sent_at": "2026-08-25T19:00:00-04:00",
+        "follow_up_due_at": (
+            "2026-09-01T19:00:00-04:00"
+        ),
     }
 
     response = client.post(
@@ -662,6 +665,39 @@ def test_only_approved_candidate_can_be_marked_sent(
     )
 
     assert response.status_code == 409
+
+
+def test_sent_outreach_requires_follow_up_due_at(
+    client,
+    db_session,
+):
+    operator = make_operator(db_session)
+    candidate = create_candidate(
+        db_session,
+        operator,
+    )
+    candidate.review_status = "approved"
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/products/"
+        "workflow-automation/"
+        f"prospecting/candidates/{candidate.id}/"
+        "outreach/sent",
+        json={
+            "channel": "email",
+            "sent_at": (
+                "2026-08-25T19:00:00-04:00"
+            ),
+        },
+    )
+
+    assert response.status_code == 422
+
+    db_session.refresh(candidate)
+
+    assert candidate.outreach_sent_at is None
+    assert candidate.follow_up_due_at is None
 
 
 def test_operator_records_sent_outreach(
@@ -816,6 +852,9 @@ def test_unsubscribe_reply_suppresses_candidate(
             "sent_at": (
                 "2026-08-25T19:00:00-04:00"
             ),
+            "follow_up_due_at": (
+                "2026-09-01T19:00:00-04:00"
+            ),
         },
     )
 
@@ -921,6 +960,9 @@ def test_operator_can_suppress_before_send(
             "channel": "email",
             "sent_at": (
                 "2026-08-26T10:00:00-04:00"
+            ),
+            "follow_up_due_at": (
+                "2026-09-02T10:00:00-04:00"
             ),
         },
     )

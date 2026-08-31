@@ -20,7 +20,7 @@ COMMERCIALIZATION_PAGE = (
 
 def prospecting_source():
     return PROSPECTING_PAGE.read_text() + (
-        WORKSPACE_ROOT / "app/assets/prospecting-a1ff52b499b0.js"
+        WORKSPACE_ROOT / "app/assets/prospecting-674c24ef2f2b.js"
     ).read_text()
 
 
@@ -100,6 +100,19 @@ def test_prospecting_page_tracks_manual_outreach():
     assert "recordReply" in text
     assert "recordSuppression" in text
     assert "outreach/sent" in text
+    assert (
+        "Follow-up due timestamp (required)"
+        in text
+    )
+    assert "defaultFollowUpDueAt" in text
+    assert (
+        "Follow-up due timestamp is required."
+        in text
+    )
+    assert (
+        "followUpDueAt.trim()"
+        in text
+    )
     assert "outreach/follow-up" in text
     assert "outreach/reply" in text
     assert "outreach/suppression" in text

@@ -750,19 +750,11 @@ def record_outreach_sent(
     sent_at = _activity_time(
         payload.sent_at
     )
-    follow_up_due_at = (
-        _activity_time(
-            payload.follow_up_due_at
-        )
-        if payload.follow_up_due_at
-        is not None
-        else None
+    follow_up_due_at = _activity_time(
+        payload.follow_up_due_at
     )
 
-    if (
-        follow_up_due_at is not None
-        and follow_up_due_at < sent_at
-    ):
+    if follow_up_due_at < sent_at:
         raise HTTPException(
             status_code=422,
             detail=(

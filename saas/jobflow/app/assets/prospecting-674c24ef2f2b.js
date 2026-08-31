@@ -814,12 +814,35 @@
       return;
     }
 
+    const sentDate = new Date(sentAt);
+
+    if (Number.isNaN(sentDate.getTime())) {
+      setStatus(
+        "Sent timestamp must be a valid date and time.",
+        "error"
+      );
+      return;
+    }
+
+    const defaultFollowUpDueAt = new Date(
+      sentDate.getTime()
+      + (7 * 24 * 60 * 60 * 1000)
+    ).toISOString();
+
     const followUpDueAt = window.prompt(
-      "Follow-up due timestamp, or leave blank",
-      ""
+      "Follow-up due timestamp (required)",
+      defaultFollowUpDueAt
     );
 
     if (followUpDueAt === null) {
+      return;
+    }
+
+    if (!followUpDueAt.trim()) {
+      setStatus(
+        "Follow-up due timestamp is required.",
+        "error"
+      );
       return;
     }
 
@@ -843,7 +866,7 @@
             channel,
             sent_at: sentAt,
             follow_up_due_at:
-              followUpDueAt || null,
+              followUpDueAt.trim(),
             notes: notes || null
           })
         }

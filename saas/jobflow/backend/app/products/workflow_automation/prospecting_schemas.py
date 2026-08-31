@@ -138,7 +138,7 @@ class OutreachSentRecord(BaseModel):
         "other",
     ]
     sent_at: datetime
-    follow_up_due_at: datetime | None = None
+    follow_up_due_at: datetime
     notes: RequiredText | None = None
 
     model_config = ConfigDict(extra="forbid")
