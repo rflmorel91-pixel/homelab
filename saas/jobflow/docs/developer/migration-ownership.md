@@ -24,8 +24,8 @@ canonical platform tree. Their revision identifiers, parent links and
 contents must not be rewritten.
 
 JobFlow is legacy and read-only. New JobFlow behavior and new JobFlow
-schema migrations are not permitted. RenewalDesk and Workflow
-Automation are the active products and own new product-specific schema
+schema migrations are not permitted. RenewalDesk, Workflow Automation,
+and AssetTrack are active products and own new product-specific schema
 changes in their respective migration trees.
 
 ## Enforcement
