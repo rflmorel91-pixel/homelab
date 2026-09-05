@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -19,6 +20,25 @@ router = APIRouter(
 )
 
 
+def commit_asset(
+    db: Session,
+    item: Asset,
+) -> None:
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Asset external_id already exists "
+                "for this tenant"
+            ),
+        ) from error
+
+    db.refresh(item)
+
+
 @router.post(
     "",
     response_model=AssetRead,
@@ -31,12 +51,18 @@ def create_asset(
 ):
     item = Asset(
         tenant_id=tenant.id,
+        external_id=payload.external_id,
         name=payload.name,
+        asset_type=payload.asset_type,
+        manufacturer=payload.manufacturer,
+        model=payload.model,
+        serial_number=payload.serial_number,
+        status=payload.status,
+        attributes=payload.attributes,
     )
 
     db.add(item)
-    db.commit()
-    db.refresh(item)
+    commit_asset(db, item)
 
     return item
 
@@ -111,10 +137,16 @@ def update_asset(
             detail="Asset not found",
         )
 
+    item.external_id = payload.external_id
     item.name = payload.name
+    item.asset_type = payload.asset_type
+    item.manufacturer = payload.manufacturer
+    item.model = payload.model
+    item.serial_number = payload.serial_number
+    item.status = payload.status
+    item.attributes = payload.attributes
 
-    db.commit()
-    db.refresh(item)
+    commit_asset(db, item)
 
     return item
 

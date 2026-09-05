@@ -61,7 +61,16 @@ def test_assettrack_tenant_can_crud_assets(
         ASSETS_URL,
         headers=headers,
         json={
+            "external_id": "customer-asset-001",
             "name": "HVAC Unit",
+            "asset_type": "hvac",
+            "manufacturer": "Carrier",
+            "model": "WeatherMaker",
+            "serial_number": "SN-10001",
+            "status": "active",
+            "attributes": {
+                "location": "Roof",
+            },
         },
     )
 
@@ -69,6 +78,16 @@ def test_assettrack_tenant_can_crud_assets(
 
     created = create_response.json()
     assert created["name"] == "HVAC Unit"
+    assert created["external_id"] == "customer-asset-001"
+    assert created["asset_type"] == "hvac"
+    assert created["manufacturer"] == "Carrier"
+    assert created["model"] == "WeatherMaker"
+    assert created["serial_number"] == "SN-10001"
+    assert created["status"] == "active"
+    assert created["attributes"] == {
+        "location": "Roof",
+    }
+    assert created["updated_at"] is not None
 
     asset_id = created["id"]
 
@@ -102,7 +121,16 @@ def test_assettrack_tenant_can_crud_assets(
         f"{ASSETS_URL}/{asset_id}",
         headers=headers,
         json={
+            "external_id": "customer-asset-001",
             "name": "Updated HVAC Unit",
+            "asset_type": "hvac",
+            "manufacturer": "Carrier",
+            "model": "WeatherMaker 2",
+            "serial_number": "SN-10001",
+            "status": "inactive",
+            "attributes": {
+                "location": "Warehouse",
+            },
         },
     )
 
