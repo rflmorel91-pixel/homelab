@@ -26,7 +26,13 @@ class AssetParser(HTMLParser):
 
 
 def test_public_pages_use_external_content_hashed_assets():
-    for name in ("index", "renewaldesk", "request", "workflow-automation"):
+    for name in (
+        "index",
+        "renewaldesk",
+        "request",
+        "workflow-automation",
+        "assettrack",
+    ):
         page = (WORKSPACE_ROOT / "app" / f"{name}.html").read_text()
         parser = AssetParser()
         parser.feed(page)

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AssetTrack Developer API Pilot | FieldLookers</title>
+  <meta
+    name="description"
+    content="Connect one real asset-management workflow to the secure AssetTrack Developer API in a guided 30-day pilot."
+  >
+  <link rel="stylesheet" href="/assets/assettrack-bba1c615168c.css">
+</head>
+
+<body>
+<header>
+  <nav>
+    <a class="brand" href="/">FieldLookers</a>
+    <div class="nav-actions">
+      <a class="nav-link" href="#pilot">Pilot details</a>
+      <a class="nav-link" href="#apply">Apply for the pilot</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">AssetTrack Developer API</p>
+      <h1>Connect your asset workflow to a secure API.</h1>
+      <p class="lead">
+        Give your internal tools and applications one place to create,
+        retrieve, update, and track customer equipment and business assets.
+        Test one real integration in a guided 30-day pilot.
+      </p>
+      <a class="button" href="#apply">Apply for the pilot</a>
+    </div>
+
+    <aside class="offer-card" id="pilot">
+      <p class="eyebrow">30-day paid pilot</p>
+      <h2>$99 one-time</h2>
+      <ul>
+        <li>One organization and one integration</li>
+        <li>Up to two developers</li>
+        <li>Guided onboarding and documentation</li>
+        <li>Email support during the pilot</li>
+      </ul>
+      <p class="small">No automatic renewal or long-term contract.</p>
+    </aside>
+  </section>
+
+  <section class="section">
+    <p class="eyebrow">A practical integration</p>
+    <h2>Stop managing asset data by hand</h2>
+    <p class="section-intro">
+      Asset information often becomes scattered across spreadsheets,
+      service tickets, customer records, and internal tools. AssetTrack
+      provides a focused API for keeping those records consistent.
+    </p>
+    <div class="grid">
+      <article class="card">
+        <h3>Centralize records</h3>
+        <p>Create and maintain equipment and business asset records in one system.</p>
+      </article>
+      <article class="card">
+        <h3>Connect existing tools</h3>
+        <p>Add asset-management capabilities without building another backend.</p>
+      </article>
+      <article class="card">
+        <h3>Reduce repeated work</h3>
+        <p>Limit duplicate entry and keep asset information consistent across workflows.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section split">
+    <div>
+      <h2>What is included</h2>
+      <ul>
+        <li>Dedicated API-key access</li>
+        <li>Asset creation, retrieval, updating, and tracking</li>
+        <li>Endpoint documentation and example requests</li>
+        <li>One guided onboarding session</li>
+        <li>Email support for the pilot integration</li>
+        <li>Reasonable usage for the approved workflow</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Focused pilot boundaries</h2>
+      <ul>
+        <li>One organization and one integration</li>
+        <li>Up to two developers</li>
+        <li>No custom feature development</li>
+        <li>No guaranteed service-level agreement</li>
+        <li>Production use requires separate approval</li>
+        <li>You remain responsible for protecting API credentials</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Built for a real-world test</h2>
+    <p class="section-intro">
+      This is not a demonstration. During the pilot, you connect one real
+      workflow and use the API with actual business data.
+    </p>
+    <ol class="steps">
+      <li><strong>Apply:</strong> describe the assets, system, and problem you want to address.</li>
+      <li><strong>Confirm fit:</strong> FieldLookers reviews the scope before requesting payment.</li>
+      <li><strong>Integrate:</strong> receive credentials, documentation, and guided onboarding.</li>
+      <li><strong>Evaluate:</strong> confirm reliability, repeat use, and time saved after 30 days.</li>
+    </ol>
+  </section>
+
+  <section class="section continuation">
+    <div>
+      <p class="eyebrow">After the pilot</p>
+      <h2>Continue only if AssetTrack proves useful</h2>
+    </div>
+    <p>
+      Successful pilot customers may continue through an early-access
+      subscription starting at <strong>$49 per month</strong>. Final pricing
+      may depend on usage and support needs. Continuing requires your approval.
+    </p>
+  </section>
+
+  <section class="form-section" id="apply">
+    <p class="eyebrow">Pilot application</p>
+    <h2>Tell us what you want to connect</h2>
+    <p>
+      FieldLookers will review your workflow and confirm fit before requesting
+      payment. Submitting this form does not create a charge.
+    </p>
+
+    <form id="pilotForm">
+      <label>
+        Company or project name
+        <input name="business_name" required maxlength="200" autocomplete="organization">
+      </label>
+      <label>
+        Your name
+        <input name="contact_name" required maxlength="200" autocomplete="name">
+      </label>
+      <label>
+        Business email
+        <input name="email" type="email" required maxlength="320" autocomplete="email">
+      </label>
+      <label>
+        Business type
+        <select name="business_type" required>
+          <option value="">Select the closest match</option>
+          <option value="Small IT firm">Small IT firm</option>
+          <option value="Managed-service provider">Managed-service provider</option>
+          <option value="Developer">Developer</option>
+          <option value="Consultant">Consultant</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+      <label class="full">
+        What equipment or assets do you need to track?
+        <textarea name="assets" required maxlength="2000"></textarea>
+      </label>
+      <label class="full">
+        What system or workflow will you connect?
+        <textarea name="workflow" required maxlength="2000"></textarea>
+      </label>
+      <label class="full">
+        What problem are you trying to solve?
+        <textarea name="problem" required maxlength="2000"></textarea>
+      </label>
+      <label>
+        Preferred start date (optional)
+        <input name="start_date" type="date">
+      </label>
+      <div class="full">
+        <button type="submit">Apply for the $99 pilot</button>
+      </div>
+      <p id="formStatus" class="full" aria-live="polite"></p>
+    </form>
+  </section>
+</main>
+
+<footer>
+  FieldLookers LLC · Practical software and automation for small organizations
+  <br>
+  3 E Evergreen Road, Suite 101 PMB 1172, New City, NY 10956
+</footer>
+
+<script src="/assets/assettrack-15188ad30017.js"></script>
+</body>
+</html>
