@@ -104,7 +104,7 @@ class SecurityHeaders(unittest.TestCase):
                      "accept-invitation.html", "admin.html",
                      "commercialization.html", "prospecting.html",
                      "renewaldesk.html", "renewaldesk-app.html",
-                     "workflow-automation.html"):
+                     "workflow-automation.html", "assettrack.html"):
             shutil.copyfile(ROOT / "app" / name, html / name)
         shutil.copytree(ROOT / "app/assets", html / "assets")
         for name in ("app",):
@@ -168,8 +168,12 @@ class SecurityHeaders(unittest.TestCase):
             "/workflow-automation": (200, True),
             "/workflow-automation.html": (200, True),
             "/workflow-automation.html?probe=1": (200, True),
+            "/assettrack": (200, True),
+            "/assettrack.html": (200, True),
+            "/assettrack.html?probe=1": (200, True),
             "/renewaldesk/": (200, False),
             "/workflow-automation/": (200, False),
+            "/assettrack/": (200, False),
             "/missing-public-page": (200, False),
             "/app": (200, False),
             "/app.html": (200, False),
@@ -262,8 +266,10 @@ class SecurityHeaders(unittest.TestCase):
                             name = "renewaldesk-app"
                         elif path.startswith("/renewaldesk"):
                             name = "renewaldesk"
-                        else:
+                        elif path.startswith("/workflow-automation"):
                             name = "workflow-automation"
+                        else:
+                            name = "assettrack"
                         self.assertEqual(response.read(), (ROOT / "app" / f"{name}.html").read_bytes())
                     for name, value in {
                         "X-Content-Type-Options": "nosniff",
@@ -300,6 +306,7 @@ class SecurityHeaders(unittest.TestCase):
             "renewaldesk",
             "renewaldesk-app",
             "workflow-automation",
+            "assettrack",
         ):
             with self.subTest(page=page):
                 parser = Assets()
