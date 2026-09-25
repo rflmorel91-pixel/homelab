@@ -271,7 +271,7 @@ def test_validator_runs_without_application_environment():
     assert result.returncode == 0, (
         result.stdout + result.stderr
     )
-    assert "Validated 6 products." in (
+    assert "Validated 7 products." in (
         result.stdout
     )
     assert (
@@ -288,4 +288,4 @@ def test_validator_runs_without_application_environment():
     )
     assert result.stdout.count(
         "migration_locations=1"
-    ) == 3
+    ) == 4
