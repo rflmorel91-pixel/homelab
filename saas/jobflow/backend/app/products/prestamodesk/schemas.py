@@ -128,3 +128,55 @@ class InstallmentRead(BaseModel):
 
 class LoanDetail(LoanRead):
     installments: list[InstallmentRead]
+
+
+PaymentMethod = Literal[
+    "cash",
+    "bank_transfer",
+    "card",
+    "other",
+]
+
+
+class PaymentCreate(BaseModel):
+    installment_id: int = Field(gt=0)
+    amount: Decimal = Field(
+        gt=0,
+        max_digits=14,
+        decimal_places=2,
+    )
+    payment_method: PaymentMethod = "cash"
+    reference: str | None = Field(
+        default=None,
+        max_length=200,
+    )
+    notes: str | None = None
+    paid_at: datetime | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PaymentRead(BaseModel):
+    id: int
+    loan_id: int
+    installment_id: int
+    recorded_by_user_id: int
+    amount: Decimal
+    payment_method: PaymentMethod
+    reference: str | None
+    notes: str | None
+    paid_at: datetime
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentReceipt(PaymentRead):
+    receipt_number: str
+    installment_total: Decimal
+    installment_paid: Decimal
+    installment_balance: Decimal
+    installment_status: InstallmentStatus
+    loan_balance: Decimal
+    loan_status: LoanStatus
+    currency: Literal["DOP"]

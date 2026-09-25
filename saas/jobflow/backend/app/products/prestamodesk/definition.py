@@ -11,6 +11,9 @@ from app.products.prestamodesk.borrowers_api import (
 from app.products.prestamodesk.loans_api import (
     router as loans_router,
 )
+from app.products.prestamodesk.payments_api import (
+    router as payments_router,
+)
 
 
 PRESTAMODESK_PRODUCT = register_product(
@@ -27,6 +30,7 @@ PRESTAMODESK_PRODUCT = register_product(
         tenant_routers=(
             borrowers_router,
             loans_router,
+            payments_router,
         ),
         description=(
             "Administra prestatarios, préstamos, "
