@@ -120,3 +120,27 @@ def test_staging_nginx_serves_prestamodesk_pages():
     )
     assert "location = /prestamodesk {" in contents
     assert "location = /prestamodesk/app {" in contents
+
+
+def test_prestamodesk_workspace_supports_password_reset():
+    html = WORKSPACE_PAGE.read_text()
+
+    script_path = next(
+        asset
+        for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.suffix == ".js"
+    )
+    script = script_path.read_text()
+
+    for element_id in (
+        "forgotPasswordButton",
+        "passwordResetRequestForm",
+        "passwordResetEmail",
+        "passwordResetRequestButton",
+        "backToSignInButton",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert "/auth/password-reset/request" in script
+    assert 'product_slug: "prestamodesk"' in script
+    assert "¿Olvidó su contraseña?" in html

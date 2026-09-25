@@ -12,6 +12,17 @@ let loanDetails = [];
 const authPanel = document.getElementById("authPanel");
 const workspace = document.getElementById("workspace");
 const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const forgotPasswordButton =
+  document.getElementById("forgotPasswordButton");
+const passwordResetRequestForm =
+  document.getElementById("passwordResetRequestForm");
+const passwordResetEmail =
+  document.getElementById("passwordResetEmail");
+const passwordResetRequestButton =
+  document.getElementById("passwordResetRequestButton");
+const backToSignInButton =
+  document.getElementById("backToSignInButton");
 const logoutButton = document.getElementById("logoutButton");
 const clientContext = document.getElementById("clientContext");
 const healthStatus = document.getElementById("healthStatus");
@@ -707,6 +718,65 @@ document.getElementById(
 ).addEventListener(
   "click",
   () => window.print()
+);
+
+
+forgotPasswordButton.addEventListener(
+  "click",
+  () => {
+    passwordResetEmail.value = loginEmail.value;
+    loginForm.hidden = true;
+    passwordResetRequestForm.hidden = false;
+    passwordResetEmail.focus();
+  }
+);
+
+
+backToSignInButton.addEventListener(
+  "click",
+  () => {
+    passwordResetRequestForm.hidden = true;
+    loginForm.hidden = false;
+    loginEmail.focus();
+  }
+);
+
+
+passwordResetRequestForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    passwordResetRequestButton.disabled = true;
+    passwordResetRequestButton.textContent =
+      "Enviando…";
+
+    try {
+      const result = await apiRequest(
+        "/auth/password-reset/request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: passwordResetEmail.value,
+            product_slug: "prestamodesk"
+          })
+        }
+      );
+
+      passwordResetRequestForm.reset();
+      passwordResetRequestForm.hidden = true;
+      loginForm.hidden = false;
+
+      showSuccess(result.message);
+      loginEmail.focus();
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      passwordResetRequestButton.disabled = false;
+      passwordResetRequestButton.textContent =
+        "Enviar enlace";
+    }
+  }
 );
 
 

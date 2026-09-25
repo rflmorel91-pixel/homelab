@@ -58,6 +58,50 @@
         </label>
 
         <button type="submit">Iniciar sesión</button>
+
+        <button
+          id="forgotPasswordButton"
+          type="button"
+          class="secondary"
+        >
+          ¿Olvidó su contraseña?
+        </button>
+      </form>
+
+      <form
+        id="passwordResetRequestForm"
+        class="form-grid"
+        hidden
+      >
+        <p>
+          Ingrese el correo de su cuenta. Si la cuenta es
+          elegible, enviaremos un enlace seguro.
+        </p>
+
+        <label>
+          Correo electrónico
+          <input
+            id="passwordResetEmail"
+            type="email"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+        <button
+          id="passwordResetRequestButton"
+          type="submit"
+        >
+          Enviar enlace
+        </button>
+
+        <button
+          id="backToSignInButton"
+          type="button"
+          class="secondary"
+        >
+          Volver a iniciar sesión
+        </button>
       </form>
     </section>
 
@@ -297,6 +341,6 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-1c7a3c10ed13.js" defer></script>
+  <script src="/assets/prestamodesk-app-f305bd0ff394.js" defer></script>
 </body>
 </html>
