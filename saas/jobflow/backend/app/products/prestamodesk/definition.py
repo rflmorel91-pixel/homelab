@@ -8,6 +8,9 @@ from app.products.prestamodesk.api import (
 from app.products.prestamodesk.borrowers_api import (
     router as borrowers_router,
 )
+from app.products.prestamodesk.loans_api import (
+    router as loans_router,
+)
 
 
 PRESTAMODESK_PRODUCT = register_product(
@@ -21,7 +24,10 @@ PRESTAMODESK_PRODUCT = register_product(
         workspace_route="/prestamodesk/app",
         api_prefix="/api/v1/products/prestamodesk",
         routers=(status_router,),
-        tenant_routers=(borrowers_router,),
+        tenant_routers=(
+            borrowers_router,
+            loans_router,
+        ),
         description=(
             "Administra prestatarios, préstamos, "
             "cuotas y cobros en DOP."
