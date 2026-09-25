@@ -1,0 +1,188 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Tenant
+from app.products.prestamodesk.amortization import (
+    build_fixed_schedule,
+)
+from app.products.prestamodesk.models import (
+    Borrower,
+    Installment,
+    Loan,
+)
+from app.products.prestamodesk.schemas import (
+    InstallmentRead,
+    LoanCreate,
+    LoanDetail,
+    LoanRead,
+)
+from app.tenant_context import get_current_tenant
+
+
+router = APIRouter(
+    prefix="/loans",
+    tags=["PréstamoDesk Loans"],
+)
+
+
+def get_loan_or_404(
+    loan_id: int,
+    tenant: Tenant,
+    db: Session,
+) -> Loan:
+    loan = db.scalar(
+        select(Loan).where(
+            Loan.id == loan_id,
+            Loan.tenant_id == tenant.id,
+        )
+    )
+
+    if loan is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Loan not found",
+        )
+
+    return loan
+
+
+def build_loan_detail(
+    loan: Loan,
+    db: Session,
+) -> LoanDetail:
+    installments = db.scalars(
+        select(Installment)
+        .where(
+            Installment.loan_id == loan.id,
+            Installment.tenant_id == loan.tenant_id,
+        )
+        .order_by(Installment.sequence_number)
+    ).all()
+
+    loan_data = LoanRead.model_validate(loan).model_dump()
+
+    return LoanDetail(
+        **loan_data,
+        installments=[
+            InstallmentRead.model_validate(item)
+            for item in installments
+        ],
+    )
+
+
+@router.post("", response_model=LoanDetail, status_code=201)
+def create_loan(
+    payload: LoanCreate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    borrower = db.scalar(
+        select(Borrower).where(
+            Borrower.id == payload.borrower_id,
+            Borrower.tenant_id == tenant.id,
+        )
+    )
+
+    if borrower is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Borrower not found",
+        )
+
+    if borrower.status != "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Borrower is inactive",
+        )
+
+    if payload.first_payment_date < payload.start_date:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "First payment date cannot be before "
+                "the loan start date"
+            ),
+        )
+
+    calculation = build_fixed_schedule(
+        principal_amount=payload.principal_amount,
+        flat_interest_rate_percent=(
+            payload.flat_interest_rate_percent
+        ),
+        installment_count=payload.installment_count,
+        payment_frequency=payload.payment_frequency,
+        first_payment_date=payload.first_payment_date,
+    )
+
+    loan = Loan(
+        tenant_id=tenant.id,
+        borrower_id=borrower.id,
+        principal_amount=calculation.principal_amount,
+        flat_interest_rate_percent=(
+            calculation.flat_interest_rate_percent
+        ),
+        total_interest=calculation.total_interest,
+        total_due=calculation.total_due,
+        installment_count=payload.installment_count,
+        payment_frequency=payload.payment_frequency,
+        start_date=payload.start_date,
+        first_payment_date=payload.first_payment_date,
+        currency="DOP",
+        status="active",
+        notes=payload.notes,
+    )
+
+    try:
+        db.add(loan)
+        db.flush()
+
+        db.add_all(
+            [
+                Installment(
+                    tenant_id=tenant.id,
+                    loan_id=loan.id,
+                    sequence_number=item.sequence_number,
+                    due_date=item.due_date,
+                    principal_due=item.principal_due,
+                    interest_due=item.interest_due,
+                    total_due=item.total_due,
+                    paid_amount=0,
+                    status="pending",
+                )
+                for item in calculation.installments
+            ]
+        )
+
+        db.commit()
+        db.refresh(loan)
+    except Exception:
+        db.rollback()
+        raise
+
+    return build_loan_detail(loan, db)
+
+
+@router.get("", response_model=list[LoanRead])
+def list_loans(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    result = db.execute(
+        select(Loan)
+        .where(Loan.tenant_id == tenant.id)
+        .order_by(Loan.id)
+    )
+
+    return result.scalars().all()
+
+
+@router.get("/{loan_id}", response_model=LoanDetail)
+def get_loan(
+    loan_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    loan = get_loan_or_404(loan_id, tenant, db)
+    return build_loan_detail(loan, db)

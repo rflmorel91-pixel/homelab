@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>PréstamoDesk | Espacio de trabajo</title>
+  <link
+    rel="stylesheet"
+    href="/assets/prestamodesk-app-40edcede823c.css"
+  >
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <span class="eyebrow">FieldLookers</span>
+      <h1>PréstamoDesk</h1>
+      <p>Administración de préstamos en DOP</p>
+    </div>
+
+    <div class="header-actions">
+      <span id="clientContext" class="badge" hidden></span>
+      <span id="healthStatus">Comprobando API…</span>
+      <button id="logoutButton" class="secondary" hidden>
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div id="errorMessage" class="message error" hidden></div>
+    <div id="successMessage" class="message success" hidden></div>
+
+    <section id="authPanel" class="panel auth-panel">
+      <h2>Iniciar sesión</h2>
+
+      <form id="loginForm" class="form-grid">
+        <label>
+          Correo electrónico
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="username"
+            required
+          >
+        </label>
+
+        <label>
+          Contraseña
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          >
+        </label>
+
+        <button type="submit">Iniciar sesión</button>
+
+        <button
+          id="forgotPasswordButton"
+          type="button"
+          class="secondary"
+        >
+          ¿Olvidó su contraseña?
+        </button>
+      </form>
+
+      <form
+        id="passwordResetRequestForm"
+        class="form-grid"
+        hidden
+      >
+        <p>
+          Ingrese el correo de su cuenta. Si la cuenta es
+          elegible, enviaremos un enlace seguro.
+        </p>
+
+        <label>
+          Correo electrónico
+          <input
+            id="passwordResetEmail"
+            type="email"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+        <button
+          id="passwordResetRequestButton"
+          type="submit"
+        >
+          Enviar enlace
+        </button>
+
+        <button
+          id="backToSignInButton"
+          type="button"
+          class="secondary"
+        >
+          Volver a iniciar sesión
+        </button>
+      </form>
+    </section>
+
+    <div id="workspace" hidden>
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span>Prestatarios</span>
+          <strong id="borrowerCount">0</strong>
+        </article>
+
+        <article class="summary-card">
+          <span>Préstamos activos</span>
+          <strong id="activeLoanCount">0</strong>
+        </article>
+
+        <article class="summary-card">
+          <span>Saldo pendiente</span>
+          <strong id="outstandingBalance">RD$0.00</strong>
+        </article>
+
+        <article class="summary-card">
+          <span>Cuotas vencidas</span>
+          <strong id="overdueCount">0</strong>
+        </article>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="panel">
+          <h2>Nuevo prestatario</h2>
+
+          <form id="borrowerForm" class="form-grid">
+            <label>
+              Nombre completo
+              <input id="borrowerName" maxlength="200" required>
+            </label>
+
+            <label>
+              Tipo de documento
+              <select id="borrowerDocumentType">
+                <option value="cedula">Cédula</option>
+                <option value="passport">Pasaporte</option>
+                <option value="other">Otro</option>
+              </select>
+            </label>
+
+            <label>
+              Número de documento
+              <input id="borrowerDocumentNumber" maxlength="50">
+            </label>
+
+            <label>
+              Teléfono
+              <input id="borrowerPhone" maxlength="40">
+            </label>
+
+            <label>
+              Municipio
+              <input id="borrowerMunicipality" maxlength="120">
+            </label>
+
+            <label>
+              Provincia
+              <input id="borrowerProvince" maxlength="120">
+            </label>
+
+            <button type="submit">Guardar prestatario</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>Nuevo préstamo</h2>
+
+          <form id="loanForm" class="form-grid">
+            <label>
+              Prestatario
+              <select id="loanBorrower" required></select>
+            </label>
+
+            <label>
+              Principal (DOP)
+              <input
+                id="loanPrincipal"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+              >
+            </label>
+
+            <label>
+              Interés total fijo (%)
+              <input
+                id="loanRate"
+                type="number"
+                min="0"
+                max="1000"
+                step="0.0001"
+                required
+              >
+            </label>
+
+            <label>
+              Cantidad de cuotas
+              <input
+                id="loanInstallments"
+                type="number"
+                min="1"
+                max="3660"
+                required
+              >
+            </label>
+
+            <label>
+              Frecuencia
+              <select id="loanFrequency">
+                <option value="daily">Diaria</option>
+                <option value="weekly">Semanal</option>
+                <option value="biweekly">Quincenal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </label>
+
+            <label>
+              Fecha del préstamo
+              <input id="loanStartDate" type="date" required>
+            </label>
+
+            <label>
+              Primera cuota
+              <input
+                id="loanFirstPaymentDate"
+                type="date"
+                required
+              >
+            </label>
+
+            <button type="submit">Crear préstamo</button>
+          </form>
+
+          <p class="notice">
+            El porcentaje indicado es interés fijo total del
+            préstamo; no representa una tasa APR.
+          </p>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Prestatarios</h2>
+          <span id="borrowerResultCount" class="badge">0</span>
+        </div>
+        <div id="borrowerList" class="card-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Préstamos</h2>
+          <span id="loanResultCount" class="badge">0</span>
+        </div>
+        <div id="loanList" class="card-list"></div>
+      </section>
+
+      <section id="loanDetailPanel" class="panel" hidden>
+        <div class="section-heading">
+          <h2 id="loanDetailTitle">Detalle del préstamo</h2>
+          <button
+            id="closeLoanDetail"
+            class="secondary"
+            type="button"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div id="loanDetailSummary"></div>
+
+        <h3>Calendario de cuotas</h3>
+        <div id="installmentList" class="table-wrap"></div>
+      </section>
+
+      <section id="paymentPanel" class="panel" hidden>
+        <h2>Registrar pago</h2>
+
+        <form id="paymentForm" class="form-grid">
+          <label>
+            Cuota
+            <select id="paymentInstallment" required></select>
+          </label>
+
+          <label>
+            Monto (DOP)
+            <input
+              id="paymentAmount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+            >
+          </label>
+
+          <label>
+            Método
+            <select id="paymentMethod">
+              <option value="cash">Efectivo</option>
+              <option value="bank_transfer">
+                Transferencia bancaria
+              </option>
+              <option value="card">Tarjeta</option>
+              <option value="other">Otro</option>
+            </select>
+          </label>
+
+          <label>
+            Referencia
+            <input id="paymentReference" maxlength="200">
+          </label>
+
+          <button type="submit">Registrar pago</button>
+        </form>
+
+        <article id="receiptPanel" class="receipt" hidden>
+          <h3>Recibo de pago</h3>
+          <div id="receiptContent"></div>
+          <button
+            id="printReceiptButton"
+            type="button"
+            class="secondary"
+          >
+            Imprimir
+          </button>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    PréstamoDesk · FieldLookers
+  </footer>
+
+  <script src="/assets/prestamodesk-app-f305bd0ff394.js" defer></script>
+</body>
+</html>
