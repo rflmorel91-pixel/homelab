@@ -144,3 +144,41 @@ def test_prestamodesk_workspace_supports_password_reset():
     assert "/auth/password-reset/request" in script
     assert 'product_slug: "prestamodesk"' in script
     assert "¿Olvidó su contraseña?" in html
+
+
+def test_prestamodesk_workspace_supports_vehicle_loans():
+    html = WORKSPACE_PAGE.read_text()
+
+    script_path = next(
+        asset
+        for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.suffix == ".js"
+    )
+    script = script_path.read_text()
+
+    for element_id in (
+        "loanType",
+        "vehicleLoanFields",
+        "vehicleCashPrice",
+        "vehicleDownPayment",
+        "vehicleMake",
+        "vehicleModel",
+        "vehicleYear",
+        "vehicleColor",
+        "vehicleVin",
+        "vehicleLicensePlate",
+        "vehicleSeller",
+        "vehicleNotes",
+    ):
+        assert f'id="{element_id}"' in html
+
+    for expected in (
+        "updateVehicleLoanFields",
+        "updateVehicleFinancedAmount",
+        "buildLoanPayload",
+        "vehicle_cash_price",
+        "vehicle_down_payment",
+        "vehicle_license_plate",
+        "Vehículo financiado",
+    ):
+        assert expected in script

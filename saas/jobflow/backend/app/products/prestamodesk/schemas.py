@@ -7,6 +7,7 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 
@@ -72,9 +73,63 @@ InstallmentStatus = Literal[
     "overdue",
 ]
 
+LoanType = Literal[
+    "personal",
+    "vehicle",
+]
+
 
 class LoanCreate(BaseModel):
     borrower_id: int = Field(gt=0)
+    loan_type: LoanType = "personal"
+    vehicle_cash_price: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=14,
+        decimal_places=2,
+    )
+    vehicle_down_payment: Decimal | None = Field(
+        default=None,
+        ge=0,
+        max_digits=14,
+        decimal_places=2,
+    )
+    vehicle_make: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    vehicle_model: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    vehicle_year: int | None = Field(
+        default=None,
+        ge=1886,
+        le=2100,
+    )
+    vehicle_color: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+    )
+    vehicle_vin: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+    )
+    vehicle_license_plate: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=30,
+    )
+    vehicle_seller: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+    )
+    vehicle_notes: str | None = None
     principal_amount: Decimal = Field(
         gt=0,
         max_digits=14,
@@ -92,12 +147,86 @@ class LoanCreate(BaseModel):
     first_payment_date: date
     notes: str | None = None
 
+    @model_validator(mode="after")
+    def validate_vehicle_financing(self):
+        vehicle_values = (
+            self.vehicle_cash_price,
+            self.vehicle_down_payment,
+            self.vehicle_make,
+            self.vehicle_model,
+            self.vehicle_year,
+            self.vehicle_color,
+            self.vehicle_vin,
+            self.vehicle_license_plate,
+            self.vehicle_seller,
+            self.vehicle_notes,
+        )
+
+        if self.loan_type == "personal":
+            if any(
+                value is not None
+                for value in vehicle_values
+            ):
+                raise ValueError(
+                    "Vehicle fields require a vehicle loan"
+                )
+
+            return self
+
+        required = (
+            self.vehicle_cash_price,
+            self.vehicle_down_payment,
+            self.vehicle_make,
+            self.vehicle_model,
+            self.vehicle_year,
+        )
+
+        if any(value is None for value in required):
+            raise ValueError(
+                "Vehicle cash price, down payment, make, "
+                "model and year are required"
+            )
+
+        if (
+            self.vehicle_down_payment
+            > self.vehicle_cash_price
+        ):
+            raise ValueError(
+                "Vehicle down payment cannot exceed cash price"
+            )
+
+        financed_amount = (
+            self.vehicle_cash_price
+            - self.vehicle_down_payment
+        ).quantize(Decimal("0.01"))
+
+        if financed_amount != self.principal_amount.quantize(
+            Decimal("0.01")
+        ):
+            raise ValueError(
+                "Principal amount must equal vehicle cash "
+                "price minus down payment"
+            )
+
+        return self
+
     model_config = ConfigDict(extra="forbid")
 
 
 class LoanRead(BaseModel):
     id: int
     borrower_id: int
+    loan_type: LoanType
+    vehicle_cash_price: Decimal | None
+    vehicle_down_payment: Decimal | None
+    vehicle_make: str | None
+    vehicle_model: str | None
+    vehicle_year: int | None
+    vehicle_color: str | None
+    vehicle_vin: str | None
+    vehicle_license_plate: str | None
+    vehicle_seller: str | None
+    vehicle_notes: str | None
     principal_amount: Decimal
     flat_interest_rate_percent: Decimal
     total_interest: Decimal

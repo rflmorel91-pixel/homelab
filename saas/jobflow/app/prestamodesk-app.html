@@ -9,7 +9,7 @@
   <title>PréstamoDesk | Espacio de trabajo</title>
   <link
     rel="stylesheet"
-    href="/assets/prestamodesk-app-40edcede823c.css"
+    href="/assets/prestamodesk-app-b4c00c256964.css"
   >
 </head>
 <body>
@@ -181,7 +181,92 @@
             </label>
 
             <label>
-              Principal (DOP)
+              Tipo de préstamo
+              <select id="loanType">
+                <option value="personal">Personal</option>
+                <option value="vehicle">Vehículo</option>
+              </select>
+            </label>
+
+            <fieldset
+              id="vehicleLoanFields"
+              class="vehicle-fields"
+              hidden
+            >
+              <legend>Información del vehículo</legend>
+
+              <label>
+                Precio de contado (DOP)
+                <input
+                  id="vehicleCashPrice"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                >
+              </label>
+
+              <label>
+                Inicial (DOP)
+                <input
+                  id="vehicleDownPayment"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="0.00"
+                >
+              </label>
+
+              <label>
+                Marca
+                <input id="vehicleMake" maxlength="100">
+              </label>
+
+              <label>
+                Modelo
+                <input id="vehicleModel" maxlength="100">
+              </label>
+
+              <label>
+                Año
+                <input
+                  id="vehicleYear"
+                  type="number"
+                  min="1886"
+                  max="2100"
+                >
+              </label>
+
+              <label>
+                Color
+                <input id="vehicleColor" maxlength="50">
+              </label>
+
+              <label>
+                VIN o chasis
+                <input id="vehicleVin" maxlength="50">
+              </label>
+
+              <label>
+                Placa
+                <input
+                  id="vehicleLicensePlate"
+                  maxlength="30"
+                >
+              </label>
+
+              <label>
+                Vendedor o concesionario
+                <input id="vehicleSeller" maxlength="200">
+              </label>
+
+              <label>
+                Notas del vehículo
+                <input id="vehicleNotes">
+              </label>
+            </fieldset>
+
+            <label>
+              Monto financiado (DOP)
               <input
                 id="loanPrincipal"
                 type="number"
@@ -367,6 +452,6 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-6bc58470b276.js" defer></script>
+  <script src="/assets/prestamodesk-app-956a8bf4b89d.js" defer></script>
 </body>
 </html>

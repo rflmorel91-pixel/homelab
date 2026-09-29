@@ -33,6 +33,62 @@ class Loan(Base):
         index=True,
     )
 
+    loan_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="personal",
+    )
+
+    vehicle_cash_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(14, 2),
+        nullable=True,
+    )
+
+    vehicle_down_payment: Mapped[Decimal | None] = mapped_column(
+        Numeric(14, 2),
+        nullable=True,
+    )
+
+    vehicle_make: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    vehicle_model: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    vehicle_year: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    vehicle_color: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    vehicle_vin: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    vehicle_license_plate: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    vehicle_seller: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+    )
+
+    vehicle_notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     principal_amount: Mapped[Decimal] = mapped_column(
         Numeric(14, 2),
         nullable=False,

@@ -119,6 +119,17 @@ def create_loan(
     loan = Loan(
         tenant_id=tenant.id,
         borrower_id=borrower.id,
+        loan_type=payload.loan_type,
+        vehicle_cash_price=payload.vehicle_cash_price,
+        vehicle_down_payment=payload.vehicle_down_payment,
+        vehicle_make=payload.vehicle_make,
+        vehicle_model=payload.vehicle_model,
+        vehicle_year=payload.vehicle_year,
+        vehicle_color=payload.vehicle_color,
+        vehicle_vin=payload.vehicle_vin,
+        vehicle_license_plate=payload.vehicle_license_plate,
+        vehicle_seller=payload.vehicle_seller,
+        vehicle_notes=payload.vehicle_notes,
         principal_amount=calculation.principal_amount,
         flat_interest_rate_percent=(
             calculation.flat_interest_rate_percent

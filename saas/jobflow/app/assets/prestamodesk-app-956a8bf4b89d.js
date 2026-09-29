@@ -32,6 +32,15 @@ const errorMessage = document.getElementById("errorMessage");
 const successMessage = document.getElementById("successMessage");
 const borrowerForm = document.getElementById("borrowerForm");
 const loanForm = document.getElementById("loanForm");
+const loanType = document.getElementById("loanType");
+const loanPrincipal =
+  document.getElementById("loanPrincipal");
+const vehicleLoanFields =
+  document.getElementById("vehicleLoanFields");
+const vehicleCashPrice =
+  document.getElementById("vehicleCashPrice");
+const vehicleDownPayment =
+  document.getElementById("vehicleDownPayment");
 const paymentForm = document.getElementById("paymentForm");
 const borrowerList = document.getElementById("borrowerList");
 const loanList = document.getElementById("loanList");
@@ -104,6 +113,128 @@ function setAuthenticatedUI(authenticated) {
   workspace.hidden = !authenticated;
   logoutButton.hidden = !authenticated;
   clientContext.hidden = !authenticated;
+}
+
+
+function optionalInputValue(elementId) {
+  return (
+    document.getElementById(elementId).value.trim()
+    || null
+  );
+}
+
+
+function updateVehicleFinancedAmount() {
+  if (loanType.value !== "vehicle") {
+    return;
+  }
+
+  const cashPrice = Number(vehicleCashPrice.value);
+  const downPayment = Number(
+    vehicleDownPayment.value || 0
+  );
+
+  if (
+    !Number.isFinite(cashPrice)
+    || cashPrice <= 0
+    || !Number.isFinite(downPayment)
+    || downPayment < 0
+    || downPayment > cashPrice
+  ) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  loanPrincipal.value = (
+    cashPrice - downPayment
+  ).toFixed(2);
+}
+
+
+function updateVehicleLoanFields() {
+  const isVehicle = loanType.value === "vehicle";
+
+  vehicleLoanFields.hidden = !isVehicle;
+  loanPrincipal.readOnly = isVehicle;
+
+  for (const element of vehicleLoanFields.querySelectorAll(
+    "input"
+  )) {
+    element.required = false;
+  }
+
+  if (!isVehicle) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  for (const elementId of (
+    "vehicleCashPrice",
+    "vehicleDownPayment",
+    "vehicleMake",
+    "vehicleModel",
+    "vehicleYear"
+  )) {
+    document.getElementById(elementId).required = true;
+  }
+
+  updateVehicleFinancedAmount();
+}
+
+
+function buildLoanPayload() {
+  const payload = {
+    borrower_id: Number(loanBorrower.value),
+    loan_type: loanType.value,
+    principal_amount: loanPrincipal.value,
+    flat_interest_rate_percent:
+      document.getElementById("loanRate").value,
+    installment_count: Number(
+      document.getElementById(
+        "loanInstallments"
+      ).value
+    ),
+    payment_frequency:
+      document.getElementById("loanFrequency").value,
+    start_date:
+      document.getElementById("loanStartDate").value,
+    first_payment_date:
+      document.getElementById(
+        "loanFirstPaymentDate"
+      ).value
+  };
+
+  if (loanType.value === "vehicle") {
+    Object.assign(
+      payload,
+      {
+        vehicle_cash_price: vehicleCashPrice.value,
+        vehicle_down_payment:
+          vehicleDownPayment.value,
+        vehicle_make:
+          optionalInputValue("vehicleMake"),
+        vehicle_model:
+          optionalInputValue("vehicleModel"),
+        vehicle_year: Number(
+          document.getElementById(
+            "vehicleYear"
+          ).value
+        ),
+        vehicle_color:
+          optionalInputValue("vehicleColor"),
+        vehicle_vin:
+          optionalInputValue("vehicleVin"),
+        vehicle_license_plate:
+          optionalInputValue("vehicleLicensePlate"),
+        vehicle_seller:
+          optionalInputValue("vehicleSeller"),
+        vehicle_notes:
+          optionalInputValue("vehicleNotes")
+      }
+    );
+  }
+
+  return payload;
 }
 
 
@@ -436,6 +567,19 @@ function renderLoans() {
         item => item.id === loan.borrower_id
       );
 
+      const vehicleDescription = (
+        loan.loan_type === "vehicle"
+          ? `
+            <span>
+              Vehículo:
+              ${escapeHtml(loan.vehicle_make)}
+              ${escapeHtml(loan.vehicle_model)}
+              ${escapeHtml(loan.vehicle_year)}
+            </span>
+          `
+          : ""
+      );
+
       return `
         <article class="item-card">
           <h3>
@@ -446,7 +590,15 @@ function renderLoans() {
           </h3>
           <div class="item-meta">
             <span>
-              Principal: ${formatMoney(
+              Tipo: ${
+                loan.loan_type === "vehicle"
+                  ? "Vehículo"
+                  : "Personal"
+              }
+            </span>
+            ${vehicleDescription}
+            <span>
+              Financiado: ${formatMoney(
                 loan.principal_amount
               )}
             </span>
@@ -556,10 +708,81 @@ function renderLoanDetail(detail) {
     0
   );
 
+  const vehicleSummary = (
+    detail.loan_type === "vehicle"
+      ? `
+        <h3>Vehículo financiado</h3>
+        <div class="item-meta">
+          <span>
+            ${escapeHtml(detail.vehicle_make)}
+            ${escapeHtml(detail.vehicle_model)}
+            ${escapeHtml(detail.vehicle_year)}
+          </span>
+          <span>
+            Precio: ${formatMoney(
+              detail.vehicle_cash_price
+            )}
+          </span>
+          <span>
+            Inicial: ${formatMoney(
+              detail.vehicle_down_payment
+            )}
+          </span>
+          ${
+            detail.vehicle_color
+              ? `<span>Color: ${
+                  escapeHtml(detail.vehicle_color)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_vin
+              ? `<span>VIN/chasis: ${
+                  escapeHtml(detail.vehicle_vin)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_license_plate
+              ? `<span>Placa: ${
+                  escapeHtml(
+                    detail.vehicle_license_plate
+                  )
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_seller
+              ? `<span>Vendedor: ${
+                  escapeHtml(detail.vehicle_seller)
+                }</span>`
+              : ""
+          }
+        </div>
+        ${
+          detail.vehicle_notes
+            ? `<p>${escapeHtml(
+                detail.vehicle_notes
+              )}</p>`
+            : ""
+        }
+      `
+      : ""
+  );
+
   loanDetailSummary.innerHTML = `
     <div class="item-meta">
       <span>
-        Principal: ${formatMoney(detail.principal_amount)}
+        Tipo: ${
+          detail.loan_type === "vehicle"
+            ? "Vehículo"
+            : "Personal"
+        }
+      </span>
+      <span>
+        Financiado: ${formatMoney(
+          detail.principal_amount
+        )}
       </span>
       <span>
         Interés: ${formatMoney(detail.total_interest)}
@@ -576,6 +799,7 @@ function renderLoanDetail(detail) {
         )}
       </span>
     </div>
+    ${vehicleSummary}
   `;
 
   installmentList.innerHTML = `
@@ -718,40 +942,14 @@ loanForm.addEventListener(
         `${PRODUCT_BASE}/loans`,
         {
           method: "POST",
-          body: JSON.stringify({
-            borrower_id: Number(
-              loanBorrower.value
-            ),
-            principal_amount:
-              document.getElementById(
-                "loanPrincipal"
-              ).value,
-            flat_interest_rate_percent:
-              document.getElementById(
-                "loanRate"
-              ).value,
-            installment_count: Number(
-              document.getElementById(
-                "loanInstallments"
-              ).value
-            ),
-            payment_frequency:
-              document.getElementById(
-                "loanFrequency"
-              ).value,
-            start_date:
-              document.getElementById(
-                "loanStartDate"
-              ).value,
-            first_payment_date:
-              document.getElementById(
-                "loanFirstPaymentDate"
-              ).value
-          })
+          body: JSON.stringify(
+            buildLoanPayload()
+          )
         }
       );
 
       loanForm.reset();
+      updateVehicleLoanFields();
       await loadDashboard();
       showSuccess("Préstamo creado.");
       await openLoan(detail.id);
@@ -759,6 +957,22 @@ loanForm.addEventListener(
       showError(error.message);
     }
   }
+);
+
+
+loanType.addEventListener(
+  "change",
+  updateVehicleLoanFields
+);
+
+vehicleCashPrice.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
+);
+
+vehicleDownPayment.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
 );
 
 
@@ -1043,6 +1257,8 @@ async function initialize() {
   document.getElementById(
     "loanStartDate"
   ).value = today;
+
+  updateVehicleLoanFields();
 
   if (!tenantId) {
     setAuthenticatedUI(false);

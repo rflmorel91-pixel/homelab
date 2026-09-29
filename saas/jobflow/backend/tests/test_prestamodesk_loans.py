@@ -226,3 +226,150 @@ def test_first_payment_cannot_precede_start_date(
         response.json()["detail"]
     )
     assert db_session.scalars(select(Loan)).all() == []
+
+
+def vehicle_loan_payload(borrower_id):
+    payload = loan_payload(borrower_id)
+    payload.update(
+        {
+            "loan_type": "vehicle",
+            "principal_amount": "800000.00",
+            "vehicle_cash_price": "1000000.00",
+            "vehicle_down_payment": "200000.00",
+            "vehicle_make": "Toyota",
+            "vehicle_model": "Corolla",
+            "vehicle_year": 2022,
+            "vehicle_color": "Blanco",
+            "vehicle_vin": "SYNTHETIC-CHASSIS-001",
+            "vehicle_license_plate": "TEST001",
+            "vehicle_seller": "Dealer sintético",
+            "vehicle_notes": "Vehículo de prueba",
+        }
+    )
+    return payload
+
+
+def test_create_vehicle_loan_preserves_vehicle_details(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Vehicle Loan Tenant",
+        "prestamodesk-vehicle-loan",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.auth_headers(tenant),
+        json=vehicle_loan_payload(borrower.id),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+
+    assert body["loan_type"] == "vehicle"
+    assert Decimal(body["vehicle_cash_price"]) == Decimal(
+        "1000000.00"
+    )
+    assert Decimal(body["vehicle_down_payment"]) == Decimal(
+        "200000.00"
+    )
+    assert body["vehicle_make"] == "Toyota"
+    assert body["vehicle_model"] == "Corolla"
+    assert body["vehicle_year"] == 2022
+    assert body["vehicle_color"] == "Blanco"
+    assert body["vehicle_vin"] == "SYNTHETIC-CHASSIS-001"
+    assert body["vehicle_license_plate"] == "TEST001"
+    assert body["vehicle_seller"] == "Dealer sintético"
+    assert body["vehicle_notes"] == "Vehículo de prueba"
+    assert Decimal(body["principal_amount"]) == Decimal(
+        "800000.00"
+    )
+
+    loan = db_session.get(Loan, body["id"])
+    assert loan is not None
+    assert loan.tenant_id == tenant.id
+    assert loan.loan_type == "vehicle"
+
+
+def test_vehicle_loan_requires_core_vehicle_details(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Incomplete Vehicle Tenant",
+        "prestamodesk-incomplete-vehicle",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    payload = loan_payload(borrower.id)
+    payload["loan_type"] = "vehicle"
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.auth_headers(tenant),
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_vehicle_financed_amount_must_match_principal(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Vehicle Amount Tenant",
+        "prestamodesk-vehicle-amount",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    payload = vehicle_loan_payload(borrower.id)
+    payload["principal_amount"] = "799999.99"
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.auth_headers(tenant),
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_personal_loan_rejects_vehicle_fields(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Personal Loan Validation Tenant",
+        "prestamodesk-personal-validation",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    payload = loan_payload(borrower.id)
+    payload["vehicle_make"] = "Toyota"
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.auth_headers(tenant),
+        json=payload,
+    )
+
+    assert response.status_code == 422
