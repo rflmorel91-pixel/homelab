@@ -2,7 +2,12 @@ from datetime import date, datetime
 from typing import Literal
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 
 DocumentType = Literal["cedula", "passport", "other"]
@@ -180,3 +185,111 @@ class PaymentReceipt(PaymentRead):
     loan_balance: Decimal
     loan_status: LoanStatus
     currency: Literal["DOP"]
+
+
+ProspectStatus = Literal[
+    "new",
+    "contacted",
+    "qualified",
+    "rejected",
+    "converted",
+]
+
+PreferredContact = Literal[
+    "phone",
+    "whatsapp",
+    "email",
+]
+
+
+class PublicProspectCreate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=200)
+    phone: str = Field(min_length=1, max_length=40)
+    email: str | None = Field(default=None, max_length=320)
+    municipality: str | None = Field(
+        default=None,
+        max_length=120,
+    )
+    province: str | None = Field(
+        default=None,
+        max_length=120,
+    )
+    requested_amount: Decimal = Field(
+        gt=0,
+        max_digits=14,
+        decimal_places=2,
+    )
+    preferred_contact: PreferredContact = "phone"
+    message: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
+    consent_to_contact: Literal[True]
+
+    @field_validator(
+        "full_name",
+        "phone",
+    )
+    @classmethod
+    def reject_blank_required_text(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        if not normalized:
+            raise ValueError(
+                "Value cannot be blank"
+            )
+
+        return normalized
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PublicProspectRead(BaseModel):
+    prospect_id: int
+    status: Literal["received"]
+
+
+class ProspectRead(BaseModel):
+    id: int
+    converted_borrower_id: int | None
+    full_name: str
+    phone: str
+    email: str | None
+    municipality: str | None
+    province: str | None
+    requested_amount: Decimal
+    preferred_contact: PreferredContact
+    message: str | None
+    status: ProspectStatus
+    consented_at: datetime
+    consent_notice_version: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProspectUpdate(BaseModel):
+    status: Literal[
+        "new",
+        "contacted",
+        "qualified",
+        "rejected",
+    ]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProspectConversionRead(BaseModel):
+    prospect_id: int
+    borrower_id: int
+    status: Literal["converted"]
+
+
+class PublicProspectPageRead(BaseModel):
+    tenant_slug: str
+    business_name: str
+    client_number: int

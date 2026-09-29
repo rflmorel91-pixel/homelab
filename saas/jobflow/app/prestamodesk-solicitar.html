@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <meta
+    name="description"
+    content="Solicite información sobre préstamos directamente al prestamista."
+  >
+
+  <title>Solicitud de información | PréstamoDesk</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/prestamodesk-solicitar-393d0f6caff5.css"
+  >
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/prestamodesk">
+      <span>FieldLookers</span>
+      <strong>PréstamoDesk</strong>
+    </a>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="pageTitle">
+      <p class="eyebrow">Solicitud de información</p>
+
+      <h1 id="pageTitle">
+        Consulte sus opciones de préstamo
+      </h1>
+
+      <p id="businessIntroduction" class="hero-copy">
+        Complete el formulario para que el prestamista pueda
+        comunicarse con usted.
+      </p>
+
+      <div id="pageStatus" class="status" aria-live="polite">
+        Verificando disponibilidad…
+      </div>
+    </section>
+
+    <section
+      id="requestPanel"
+      class="request-panel"
+      hidden
+      aria-labelledby="formTitle"
+    >
+      <div class="panel-heading">
+        <p class="eyebrow">Contacto inicial</p>
+        <h2 id="formTitle">Solicitar información</h2>
+        <p>
+          No incluya números de cédula, cuentas bancarias,
+          contraseñas ni documentos confidenciales.
+        </p>
+      </div>
+
+      <div
+        id="errorMessage"
+        class="message error"
+        role="alert"
+        hidden
+      ></div>
+
+      <div
+        id="successMessage"
+        class="message success"
+        role="status"
+        hidden
+      ></div>
+
+      <form id="prospectForm">
+        <div class="field-grid">
+          <label class="field field-wide">
+            <span>Nombre completo</span>
+            <input
+              id="fullName"
+              type="text"
+              autocomplete="name"
+              maxlength="200"
+              required
+            >
+          </label>
+
+          <label class="field">
+            <span>Teléfono</span>
+            <input
+              id="phone"
+              type="tel"
+              autocomplete="tel"
+              maxlength="40"
+              required
+            >
+          </label>
+
+          <label class="field">
+            <span>Correo electrónico</span>
+            <input
+              id="email"
+              type="email"
+              autocomplete="email"
+              maxlength="320"
+            >
+          </label>
+
+          <label class="field">
+            <span>Municipio</span>
+            <input
+              id="municipality"
+              type="text"
+              autocomplete="address-level2"
+              maxlength="120"
+            >
+          </label>
+
+          <label class="field">
+            <span>Provincia</span>
+            <input
+              id="province"
+              type="text"
+              autocomplete="address-level1"
+              maxlength="120"
+            >
+          </label>
+
+          <label class="field">
+            <span>Monto de interés (DOP)</span>
+            <input
+              id="requestedAmount"
+              type="number"
+              min="1"
+              max="999999999999.99"
+              step="0.01"
+              inputmode="decimal"
+              required
+            >
+          </label>
+
+          <label class="field">
+            <span>Contacto preferido</span>
+            <select id="preferredContact" required>
+              <option value="phone">Llamada telefónica</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="email">Correo electrónico</option>
+            </select>
+          </label>
+
+          <label class="field field-wide">
+            <span>Mensaje opcional</span>
+            <textarea
+              id="message"
+              maxlength="2000"
+              rows="4"
+              placeholder="Puede compartir información general sobre lo que necesita."
+            ></textarea>
+          </label>
+        </div>
+
+        <label class="consent">
+          <input
+            id="contactConsent"
+            type="checkbox"
+            required
+          >
+          <span>
+            Autorizo al prestamista identificado en esta página
+            a comunicarse conmigo sobre esta solicitud.
+          </span>
+        </label>
+
+        <button id="submitButton" type="submit">
+          Enviar solicitud
+        </button>
+      </form>
+
+      <div class="disclosure">
+        <h3>Información importante</h3>
+        <p>
+          Enviar este formulario no constituye una solicitud
+          crediticia completa, no garantiza aprobación y no crea
+          una obligación de otorgar fondos.
+        </p>
+        <p>
+          El prestamista es responsable de sus evaluaciones,
+          condiciones y cumplimiento legal. FieldLookers y
+          PréstamoDesk proporcionan software administrativo y no
+          conceden préstamos.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>PréstamoDesk · FieldLookers</span>
+  </footer>
+
+  <script
+    src="/assets/prestamodesk-solicitar-ea7b385f2324.js"
+    defer
+  ></script>
+</body>
+</html>

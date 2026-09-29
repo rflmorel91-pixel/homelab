@@ -8,3 +8,5 @@ __all__ = [
     "Loan",
     "Payment",
 ]
+
+from app.products.prestamodesk.models.prospect import Prospect

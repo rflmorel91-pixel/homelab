@@ -8,6 +8,8 @@ let selectedLoanId = null;
 let borrowers = [];
 let loans = [];
 let loanDetails = [];
+let prospects = [];
+let prospectPage = null;
 
 const authPanel = document.getElementById("authPanel");
 const workspace = document.getElementById("workspace");
@@ -33,6 +35,10 @@ const loanForm = document.getElementById("loanForm");
 const paymentForm = document.getElementById("paymentForm");
 const borrowerList = document.getElementById("borrowerList");
 const loanList = document.getElementById("loanList");
+const prospectList =
+  document.getElementById("prospectList");
+const publicProspectPageLink =
+  document.getElementById("publicProspectPageLink");
 const loanBorrower = document.getElementById("loanBorrower");
 const loanDetailPanel =
   document.getElementById("loanDetailPanel");
@@ -81,7 +87,12 @@ function formatStatus(value) {
     cancelled: "Cancelado",
     pending: "Pendiente",
     partial: "Parcial",
-    overdue: "Vencida"
+    overdue: "Vencida",
+    new: "Nuevo",
+    contacted: "Contactado",
+    qualified: "Calificado",
+    rejected: "Rechazado",
+    converted: "Convertido"
   };
 
   return labels[value] || value;
@@ -271,6 +282,135 @@ function renderBorrowers() {
 }
 
 
+function renderProspects() {
+  document.getElementById(
+    "prospectResultCount"
+  ).textContent = String(prospects.length);
+
+  if (prospectPage) {
+    publicProspectPageLink.href =
+      `/prestamodesk/solicitar/${
+        encodeURIComponent(prospectPage.tenant_slug)
+      }`;
+    publicProspectPageLink.hidden = false;
+  } else {
+    publicProspectPageLink.hidden = true;
+  }
+
+  if (prospects.length === 0) {
+    prospectList.innerHTML =
+      "<p>No hay prospectos registrados.</p>";
+    return;
+  }
+
+  prospectList.innerHTML = prospects
+    .map(item => {
+      const actions = [];
+
+      if (
+        item.status === "new"
+        || item.status === "contacted"
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="qualified"
+          >
+            Calificar
+          </button>
+        `);
+      }
+
+      if (item.status === "new") {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="contacted"
+          >
+            Marcar contactado
+          </button>
+        `);
+      }
+
+      if (
+        item.status !== "rejected"
+        && item.status !== "converted"
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="rejected"
+          >
+            Rechazar
+          </button>
+        `);
+      }
+
+      if (item.status === "qualified") {
+        actions.push(`
+          <button
+            type="button"
+            data-convert-prospect="${item.id}"
+          >
+            Convertir en prestatario
+          </button>
+        `);
+      }
+
+      return `
+        <article class="item-card">
+          <h3>${escapeHtml(item.full_name)}</h3>
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(formatStatus(item.status))}
+            </span>
+            <span>
+              Monto de interés:
+              ${formatMoney(item.requested_amount)}
+            </span>
+            <span>
+              Teléfono: ${escapeHtml(item.phone)}
+            </span>
+            ${
+              item.email
+                ? `<span>Correo: ${
+                    escapeHtml(item.email)
+                  }</span>`
+                : ""
+            }
+            ${
+              item.province
+                ? `<span>Provincia: ${
+                    escapeHtml(item.province)
+                  }</span>`
+                : ""
+            }
+            <span>
+              Contacto preferido:
+              ${escapeHtml(item.preferred_contact)}
+            </span>
+          </div>
+          ${
+            item.message
+              ? `<p>${escapeHtml(item.message)}</p>`
+              : ""
+          }
+          <div class="item-actions">
+            ${actions.join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
 function renderLoans() {
   document.getElementById(
     "loanResultCount"
@@ -371,9 +511,16 @@ function updatePortfolioSummary() {
 
 
 async function loadDashboard() {
-  [borrowers, loans] = await Promise.all([
+  [
+    borrowers,
+    loans,
+    prospects,
+    prospectPage
+  ] = await Promise.all([
     apiRequest(`${PRODUCT_BASE}/borrowers`),
-    apiRequest(`${PRODUCT_BASE}/loans`)
+    apiRequest(`${PRODUCT_BASE}/loans`),
+    apiRequest(`${PRODUCT_BASE}/prospects`),
+    apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
   ]);
 
   loanDetails = await Promise.all(
@@ -384,6 +531,7 @@ async function loadDashboard() {
     )
   );
 
+  renderProspects();
   renderBorrowers();
   renderLoans();
   updatePortfolioSummary();
@@ -676,6 +824,58 @@ paymentForm.addEventListener(
       }
 
       showSuccess("Pago registrado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+prospectList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-prospect-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-prospect]"
+    );
+
+    try {
+      if (statusButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            statusButton.dataset.prospectId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status:
+                statusButton.dataset.prospectStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess("Prospecto actualizado.");
+        return;
+      }
+
+      if (convertButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            convertButton.dataset.convertProspect
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Prospecto convertido en prestatario."
+        );
+      }
     } catch (error) {
       showError(error.message);
     }

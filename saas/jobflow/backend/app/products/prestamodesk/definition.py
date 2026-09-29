@@ -14,6 +14,12 @@ from app.products.prestamodesk.loans_api import (
 from app.products.prestamodesk.payments_api import (
     router as payments_router,
 )
+from app.products.prestamodesk.prospects_public_api import (
+    router as prospects_public_router,
+)
+from app.products.prestamodesk.prospects_api import (
+    router as prospects_router,
+)
 
 
 PRESTAMODESK_PRODUCT = register_product(
@@ -26,11 +32,15 @@ PRESTAMODESK_PRODUCT = register_product(
         landing_route="/prestamodesk",
         workspace_route="/prestamodesk/app",
         api_prefix="/api/v1/products/prestamodesk",
-        routers=(status_router,),
+        routers=(
+            status_router,
+            prospects_public_router,
+        ),
         tenant_routers=(
             borrowers_router,
             loans_router,
             payments_router,
+            prospects_router,
         ),
         description=(
             "Administra prestatarios, préstamos, "
