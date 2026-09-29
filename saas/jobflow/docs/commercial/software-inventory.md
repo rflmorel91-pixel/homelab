@@ -50,7 +50,7 @@ Technology stack:
 | Alembic | 1.19.1 | Database migration management | Pending verification |
 | Psycopg | 3.3.4 | PostgreSQL database driver | Pending verification |
 | pwdlib | 0.3.1 | Password hashing interface | Pending verification |
-| PyJWT | 2.13.0 | JWT authentication tokens | Pending verification |
+| PyJWT | 2.14.0 | JWT authentication tokens | Pending verification |
 | argon2-cffi | 25.1.0 | Password hashing implementation | Pending verification |
 | argon2-cffi-bindings | 25.1.0 | Argon2 native bindings | Pending verification |
 
@@ -81,7 +81,7 @@ Each dependency should record:
 | Alembic | 1.19.1 | Pending verification | Review required |
 | Psycopg | 3.3.4 | Pending verification | Review required |
 | pwdlib | 0.3.1 | Pending verification | Review required |
-| PyJWT | 2.13.0 | Pending verification | Review required |
+| PyJWT | 2.14.0 | Pending verification | Review required |
 | argon2-cffi | 25.1.0 | Pending verification | Review required |
 | argon2-cffi-bindings | 25.1.0 | Pending verification | Review required |
 

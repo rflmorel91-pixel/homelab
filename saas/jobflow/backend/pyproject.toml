@@ -14,7 +14,7 @@ dependencies = [
     "psycopg[binary]==3.3.4",
     "alembic==1.19.1",
     "pwdlib[argon2]==0.3.1",
-    "PyJWT==2.13.0",
+    "PyJWT==2.14.0",
     "httpx==0.28.1",
 ]
 
