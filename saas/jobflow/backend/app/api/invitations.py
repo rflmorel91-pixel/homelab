@@ -264,6 +264,79 @@ def create_user_invitation(
     }
 
 
+@admin_router.post(
+    "/{invitation_id}/revoke",
+)
+def revoke_user_invitation(
+    invitation_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    invitation = db.scalar(
+        select(UserInvitation)
+        .where(
+            UserInvitation.id == invitation_id,
+            UserInvitation.lead_id.is_not(None),
+        )
+        .with_for_update()
+    )
+
+    if invitation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Lead invitation not found",
+        )
+
+    now = utc_now_naive()
+
+    if (
+        invitation.accepted_at is not None
+        or invitation.revoked_at is not None
+        or invitation.expires_at <= now
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only pending lead invitations "
+                "can be revoked"
+            ),
+        )
+
+    invitation.revoked_at = now
+
+    add_admin_audit(
+        db,
+        operator_user_id=operator.id,
+        action="user.invitation_revoked",
+        target_type="user_invitation",
+        target_id=invitation.id,
+        tenant_id=None,
+        before_data={
+            "status": "pending",
+        },
+        after_data={
+            "status": "revoked",
+            "lead_id": invitation.lead_id,
+            "email": invitation.email,
+            "revoked_at":
+                invitation.revoked_at.isoformat(),
+        },
+    )
+
+    db.commit()
+    db.refresh(invitation)
+
+    return {
+        "id": invitation.id,
+        "status": "revoked",
+        "revoked_at": invitation.revoked_at,
+    }
+
+
+
 @client_admin_router.post(
     "/{tenant_id}/user-invitations",
     status_code=status.HTTP_201_CREATED,

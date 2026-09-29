@@ -222,6 +222,88 @@ def test_cannot_create_duplicate_active_invitation(
     )
 
 
+def test_platform_admin_revokes_pending_lead_invitation(
+    client,
+    raw_client,
+    db_session,
+):
+    create_response, lead, _ = create_invitation(
+        client,
+        db_session,
+    )
+    invitation_id = create_response.json()["id"]
+    token = token_from_activation_path(
+        create_response.json()["activation_path"]
+    )
+
+    response = client.post(
+        (
+            "/api/v1/admin/user-invitations/"
+            f"{invitation_id}/revoke"
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["status"] == "revoked"
+
+    invitation = db_session.get(
+        UserInvitation,
+        invitation_id,
+    )
+    assert invitation is not None
+    assert invitation.revoked_at is not None
+
+    audit = db_session.scalar(
+        select(AdminAuditLog).where(
+            AdminAuditLog.action
+            == "user.invitation_revoked",
+            AdminAuditLog.target_id
+            == invitation_id,
+        )
+    )
+    assert audit is not None
+    assert audit.tenant_id is None
+    assert audit.after_data["lead_id"] == lead.id
+    assert "token" not in str(audit.after_data).lower()
+
+    old_acceptance = raw_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": token,
+            "password": "revoked-lead-password",
+        },
+    )
+    assert old_acceptance.status_code == 400
+    assert old_acceptance.json()["detail"] == (
+        "Invitation is invalid or expired"
+    )
+
+    replacement = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": lead.id},
+    )
+    assert replacement.status_code == 201
+    assert replacement.json()["id"] != invitation_id
+
+
+def test_cannot_revoke_unknown_lead_invitation(
+    client,
+    db_session,
+):
+    make_platform_admin(db_session)
+
+    response = client.post(
+        "/api/v1/admin/user-invitations/999999/revoke"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Lead invitation not found"
+    )
+
+
+
 def test_invitation_acceptance_creates_login_user(
     client,
     raw_client,
