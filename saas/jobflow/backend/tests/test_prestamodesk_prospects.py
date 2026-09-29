@@ -336,3 +336,32 @@ def test_conversion_cannot_cross_tenant_boundary(
             Borrower.tenant_id == tenant_b.id
         )
     ) is None
+
+
+def test_tenant_can_get_public_prospect_page(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=37,
+        name="Página Pública PréstamoDesk",
+        slug="pagina-publica-prestamodesk",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    response = client.get(
+        f"{PROSPECTS_URL}/public-page",
+        headers=client.auth_headers(tenant),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "tenant_slug": "pagina-publica-prestamodesk",
+        "business_name": "Página Pública PréstamoDesk",
+        "client_number": 37,
+    }

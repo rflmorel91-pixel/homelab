@@ -287,3 +287,9 @@ class ProspectConversionRead(BaseModel):
     prospect_id: int
     borrower_id: int
     status: Literal["converted"]
+
+
+class PublicProspectPageRead(BaseModel):
+    tenant_slug: str
+    business_name: str
+    client_number: int

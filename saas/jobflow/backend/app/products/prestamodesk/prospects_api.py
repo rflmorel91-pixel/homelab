@@ -11,6 +11,7 @@ from app.products.prestamodesk.models import (
 from app.products.prestamodesk.schemas import (
     ProspectConversionRead,
     ProspectRead,
+    PublicProspectPageRead,
     ProspectUpdate,
 )
 from app.tenant_context import get_current_tenant
@@ -66,6 +67,26 @@ def list_prospects(
             Prospect.id.desc(),
         )
     ).all()
+
+
+@router.get(
+    "/public-page",
+    response_model=PublicProspectPageRead,
+)
+def get_prospect_public_page(
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    if tenant.client_number is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Public prospect page not available",
+        )
+
+    return PublicProspectPageRead(
+        tenant_slug=tenant.slug,
+        business_name=tenant.name,
+        client_number=tenant.client_number,
+    )
 
 
 @router.get(

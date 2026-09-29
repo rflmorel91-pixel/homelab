@@ -293,3 +293,59 @@ def test_public_prospect_rejects_blank_identity(
     assert db_session.scalar(
         select(Prospect.id)
     ) is None
+
+
+def test_public_page_returns_active_tenant_branding(
+    raw_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        name="Préstamos Ejemplo SRL",
+        slug="prestamos-ejemplo",
+        client_number=28,
+    )
+
+    response = raw_client.get(
+        f"{BASE_URL}/{tenant.slug}"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "tenant_slug": "prestamos-ejemplo",
+        "business_name": "Préstamos Ejemplo SRL",
+        "client_number": 28,
+    }
+
+
+def test_public_page_hides_unavailable_tenants(
+    raw_client,
+    db_session,
+):
+    suspended = create_tenant(
+        db_session,
+        name="Suspended Public Page",
+        slug="suspended-public-page",
+        status="suspended",
+        client_number=29,
+    )
+    wrong_product = create_tenant(
+        db_session,
+        product_slug="jobflow",
+        name="Wrong Product Public Page",
+        slug="wrong-product-public-page",
+        client_number=30,
+    )
+
+    for tenant in (
+        suspended,
+        wrong_product,
+    ):
+        response = raw_client.get(
+            f"{BASE_URL}/{tenant.slug}"
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == (
+            "Solicitud no disponible"
+        )

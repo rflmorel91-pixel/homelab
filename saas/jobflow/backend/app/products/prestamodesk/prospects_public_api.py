@@ -9,6 +9,7 @@ from app.models import Product, Tenant
 from app.products.prestamodesk.models import Prospect
 from app.products.prestamodesk.schemas import (
     PublicProspectCreate,
+    PublicProspectPageRead,
     PublicProspectRead,
 )
 
@@ -21,16 +22,10 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/{tenant_slug}/prospects",
-    response_model=PublicProspectRead,
-    status_code=201,
-)
-def create_public_prospect(
+def get_public_tenant(
+    db: Session,
     tenant_slug: str,
-    payload: PublicProspectCreate,
-    db: Session = Depends(get_db),
-):
+) -> Tenant:
     tenant = db.scalar(
         select(Tenant)
         .join(
@@ -52,10 +47,48 @@ def create_public_prospect(
             detail="Solicitud no disponible",
         )
 
+    return tenant
+
+
+@router.get(
+    "/{tenant_slug}",
+    response_model=PublicProspectPageRead,
+)
+def get_public_prospect_page(
+    tenant_slug: str,
+    db: Session = Depends(get_db),
+):
+    tenant = get_public_tenant(
+        db,
+        tenant_slug,
+    )
+
+    return PublicProspectPageRead(
+        tenant_slug=tenant.slug,
+        business_name=tenant.name,
+        client_number=tenant.client_number,
+    )
+
+
+@router.post(
+    "/{tenant_slug}/prospects",
+    response_model=PublicProspectRead,
+    status_code=201,
+)
+def create_public_prospect(
+    tenant_slug: str,
+    payload: PublicProspectCreate,
+    db: Session = Depends(get_db),
+):
+    tenant = get_public_tenant(
+        db,
+        tenant_slug,
+    )
+
     prospect = Prospect(
         tenant_id=tenant.id,
-        full_name=payload.full_name.strip(),
-        phone=payload.phone.strip(),
+        full_name=payload.full_name,
+        phone=payload.phone,
         email=(
             payload.email.strip().lower()
             if payload.email
