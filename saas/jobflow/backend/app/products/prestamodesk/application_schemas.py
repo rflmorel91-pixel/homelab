@@ -230,3 +230,20 @@ class ApplicationRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ApplicationUpdate(BaseModel):
+    status: Literal[
+        "reviewing",
+        "approved",
+        "rejected",
+    ]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ApplicationConversionRead(BaseModel):
+    application_id: int
+    borrower_id: int
+    loan_id: int
+    status: Literal["converted"]
