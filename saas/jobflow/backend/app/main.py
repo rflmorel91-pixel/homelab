@@ -13,6 +13,7 @@ from app.api.invitations import (
 from app.api.password_reset import router as password_reset_router
 from app.api.leads import router as leads_router
 from app.api.public_leads import router as public_leads_router
+from app.cors import configure_cors
 from app.database import DATABASE_URL, SessionLocal
 from app.platform.readiness import (
     Readiness, expected_migration_heads, router as readiness_router,
@@ -62,6 +63,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+configure_cors(app)
 
 
 app.include_router(readiness_router)
