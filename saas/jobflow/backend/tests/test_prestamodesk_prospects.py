@@ -85,7 +85,7 @@ def test_tenant_can_list_and_view_own_prospects(
         db_session,
         tenant,
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
 
     list_response = client.get(
         PROSPECTS_URL,
@@ -132,7 +132,7 @@ def test_prospects_are_isolated_by_tenant(
 
     response = client.get(
         f"{PROSPECTS_URL}/{prospect.id}",
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
 
     assert response.status_code == 404
@@ -160,7 +160,7 @@ def test_tenant_can_update_prospect_status(
 
     response = client.put(
         f"{PROSPECTS_URL}/{prospect.id}",
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json={"status": "qualified"},
     )
 
@@ -193,7 +193,7 @@ def test_unqualified_prospect_cannot_be_converted(
             f"{PROSPECTS_URL}/{prospect.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 409
@@ -231,7 +231,7 @@ def test_qualified_prospect_converts_to_borrower(
             f"{PROSPECTS_URL}/{prospect.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 201
@@ -270,7 +270,7 @@ def test_prospect_conversion_cannot_repeat(
         tenant,
         status="qualified",
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
     url = (
         f"{PROSPECTS_URL}/{prospect.id}/convert"
     )
@@ -327,7 +327,7 @@ def test_conversion_cannot_cross_tenant_boundary(
             f"{PROSPECTS_URL}/{prospect.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
 
     assert response.status_code == 404
@@ -356,7 +356,7 @@ def test_tenant_can_get_public_prospect_page(
 
     response = client.get(
         f"{PROSPECTS_URL}/public-page",
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 200

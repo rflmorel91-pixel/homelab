@@ -14,12 +14,18 @@ from app.products.prestamodesk.schemas import (
     PublicProspectPageRead,
     ProspectUpdate,
 )
-from app.tenant_context import get_current_tenant
+from app.tenant_context import (
+    get_current_tenant,
+    require_current_tenant_owner,
+)
 
 
 router = APIRouter(
     prefix="/prospects",
     tags=["PréstamoDesk Prospects"],
+    dependencies=[
+        Depends(require_current_tenant_owner),
+    ],
 )
 
 

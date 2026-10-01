@@ -108,7 +108,7 @@ def test_tenant_can_list_and_view_own_applications(
         db_session,
         tenant,
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
 
     list_response = client.get(
         APPLICATIONS_URL,
@@ -155,7 +155,7 @@ def test_applications_are_isolated_by_tenant(
 
     response = client.get(
         f"{APPLICATIONS_URL}/{application.id}",
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
 
     assert response.status_code == 404
@@ -180,7 +180,7 @@ def test_application_follows_review_and_approval_flow(
         db_session,
         tenant,
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
     url = f"{APPLICATIONS_URL}/{application.id}"
 
     reviewing = client.put(
@@ -221,7 +221,7 @@ def test_application_cannot_skip_review(
 
     response = client.put(
         f"{APPLICATIONS_URL}/{application.id}",
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json={"status": "approved"},
     )
 
@@ -257,7 +257,7 @@ def test_unapproved_application_cannot_be_converted(
             f"{APPLICATIONS_URL}/{application.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 409
@@ -300,7 +300,7 @@ def test_approved_application_converts_atomically(
             f"{APPLICATIONS_URL}/{application.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 201
@@ -371,7 +371,7 @@ def test_application_conversion_cannot_repeat(
         tenant,
         status="approved",
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
     url = (
         f"{APPLICATIONS_URL}/{application.id}/convert"
     )
@@ -432,7 +432,7 @@ def test_application_conversion_cannot_cross_tenant(
             f"{APPLICATIONS_URL}/{application.id}"
             "/convert"
         ),
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
 
     assert response.status_code == 404

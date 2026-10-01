@@ -57,7 +57,7 @@ def create_two_installment_loan(
 ):
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json={
             "borrower_id": borrower.id,
             "principal_amount": "10000.00",

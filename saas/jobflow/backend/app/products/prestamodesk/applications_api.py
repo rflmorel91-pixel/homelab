@@ -20,12 +20,18 @@ from app.products.prestamodesk.models import (
     Loan,
     LoanApplication,
 )
-from app.tenant_context import get_current_tenant
+from app.tenant_context import (
+    get_current_tenant,
+    require_current_tenant_owner,
+)
 
 
 router = APIRouter(
     prefix="/applications",
     tags=["PréstamoDesk Applications"],
+    dependencies=[
+        Depends(require_current_tenant_owner),
+    ],
 )
 
 

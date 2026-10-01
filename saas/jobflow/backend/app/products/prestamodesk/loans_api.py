@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Tenant
+from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.amortization import (
     build_fixed_schedule,
 )
@@ -18,7 +18,10 @@ from app.products.prestamodesk.schemas import (
     LoanDetail,
     LoanRead,
 )
-from app.tenant_context import get_current_tenant
+from app.tenant_context import (
+    get_current_tenant,
+    require_current_tenant_owner,
+)
 
 
 router = APIRouter(
@@ -77,6 +80,9 @@ def create_loan(
     payload: LoanCreate,
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
+    _: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
 ):
     borrower = db.scalar(
         select(Borrower).where(
