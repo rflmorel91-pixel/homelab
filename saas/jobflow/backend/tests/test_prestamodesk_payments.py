@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -6,6 +7,7 @@ from app.models import Product, Tenant
 from app.products.prestamodesk.models import (
     Borrower,
     Installment,
+    LateFeePolicy,
     Loan,
     Payment,
 )
@@ -243,3 +245,269 @@ def test_payment_cannot_cross_tenant_boundary(
         "Installment not found"
     )
     assert db_session.scalars(select(Payment)).all() == []
+
+
+def test_overdue_payment_applies_to_mora_then_interest(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(
+        db_session,
+        product,
+        "PréstamoDesk Late Payment Tenant",
+        "prestamodesk-late-payment-tenant",
+    )
+    borrower = create_borrower(
+        db_session,
+        tenant,
+        "Cliente con Mora",
+    )
+    loan = create_two_installment_loan(
+        client,
+        tenant,
+        borrower,
+    )
+    installment = db_session.get(
+        Installment,
+        loan["installments"][0]["id"],
+    )
+    assert installment is not None
+
+    installment.due_date = date(2026, 8, 1)
+
+    policy = LateFeePolicy(
+        tenant_id=tenant.id,
+        enabled=True,
+        daily_rate_percent=Decimal("0.1000"),
+        grace_days=5,
+        cap_percent=Decimal("25.0000"),
+        effective_date=date(2026, 9, 1),
+    )
+    db_session.add(policy)
+    db_session.commit()
+
+    response = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "20.00",
+            "payment_method": "cash",
+            "reference": "TEST-LATE-FEE-001",
+            "paid_at": "2026-09-03T12:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+    receipt = response.json()
+
+    assert Decimal(receipt["amount"]) == Decimal(
+        "20.00"
+    )
+    assert Decimal(
+        receipt["late_fee_amount"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        receipt["interest_amount"]
+    ) == Decimal("3.50")
+    assert Decimal(
+        receipt["principal_amount"]
+    ) == Decimal("0.00")
+    assert Decimal(
+        receipt["installment_late_fee_accrued"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        receipt["installment_late_fee_paid"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        receipt["installment_late_fee_balance"]
+    ) == Decimal("0.00")
+    assert Decimal(
+        receipt["installment_ordinary_balance"]
+    ) == Decimal("5496.50")
+    assert Decimal(
+        receipt["installment_balance"]
+    ) == Decimal("5496.50")
+    assert Decimal(
+        receipt["loan_balance"]
+    ) == Decimal("10996.50")
+
+    db_session.refresh(installment)
+
+    assert installment.late_fee_accrued == Decimal(
+        "16.50"
+    )
+    assert installment.late_fee_paid == Decimal(
+        "16.50"
+    )
+    assert installment.interest_paid == Decimal(
+        "3.50"
+    )
+    assert installment.principal_paid == Decimal(
+        "0.00"
+    )
+    assert installment.paid_amount == Decimal("3.50")
+    assert installment.late_fee_assessed_through == (
+        date(2026, 9, 3)
+    )
+
+    payment = db_session.scalar(
+        select(Payment).where(
+            Payment.reference == "TEST-LATE-FEE-001"
+        )
+    )
+    assert payment is not None
+    assert payment.late_fee_amount == Decimal("16.50")
+    assert payment.interest_amount == Decimal("3.50")
+    assert payment.principal_amount == Decimal("0.00")
+
+
+def test_late_fee_assessment_uses_reduced_balance(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Reduced Late Balance Tenant",
+        "reduced-late-balance-tenant",
+    )
+    borrower = create_borrower(
+        db_session,
+        tenant,
+        "Cliente Saldo Reducido",
+    )
+    loan = create_two_installment_loan(
+        client,
+        tenant,
+        borrower,
+    )
+    installment = db_session.get(
+        Installment,
+        loan["installments"][0]["id"],
+    )
+    assert installment is not None
+
+    installment.due_date = date(2026, 8, 1)
+    db_session.add(
+        LateFeePolicy(
+            tenant_id=tenant.id,
+            enabled=True,
+            daily_rate_percent=Decimal("0.1000"),
+            grace_days=5,
+            cap_percent=Decimal("25.0000"),
+            effective_date=date(2026, 9, 1),
+        )
+    )
+    db_session.commit()
+
+    first = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "516.50",
+            "paid_at": "2026-09-03T12:00:00Z",
+        },
+    )
+    assert first.status_code == 201
+    assert Decimal(
+        first.json()["late_fee_amount"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        first.json()["interest_amount"]
+    ) == Decimal("500.00")
+
+    second = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "10.00",
+            "paid_at": "2026-09-04T12:00:00Z",
+        },
+    )
+
+    assert second.status_code == 201
+    assert Decimal(
+        second.json()["late_fee_amount"]
+    ) == Decimal("5.00")
+    assert Decimal(
+        second.json()["interest_amount"]
+    ) == Decimal("0.00")
+    assert Decimal(
+        second.json()["principal_amount"]
+    ) == Decimal("5.00")
+
+
+def test_payment_cannot_precede_late_fee_assessment(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Backdated Payment Tenant",
+        "backdated-payment-tenant",
+    )
+    borrower = create_borrower(
+        db_session,
+        tenant,
+        "Cliente Fecha Retroactiva",
+    )
+    loan = create_two_installment_loan(
+        client,
+        tenant,
+        borrower,
+    )
+    installment = db_session.get(
+        Installment,
+        loan["installments"][0]["id"],
+    )
+    assert installment is not None
+
+    installment.due_date = date(2026, 8, 1)
+    db_session.add(
+        LateFeePolicy(
+            tenant_id=tenant.id,
+            enabled=True,
+            daily_rate_percent=Decimal("0.1000"),
+            grace_days=5,
+            cap_percent=Decimal("25.0000"),
+            effective_date=date(2026, 9, 1),
+        )
+    )
+    db_session.commit()
+
+    accepted = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "20.00",
+            "paid_at": "2026-09-03T12:00:00Z",
+        },
+    )
+    assert accepted.status_code == 201
+
+    backdated = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "1.00",
+            "paid_at": "2026-09-02T12:00:00Z",
+        },
+    )
+
+    assert backdated.status_code == 409
+    assert backdated.json()["detail"] == (
+        "Payment date precedes an existing "
+        "late-fee assessment"
+    )

@@ -1,3 +1,4 @@
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,12 +9,17 @@ from app.database import get_db
 from app.models import Tenant
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.cashier_schemas import (
+    CashierInstallmentRead,
     CashierLoanDetail,
     CashierLoanSummary,
+)
+from app.products.prestamodesk.late_fees import (
+    calculate_late_fee,
 )
 from app.products.prestamodesk.models import (
     Borrower,
     Installment,
+    LateFeePolicy,
     Loan,
 )
 from app.products.prestamodesk.schemas import InstallmentRead
@@ -43,11 +49,112 @@ def get_installments(
     )
 
 
+def get_policy(
+    db: Session,
+    tenant_id: int,
+) -> LateFeePolicy | None:
+    return db.scalar(
+        select(LateFeePolicy).where(
+            LateFeePolicy.tenant_id == tenant_id
+        )
+    )
+
+
+def ordinary_balance(
+    installment: Installment,
+) -> Decimal:
+    return money(
+        installment.principal_due
+        - installment.principal_paid
+        + installment.interest_due
+        - installment.interest_paid
+    )
+
+
+def projected_late_fee(
+    installment: Installment,
+    policy: LateFeePolicy | None,
+    as_of: date,
+) -> Decimal:
+    if policy is None or not policy.enabled:
+        return money(
+            installment.late_fee_accrued
+        )
+
+    calculation = calculate_late_fee(
+        due_date=installment.due_date,
+        ordinary_balance=ordinary_balance(
+            installment
+        ),
+        installment_total=installment.total_due,
+        daily_rate_percent=(
+            policy.daily_rate_percent
+        ),
+        grace_days=policy.grace_days,
+        cap_percent=policy.cap_percent,
+        effective_date=policy.effective_date,
+        assessment_through=as_of,
+        previously_assessed_through=(
+            installment.late_fee_assessed_through
+        ),
+        previously_accrued=(
+            installment.late_fee_accrued
+        ),
+    )
+
+    return calculation.fee_accrued
+
+
+def build_installment_read(
+    installment: Installment,
+    policy: LateFeePolicy | None,
+    as_of: date,
+) -> CashierInstallmentRead:
+    ordinary = ordinary_balance(installment)
+    projected_accrued = projected_late_fee(
+        installment,
+        policy,
+        as_of,
+    )
+    late_balance = money(
+        projected_accrued
+        - installment.late_fee_paid
+    )
+
+    data = InstallmentRead.model_validate(
+        installment
+    ).model_dump()
+
+    return CashierInstallmentRead(
+        **data,
+        ordinary_balance=ordinary,
+        projected_late_fee_accrued=(
+            projected_accrued
+        ),
+        late_fee_balance=late_balance,
+        total_balance=money(
+            ordinary + late_balance
+        ),
+        projected_through=as_of,
+    )
+
+
 def build_summary(
     loan: Loan,
     borrower: Borrower,
     installments: list[Installment],
+    policy: LateFeePolicy | None,
+    as_of: date,
 ) -> CashierLoanSummary:
+    projected = [
+        build_installment_read(
+            installment,
+            policy,
+            as_of,
+        )
+        for installment in installments
+    ]
+
     paid_amount = money(
         sum(
             (
@@ -57,14 +164,30 @@ def build_summary(
             Decimal("0.00"),
         )
     )
-    balance_due = money(
-        loan.total_due - paid_amount
+    ordinary_due = money(
+        sum(
+            (
+                installment.ordinary_balance
+                for installment in projected
+            ),
+            Decimal("0.00"),
+        )
+    )
+    late_due = money(
+        sum(
+            (
+                installment.late_fee_balance
+                for installment in projected
+            ),
+            Decimal("0.00"),
+        )
     )
     next_installment = next(
         (
             installment
-            for installment in installments
-            if installment.status != "paid"
+            for installment in projected
+            if installment.total_balance
+            > Decimal("0.00")
         ),
         None,
     )
@@ -82,12 +205,17 @@ def build_summary(
         status=loan.status,
         total_due=loan.total_due,
         paid_amount=paid_amount,
-        balance_due=balance_due,
+        ordinary_balance_due=ordinary_due,
+        late_fee_balance_due=late_due,
+        balance_due=money(
+            ordinary_due + late_due
+        ),
         next_due_date=(
             next_installment.due_date
             if next_installment is not None
             else None
         ),
+        projected_through=as_of,
     )
 
 
@@ -118,6 +246,27 @@ def get_cashier_loan(
     return row
 
 
+def projection_date(
+    as_of: date | None,
+) -> date:
+    selected = (
+        as_of
+        or datetime.now(timezone.utc).date()
+    )
+
+    if selected > datetime.now(
+        timezone.utc
+    ).date():
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Projection date cannot be in the future"
+            ),
+        )
+
+    return selected
+
+
 @router.get(
     "/loans",
     response_model=list[CashierLoanSummary],
@@ -127,9 +276,13 @@ def search_cashier_loans(
         default=None,
         max_length=200,
     ),
+    as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
+    selected_date = projection_date(as_of)
+    policy = get_policy(db, tenant.id)
+
     statement = (
         select(Loan, Borrower)
         .join(
@@ -179,6 +332,8 @@ def search_cashier_loans(
                 tenant.id,
                 loan.id,
             ),
+            policy,
+            selected_date,
         )
         for loan, borrower in rows
     ]
@@ -190,9 +345,11 @@ def search_cashier_loans(
 )
 def get_cashier_loan_detail(
     loan_id: int,
+    as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
+    selected_date = projection_date(as_of)
     loan, borrower = get_cashier_loan(
         loan_id,
         db,
@@ -203,17 +360,22 @@ def get_cashier_loan_detail(
         tenant.id,
         loan.id,
     )
+    policy = get_policy(db, tenant.id)
     summary = build_summary(
         loan,
         borrower,
         installments,
+        policy,
+        selected_date,
     )
 
     return CashierLoanDetail(
         **summary.model_dump(),
         installments=[
-            InstallmentRead.model_validate(
-                installment
+            build_installment_read(
+                installment,
+                policy,
+                selected_date,
             )
             for installment in installments
         ],

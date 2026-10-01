@@ -245,3 +245,43 @@ def test_prestamodesk_payment_form_supports_payment_date():
         "paymentForm.reset();",
     ):
         assert expected in script
+
+
+def test_prestamodesk_workspace_configures_late_fee_policy():
+    html = WORKSPACE_PAGE.read_text()
+
+    script_path = next(
+        asset
+        for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.suffix == ".js"
+    )
+    script = script_path.read_text()
+
+    for element_id in (
+        "lateFeePolicyForm",
+        "lateFeeEnabled",
+        "lateFeeDailyRate",
+        "lateFeeGraceDays",
+        "lateFeeCapPercent",
+        "lateFeeEffectiveDate",
+        "lateFeePolicyStatus",
+    ):
+        assert f'id="{element_id}"' in html
+
+    for expected in (
+        "Política de mora",
+        "Cobrar mora en cuotas vencidas",
+        "Tasa diaria",
+        "Días completos de gracia",
+        "Tope sobre la cuota original",
+        "${PRODUCT_BASE}/late-fee-policy",
+        'method: "PUT"',
+        "daily_rate_percent",
+        "grace_days",
+        "cap_percent",
+        "effective_date",
+        "loadLateFeePolicy",
+        "renderLateFeePolicy",
+        "error.status === 404",
+    ):
+        assert expected in html + script

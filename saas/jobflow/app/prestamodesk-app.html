@@ -395,6 +395,81 @@
         <div id="loanList" class="card-list"></div>
       </section>
 
+      <section class="panel">
+        <h2>Política de mora</h2>
+        <p>
+          Configure el cargo por atraso aplicable a las cuotas
+          vencidas. Los pagos se aplican primero a mora, luego a
+          interés y finalmente a principal.
+        </p>
+
+        <form id="lateFeePolicyForm" class="form-grid">
+          <label>
+            <input
+              id="lateFeeEnabled"
+              type="checkbox"
+            >
+            Cobrar mora en cuotas vencidas
+          </label>
+
+          <label>
+            Tasa diaria (%)
+            <input
+              id="lateFeeDailyRate"
+              type="number"
+              min="0"
+              max="100"
+              step="0.0001"
+              value="0.1000"
+              required
+            >
+          </label>
+
+          <label>
+            Días completos de gracia
+            <input
+              id="lateFeeGraceDays"
+              type="number"
+              min="0"
+              max="365"
+              step="1"
+              value="5"
+              required
+            >
+          </label>
+
+          <label>
+            Tope sobre la cuota original (%)
+            <input
+              id="lateFeeCapPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="0.0001"
+              value="25.0000"
+              required
+            >
+          </label>
+
+          <label>
+            Fecha efectiva
+            <input
+              id="lateFeeEffectiveDate"
+              type="date"
+              required
+            >
+          </label>
+
+          <button type="submit">
+            Guardar política de mora
+          </button>
+        </form>
+
+        <p id="lateFeePolicyStatus" class="notice">
+          Política aún no consultada.
+        </p>
+      </section>
+
       <section id="loanDetailPanel" class="panel" hidden>
         <div class="section-heading">
           <h2 id="loanDetailTitle">Detalle del préstamo</h2>
@@ -481,6 +556,6 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-7e0f4559b0f5.js" defer></script>
+  <script src="/assets/prestamodesk-app-a3582ba5bcd7.js" defer></script>
 </body>
 </html>

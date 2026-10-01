@@ -11,6 +11,7 @@ let loanDetails = [];
 let prospects = [];
 let applications = [];
 let prospectPage = null;
+let lateFeePolicy = null;
 
 const authPanel = document.getElementById("authPanel");
 const workspace = document.getElementById("workspace");
@@ -68,6 +69,20 @@ const receiptPanel =
   document.getElementById("receiptPanel");
 const receiptContent =
   document.getElementById("receiptContent");
+const lateFeePolicyForm =
+  document.getElementById("lateFeePolicyForm");
+const lateFeeEnabled =
+  document.getElementById("lateFeeEnabled");
+const lateFeeDailyRate =
+  document.getElementById("lateFeeDailyRate");
+const lateFeeGraceDays =
+  document.getElementById("lateFeeGraceDays");
+const lateFeeCapPercent =
+  document.getElementById("lateFeeCapPercent");
+const lateFeeEffectiveDate =
+  document.getElementById("lateFeeEffectiveDate");
+const lateFeePolicyStatus =
+  document.getElementById("lateFeePolicyStatus");
 
 
 function escapeHtml(value) {
@@ -289,7 +304,9 @@ async function apiRequest(path, options = {}) {
       // Preserve the safe default.
     }
 
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -830,6 +847,58 @@ function updatePortfolioSummary() {
 }
 
 
+function setDefaultLateFeePolicy() {
+  lateFeePolicy = null;
+  lateFeeEnabled.checked = false;
+  lateFeeDailyRate.value = "0.1000";
+  lateFeeGraceDays.value = "5";
+  lateFeeCapPercent.value = "25.0000";
+
+  if (!lateFeeEffectiveDate.value) {
+    lateFeeEffectiveDate.value =
+      new Date().toISOString().slice(0, 10);
+  }
+
+  lateFeePolicyStatus.textContent =
+    "No configurada. Guarde para crear la política.";
+}
+
+
+function renderLateFeePolicy(policy) {
+  lateFeePolicy = policy;
+  lateFeeEnabled.checked = policy.enabled;
+  lateFeeDailyRate.value = policy.daily_rate_percent;
+  lateFeeGraceDays.value = policy.grace_days;
+  lateFeeCapPercent.value = policy.cap_percent;
+  lateFeeEffectiveDate.value = policy.effective_date;
+
+  lateFeePolicyStatus.textContent = policy.enabled
+    ? (
+      "Mora activa desde "
+      + policy.effective_date
+      + "."
+    )
+    : "Política guardada, pero la mora está desactivada.";
+}
+
+
+async function loadLateFeePolicy() {
+  try {
+    const policy = await apiRequest(
+      `${PRODUCT_BASE}/late-fee-policy`
+    );
+    renderLateFeePolicy(policy);
+  } catch (error) {
+    if (error.status === 404) {
+      setDefaultLateFeePolicy();
+      return;
+    }
+
+    throw error;
+  }
+}
+
+
 async function loadDashboard() {
   [
     borrowers,
@@ -852,6 +921,8 @@ async function loadDashboard() {
       )
     )
   );
+
+  await loadLateFeePolicy();
 
   renderApplications();
   renderProspects();
@@ -1052,6 +1123,41 @@ async function openLoan(loanId) {
     block: "start"
   });
 }
+
+
+lateFeePolicyForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      const policy = await apiRequest(
+        `${PRODUCT_BASE}/late-fee-policy`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            enabled: lateFeeEnabled.checked,
+            daily_rate_percent:
+              lateFeeDailyRate.value,
+            grace_days: Number(
+              lateFeeGraceDays.value
+            ),
+            cap_percent:
+              lateFeeCapPercent.value,
+            effective_date:
+              lateFeeEffectiveDate.value
+          })
+        }
+      );
+
+      renderLateFeePolicy(policy);
+      showSuccess("Política de mora guardada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
 
 
 borrowerForm.addEventListener(
@@ -1533,6 +1639,7 @@ async function initialize() {
   document.getElementById(
     "loanStartDate"
   ).value = today;
+  lateFeeEffectiveDate.value = today;
 
   updateVehicleLoanFields();
 

@@ -12,6 +12,14 @@ from app.products.prestamodesk.schemas import (
 )
 
 
+class CashierInstallmentRead(InstallmentRead):
+    ordinary_balance: Decimal
+    projected_late_fee_accrued: Decimal
+    late_fee_balance: Decimal
+    total_balance: Decimal
+    projected_through: date
+
+
 class CashierLoanSummary(BaseModel):
     id: int
     borrower_full_name: str
@@ -25,9 +33,12 @@ class CashierLoanSummary(BaseModel):
     status: LoanStatus
     total_due: Decimal
     paid_amount: Decimal
+    ordinary_balance_due: Decimal
+    late_fee_balance_due: Decimal
     balance_due: Decimal
     next_due_date: date | None
+    projected_through: date
 
 
 class CashierLoanDetail(CashierLoanSummary):
-    installments: list[InstallmentRead]
+    installments: list[CashierInstallmentRead]
