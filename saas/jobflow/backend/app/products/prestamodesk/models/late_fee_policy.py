@@ -3,11 +3,13 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Integer,
     Numeric,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +18,31 @@ from app.database import Base
 
 class LateFeePolicy(Base):
     __tablename__ = "prestamodesk_late_fee_policies"
+
+    __table_args__ = (
+        CheckConstraint(
+            "daily_rate_percent >= 0",
+            name=(
+                "ck_prestamodesk_late_fee_"
+                "rate_nonnegative"
+            ),
+        ),
+        CheckConstraint(
+            "grace_days >= 0",
+            name=(
+                "ck_prestamodesk_late_fee_"
+                "grace_nonnegative"
+            ),
+        ),
+        CheckConstraint(
+            "cap_percent >= 0",
+            name=(
+                "ck_prestamodesk_late_fee_"
+                "cap_nonnegative"
+            ),
+        ),
+        UniqueConstraint("tenant_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
