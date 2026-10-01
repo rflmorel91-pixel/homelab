@@ -16,6 +16,7 @@ services:
       - nginx-proxy-manager_default
       - authentik_default
       - jobflow_default
+      - fieldlookers-staging_ingress
 
 networks:
   npm:
@@ -25,4 +26,6 @@ networks:
   authentik_default:
     external: true
   jobflow_default:
+    external: true
+  fieldlookers-staging_ingress:
     external: true

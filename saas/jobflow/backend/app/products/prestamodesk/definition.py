@@ -5,6 +5,12 @@ from app.platform import (
 from app.products.prestamodesk.api import (
     router as status_router,
 )
+from app.products.prestamodesk.applications_public_api import (
+    router as applications_public_router,
+)
+from app.products.prestamodesk.applications_api import (
+    router as applications_router,
+)
 from app.products.prestamodesk.borrowers_api import (
     router as borrowers_router,
 )
@@ -35,8 +41,10 @@ PRESTAMODESK_PRODUCT = register_product(
         routers=(
             status_router,
             prospects_public_router,
+            applications_public_router,
         ),
         tenant_routers=(
+            applications_router,
             borrowers_router,
             loans_router,
             payments_router,

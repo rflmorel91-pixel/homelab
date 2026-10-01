@@ -108,6 +108,11 @@
     <div id="workspace" hidden>
       <section class="summary-grid">
         <article class="summary-card">
+          <span>Solicitudes abiertas</span>
+          <strong id="openApplicationCount">0</strong>
+        </article>
+
+        <article class="summary-card">
           <span>Prestatarios</span>
           <strong id="borrowerCount">0</strong>
         </article>
@@ -333,6 +338,21 @@
         </section>
       </div>
 
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Solicitudes de préstamo</h2>
+          <span id="applicationResultCount" class="badge">0</span>
+        </div>
+
+        <p>
+          Revise, apruebe o rechace las solicitudes recibidas.
+          Una solicitud aprobada puede convertirse en prestatario,
+          préstamo vehicular y calendario de cuotas.
+        </p>
+
+        <div id="applicationList" class="card-list"></div>
+      </section>
+
         <section class="panel">
           <div class="section-heading">
             <h2>Prospectos</h2>
@@ -452,6 +472,6 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-956a8bf4b89d.js" defer></script>
+  <script src="/assets/prestamodesk-app-ee57a8031846.js" defer></script>
 </body>
 </html>

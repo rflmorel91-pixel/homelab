@@ -182,3 +182,43 @@ def test_prestamodesk_workspace_supports_vehicle_loans():
         "Vehículo financiado",
     ):
         assert expected in script
+
+
+def test_prestamodesk_workspace_manages_applications():
+    html = WORKSPACE_PAGE.read_text()
+
+    script_path = next(
+        asset
+        for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.suffix == ".js"
+    )
+    script = script_path.read_text()
+
+    for element_id in (
+        "openApplicationCount",
+        "applicationResultCount",
+        "applicationList",
+    ):
+        assert f'id="{element_id}"' in html
+
+    for expected in (
+        "Solicitudes de préstamo",
+        "Iniciar revisión",
+        "Aprobar",
+        "Rechazar",
+        "Convertir en préstamo",
+        "Ver préstamo",
+        'data-application-status="reviewing"',
+        'data-application-status="approved"',
+        'data-application-status="rejected"',
+        "data-convert-application",
+        "data-application-loan",
+        "${PRODUCT_BASE}/applications",
+        "/convert",
+        "window.confirm",
+        "result.loan_id",
+        "renderApplications",
+    ):
+        assert expected in (
+            html + script
+        )

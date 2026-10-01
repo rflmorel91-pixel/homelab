@@ -5,7 +5,8 @@ x-app-environment: &app-environment
   DATABASE_URL: postgresql+psycopg://staging_user:${STAGING_DB_PASSWORD:?Initialize staging}@staging-db:5432/fieldlookers_staging
   JWT_SECRET: ${STAGING_JWT_SECRET:?Initialize staging}
   FIELDLOOKERS_STAGING_ONLY: "1"
-  PLATFORM_PUBLIC_BASE_URL: https://localhost:8443
+  PLATFORM_PUBLIC_BASE_URL: https://prestamodesk-staging.fieldlookers.com
+  CORS_ALLOWED_ORIGINS: https://prestamodesk-simulador.rflmorel91.chatgpt.site
   FIELDLOOKERS_WORKFLOW_AUTOMATION_URL: https://localhost:8443/workflow-automation
   FIELDLOOKERS_OUTREACH_POSTAL_ADDRESS: "SYNTHETIC STAGING DATA - NOT FOR OUTREACH"
   OPENAI_API_KEY: ""
