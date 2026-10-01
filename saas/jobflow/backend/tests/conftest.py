@@ -177,22 +177,25 @@ def authenticated_client(client, db_session):
     db_session.commit()
     db_session.refresh(user)
 
-    def headers(tenant):
-        existing = db_session.scalar(
+    def role_headers(tenant, role):
+        membership = db_session.scalar(
             select(TenantMembership).where(
                 TenantMembership.tenant_id == tenant.id,
                 TenantMembership.user_id == user.id,
             )
         )
 
-        if existing is None:
+        if membership is None:
             membership = TenantMembership(
                 tenant_id=tenant.id,
                 user_id=user.id,
-                role="member",
+                role=role,
             )
             db_session.add(membership)
-            db_session.commit()
+        else:
+            membership.role = role
+
+        db_session.commit()
 
         from app.security import create_access_token
 
@@ -201,7 +204,14 @@ def authenticated_client(client, db_session):
             "X-Tenant-ID": str(tenant.id),
         }
 
+    def headers(tenant):
+        return role_headers(tenant, "member")
+
+    def owner_headers(tenant):
+        return role_headers(tenant, "owner")
+
     client.auth_user = user
     client.auth_headers = headers
+    client.owner_headers = owner_headers
 
     return client

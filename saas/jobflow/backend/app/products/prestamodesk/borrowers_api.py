@@ -19,6 +19,9 @@ from app.tenant_context import (
 router = APIRouter(
     prefix="/borrowers",
     tags=["PréstamoDesk Borrowers"],
+    dependencies=[
+        Depends(require_current_tenant_owner),
+    ],
 )
 
 

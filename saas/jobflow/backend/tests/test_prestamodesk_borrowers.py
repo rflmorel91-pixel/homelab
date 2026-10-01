@@ -39,7 +39,7 @@ def test_prestamodesk_tenant_can_crud_borrowers(
         "PréstamoDesk CRUD Tenant",
         "prestamodesk-crud-tenant",
     )
-    headers = client.auth_headers(tenant)
+    headers = client.owner_headers(tenant)
 
     create_response = client.post(
         BORROWERS_URL,
@@ -120,7 +120,7 @@ def test_prestamodesk_borrowers_are_isolated_by_tenant(
 
     create_response = client.post(
         BORROWERS_URL,
-        headers=client.auth_headers(tenant_a),
+        headers=client.owner_headers(tenant_a),
         json={"full_name": "Cliente del Tenant A"},
     )
     assert create_response.status_code == 201
@@ -128,14 +128,14 @@ def test_prestamodesk_borrowers_are_isolated_by_tenant(
 
     get_response = client.get(
         f"{BORROWERS_URL}/{borrower_id}",
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
     assert get_response.status_code == 404
     assert get_response.json()["detail"] == "Borrower not found"
 
     list_response = client.get(
         BORROWERS_URL,
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
     assert list_response.status_code == 200
     assert list_response.json() == []
@@ -156,7 +156,7 @@ def test_other_product_tenant_cannot_use_prestamodesk(
 
     response = client.get(
         BORROWERS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
     )
 
     assert response.status_code == 403
@@ -186,7 +186,7 @@ def test_client_cannot_supply_borrower_tenant_id(
 
     response = client.post(
         BORROWERS_URL,
-        headers=client.auth_headers(tenant_a),
+        headers=client.owner_headers(tenant_a),
         json={
             "full_name": "Attempted Override",
             "tenant_id": tenant_b.id,

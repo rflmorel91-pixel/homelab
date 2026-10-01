@@ -75,7 +75,7 @@ def test_create_loan_generates_fixed_schedule(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=loan_payload(borrower.id),
     )
 
@@ -148,7 +148,7 @@ def test_loans_are_isolated_by_tenant(
 
     create_response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant_a),
+        headers=client.owner_headers(tenant_a),
         json=loan_payload(borrower_a.id),
     )
     assert create_response.status_code == 201
@@ -156,14 +156,14 @@ def test_loans_are_isolated_by_tenant(
 
     get_response = client.get(
         f"{LOANS_URL}/{loan_id}",
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
     )
     assert get_response.status_code == 404
     assert get_response.json()["detail"] == "Loan not found"
 
     create_for_wrong_tenant = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant_b),
+        headers=client.owner_headers(tenant_b),
         json=loan_payload(borrower_a.id),
     )
     assert create_for_wrong_tenant.status_code == 404
@@ -190,7 +190,7 @@ def test_inactive_borrower_cannot_receive_loan(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=loan_payload(borrower.id),
     )
 
@@ -217,7 +217,7 @@ def test_first_payment_cannot_precede_start_date(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=payload,
     )
 
@@ -265,7 +265,7 @@ def test_create_vehicle_loan_preserves_vehicle_details(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=vehicle_loan_payload(borrower.id),
     )
 
@@ -316,7 +316,7 @@ def test_vehicle_loan_requires_core_vehicle_details(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=payload,
     )
 
@@ -342,7 +342,7 @@ def test_vehicle_financed_amount_must_match_principal(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=payload,
     )
 
@@ -368,7 +368,7 @@ def test_personal_loan_rejects_vehicle_fields(
 
     response = client.post(
         LOANS_URL,
-        headers=client.auth_headers(tenant),
+        headers=client.owner_headers(tenant),
         json=payload,
     )
 
