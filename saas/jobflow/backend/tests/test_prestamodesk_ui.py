@@ -222,3 +222,26 @@ def test_prestamodesk_workspace_manages_applications():
         assert expected in (
             html + script
         )
+
+def test_prestamodesk_payment_form_supports_payment_date():
+    html = WORKSPACE_PAGE.read_text()
+
+    script_path = next(
+        asset
+        for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.suffix == ".js"
+    )
+    script = script_path.read_text()
+
+    assert "Fecha del pago" in html
+    assert 'id="paymentDate"' in html
+    assert 'type="date"' in html
+
+    for expected in (
+        'getElementById(\n  "paymentDate"\n)',
+        "setDefaultPaymentDate",
+        "paid_at: paymentDate.value",
+        "T12:00:00Z",
+        "paymentForm.reset();",
+    ):
+        assert expected in script

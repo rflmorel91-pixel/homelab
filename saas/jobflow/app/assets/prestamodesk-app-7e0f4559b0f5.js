@@ -1147,6 +1147,26 @@ vehicleDownPayment.addEventListener(
 );
 
 
+const paymentDate = document.getElementById(
+  "paymentDate"
+);
+
+function setDefaultPaymentDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
+  paymentDate.value = `${year}-${month}-${day}`;
+}
+
+setDefaultPaymentDate();
+
+
 paymentForm.addEventListener(
   "submit",
   async event => {
@@ -1172,7 +1192,10 @@ paymentForm.addEventListener(
             reference:
               document.getElementById(
                 "paymentReference"
-              ).value.trim() || null
+              ).value.trim() || null,
+            paid_at: paymentDate.value
+              ? `${paymentDate.value}T12:00:00Z`
+              : null
           })
         }
       );
@@ -1200,6 +1223,7 @@ paymentForm.addEventListener(
       `;
 
       paymentForm.reset();
+      setDefaultPaymentDate();
       receiptPanel.hidden = false;
       await loadDashboard();
 

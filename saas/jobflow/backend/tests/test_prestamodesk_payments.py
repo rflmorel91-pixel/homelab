@@ -105,6 +105,7 @@ def test_partial_and_final_payments_update_balances(
             "installment_id": first["id"],
             "amount": "1000.00",
             "payment_method": "cash",
+            "paid_at": "2026-09-30T12:00:00Z",
         },
     )
 
@@ -112,6 +113,9 @@ def test_partial_and_final_payments_update_balances(
     receipt = partial.json()
     assert receipt["recorded_by_user_id"] > 0
     assert receipt["receipt_number"].startswith("PM-")
+    assert receipt["paid_at"].startswith(
+        "2026-09-30T12:00:00"
+    )
     assert Decimal(receipt["installment_paid"]) == Decimal(
         "1000.00"
     )
