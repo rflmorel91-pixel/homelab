@@ -92,14 +92,21 @@ def split_amount(
             "Installment count must be greater than zero"
         )
 
-    regular = money(total / count)
-    values = [regular] * (count - 1)
-    final = money(
-        total - sum(values, Decimal("0.00"))
+    total_cents = int(
+        money(total) / MONEY
     )
-    values.append(final)
+    regular_cents, extra_cents = divmod(
+        total_cents,
+        count,
+    )
 
-    return tuple(values)
+    return tuple(
+        MONEY * (
+            regular_cents
+            + (1 if index < extra_cents else 0)
+        )
+        for index in range(count)
+    )
 
 
 def build_fixed_schedule(
@@ -135,12 +142,12 @@ def build_fixed_schedule(
         principal + total_interest
     )
 
-    principal_parts = split_amount(
-        principal,
+    total_parts = split_amount(
+        total_due,
         installment_count,
     )
-    interest_parts = split_amount(
-        total_interest,
+    principal_parts = split_amount(
+        principal,
         installment_count,
     )
 
@@ -153,11 +160,11 @@ def build_fixed_schedule(
                 index,
             ),
             principal_due=principal_parts[index],
-            interest_due=interest_parts[index],
-            total_due=money(
-                principal_parts[index]
-                + interest_parts[index]
+            interest_due=money(
+                total_parts[index]
+                - principal_parts[index]
             ),
+            total_due=total_parts[index],
         )
         for index in range(installment_count)
     )

@@ -105,3 +105,43 @@ def test_schedule_rejects_invalid_terms(
             payment_frequency="weekly",
             first_payment_date=date(2026, 10, 1),
         )
+
+
+def test_vehicle_schedule_distributes_cents_evenly():
+    calculation = build_fixed_schedule(
+        principal_amount=Decimal("800000.00"),
+        flat_interest_rate_percent=Decimal("10.0000"),
+        installment_count=12,
+        payment_frequency="monthly",
+        first_payment_date=date(2026, 10, 29),
+    )
+
+    totals = [
+        item.total_due
+        for item in calculation.installments
+    ]
+
+    assert totals == (
+        [Decimal("73333.34")] * 4
+        + [Decimal("73333.33")] * 8
+    )
+
+    assert max(totals) - min(totals) == Decimal("0.01")
+
+    assert sum(
+        item.principal_due
+        for item in calculation.installments
+    ) == Decimal("800000.00")
+
+    assert sum(
+        item.interest_due
+        for item in calculation.installments
+    ) == Decimal("80000.00")
+
+    assert sum(totals) == Decimal("880000.00")
+
+    assert all(
+        item.total_due
+        == item.principal_due + item.interest_due
+        for item in calculation.installments
+    )
