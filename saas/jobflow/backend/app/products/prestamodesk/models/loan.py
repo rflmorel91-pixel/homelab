@@ -220,6 +220,35 @@ class Installment(Base):
         default=Decimal("0.00"),
     )
 
+    principal_paid: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+
+    interest_paid: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+
+    late_fee_accrued: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+
+    late_fee_paid: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+
+    late_fee_assessed_through: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
     status: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
