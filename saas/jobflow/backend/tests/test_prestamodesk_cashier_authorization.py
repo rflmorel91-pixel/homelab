@@ -185,3 +185,149 @@ def test_cashier_cannot_access_administration(
         assert response.json()["detail"] == (
             "Tenant owner access required"
         )
+
+
+def test_cashier_search_returns_minimum_payment_data(
+    authenticated_client,
+    db_session,
+):
+    tenant, borrower, loan, installment = (
+        create_cashier_test_records(db_session)
+    )
+    headers = authenticated_client.auth_headers(tenant)
+    url = f"{BASE_URL}/cashier/loans"
+
+    by_name = authenticated_client.get(
+        url,
+        headers=headers,
+        params={"query": "Sintético de Caja"},
+    )
+
+    assert by_name.status_code == 200
+    assert len(by_name.json()) == 1
+
+    summary = by_name.json()[0]
+
+    assert summary["id"] == loan.id
+    assert summary["borrower_full_name"] == (
+        borrower.full_name
+    )
+    assert summary["borrower_document_type"] == "cedula"
+    assert summary["borrower_document_number"] == (
+        borrower.document_number
+    )
+    assert summary["vehicle_make"] == "Toyota"
+    assert summary["vehicle_model"] == "Corolla"
+    assert summary["vehicle_year"] == 2022
+    assert Decimal(summary["total_due"]) == Decimal(
+        "11000.00"
+    )
+    assert Decimal(summary["paid_amount"]) == Decimal(
+        "0.00"
+    )
+    assert Decimal(summary["balance_due"]) == Decimal(
+        "11000.00"
+    )
+    assert summary["next_due_date"] == "2026-11-01"
+
+    by_document = authenticated_client.get(
+        url,
+        headers=headers,
+        params={"query": borrower.document_number},
+    )
+    assert by_document.status_code == 200
+    assert [
+        item["id"]
+        for item in by_document.json()
+    ] == [loan.id]
+
+    by_loan_number = authenticated_client.get(
+        url,
+        headers=headers,
+        params={"query": str(loan.id)},
+    )
+    assert by_loan_number.status_code == 200
+    assert [
+        item["id"]
+        for item in by_loan_number.json()
+    ] == [loan.id]
+
+    payment = authenticated_client.post(
+        f"{BASE_URL}/payments",
+        headers=headers,
+        json={
+            "installment_id": installment.id,
+            "amount": "100.00",
+            "payment_method": "cash",
+            "reference": "CASHIER-SEARCH-TEST",
+            "paid_at": "2026-10-01T12:00:00Z",
+        },
+    )
+    assert payment.status_code == 201
+
+    detail = authenticated_client.get(
+        f"{url}/{loan.id}",
+        headers=headers,
+    )
+
+    assert detail.status_code == 200
+    payload = detail.json()
+
+    assert Decimal(payload["paid_amount"]) == Decimal(
+        "100.00"
+    )
+    assert Decimal(payload["balance_due"]) == Decimal(
+        "10900.00"
+    )
+    assert len(payload["installments"]) == 1
+    assert Decimal(
+        payload["installments"][0]["paid_amount"]
+    ) == Decimal("100.00")
+    assert payload["installments"][0]["status"] == (
+        "partial"
+    )
+
+
+def test_cashier_api_cannot_cross_tenant_boundary(
+    authenticated_client,
+    db_session,
+):
+    tenant, _, loan, _ = (
+        create_cashier_test_records(db_session)
+    )
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "prestamodesk"
+        )
+    )
+    assert product is not None
+
+    other_tenant = Tenant(
+        product_id=product.id,
+        client_number=702,
+        name="Other Cashier Tenant",
+        slug="other-cashier-tenant",
+        status="active",
+    )
+    db_session.add(other_tenant)
+    db_session.commit()
+    db_session.refresh(other_tenant)
+
+    headers = authenticated_client.auth_headers(
+        other_tenant
+    )
+
+    listed = authenticated_client.get(
+        f"{BASE_URL}/cashier/loans",
+        headers=headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+    detail = authenticated_client.get(
+        f"{BASE_URL}/cashier/loans/{loan.id}",
+        headers=headers,
+    )
+    assert detail.status_code == 404
+    assert detail.json()["detail"] == "Loan not found"
