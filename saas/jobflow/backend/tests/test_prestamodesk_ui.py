@@ -96,7 +96,7 @@ def test_production_nginx_serves_prestamodesk_pages():
     )
 
     assert (
-        r"~^/prestamodesk(?:-app\.html|/app)"
+        r"~^/prestamodesk(?:-(?:app|caja)\.html|/(?:app|caja))"
         in contents
     )
     assert (
