@@ -8,6 +8,7 @@ from app.products.prestamodesk.schemas import (
     DocumentType,
     InstallmentRead,
     LoanStatus,
+    LoanType,
 )
 
 
@@ -16,7 +17,7 @@ class CashierLoanSummary(BaseModel):
     borrower_full_name: str
     borrower_document_type: DocumentType
     borrower_document_number: str | None
-    loan_type: Literal["vehicle"]
+    loan_type: LoanType
     vehicle_make: str | None
     vehicle_model: str | None
     vehicle_year: int | None
