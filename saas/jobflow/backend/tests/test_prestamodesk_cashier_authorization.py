@@ -331,3 +331,33 @@ def test_cashier_api_cannot_cross_tenant_boundary(
     )
     assert detail.status_code == 404
     assert detail.json()["detail"] == "Loan not found"
+
+
+def test_cashier_can_list_historical_personal_loan(
+    authenticated_client,
+    db_session,
+):
+    tenant, _, loan, _ = (
+        create_cashier_test_records(db_session)
+    )
+
+    loan.loan_type = "personal"
+    loan.vehicle_cash_price = None
+    loan.vehicle_down_payment = None
+    loan.vehicle_make = None
+    loan.vehicle_model = None
+    loan.vehicle_year = None
+    db_session.commit()
+
+    response = authenticated_client.get(
+        f"{BASE_URL}/cashier/loans",
+        headers=authenticated_client.auth_headers(
+            tenant
+        ),
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == loan.id
+    assert response.json()[0]["loan_type"] == "personal"
+    assert response.json()[0]["vehicle_make"] is None
