@@ -296,6 +296,9 @@ class PaymentRead(BaseModel):
     installment_id: int
     recorded_by_user_id: int
     amount: Decimal
+    principal_amount: Decimal
+    interest_amount: Decimal
+    late_fee_amount: Decimal
     payment_method: PaymentMethod
     reference: str | None
     notes: str | None
@@ -310,6 +313,10 @@ class PaymentReceipt(PaymentRead):
     installment_total: Decimal
     installment_paid: Decimal
     installment_balance: Decimal
+    installment_ordinary_balance: Decimal
+    installment_late_fee_accrued: Decimal
+    installment_late_fee_paid: Decimal
+    installment_late_fee_balance: Decimal
     installment_status: InstallmentStatus
     loan_balance: Decimal
     loan_status: LoanStatus
