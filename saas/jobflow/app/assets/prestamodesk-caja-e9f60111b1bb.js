@@ -114,6 +114,10 @@ function formatPaymentMethod(value) {
 
 
 function installmentBalance(installment) {
+  if (installment.total_balance !== undefined) {
+    return Number(installment.total_balance);
+  }
+
   return (
     Number(installment.total_due)
     - Number(installment.paid_amount)
@@ -261,7 +265,9 @@ function renderLoans(loans) {
           <th>Cliente</th>
           <th>Documento</th>
           <th>Vehículo</th>
-          <th>Saldo</th>
+          <th>Saldo ordinario</th>
+          <th>Mora</th>
+          <th>Total exigible</th>
           <th>Estado</th>
           <th>Acción</th>
         </tr>
@@ -270,11 +276,7 @@ function renderLoans(loans) {
         ${loans.map(loan => `
           <tr>
             <td>#${loan.id}</td>
-            <td>
-              ${escapeHtml(
-                loan.borrower_full_name
-              )}
-            </td>
+            <td>${escapeHtml(loan.borrower_full_name)}</td>
             <td>
               ${escapeHtml(
                 loan.borrower_document_number || "—"
@@ -288,6 +290,12 @@ function renderLoans(loans) {
                   loan.vehicle_year
                 ].filter(Boolean).join(" ") || "—"
               )}
+            </td>
+            <td>
+              ${formatMoney(loan.ordinary_balance_due)}
+            </td>
+            <td>
+              ${formatMoney(loan.late_fee_balance_due)}
             </td>
             <td>${formatMoney(loan.balance_due)}</td>
             <td>${formatStatus(loan.status)}</td>
@@ -311,8 +319,18 @@ async function searchLoans(query = "") {
   clearMessages();
 
   const normalized = query.trim();
-  const suffix = normalized
-    ? `?query=${encodeURIComponent(normalized)}`
+  const params = new URLSearchParams();
+
+  if (normalized) {
+    params.set("query", normalized);
+  }
+
+  if (paymentDate.value) {
+    params.set("as_of", paymentDate.value);
+  }
+
+  const suffix = params.toString()
+    ? `?${params.toString()}`
     : "";
 
   const loans = await apiRequest(
@@ -330,9 +348,11 @@ function renderInstallments(installments) {
         <tr>
           <th>Cuota</th>
           <th>Vence</th>
-          <th>Total</th>
+          <th>Total de cuota</th>
           <th>Pagado</th>
-          <th>Saldo</th>
+          <th>Saldo ordinario</th>
+          <th>Mora</th>
+          <th>Total exigible</th>
           <th>Estado</th>
         </tr>
       </thead>
@@ -343,9 +363,9 @@ function renderInstallments(installments) {
             <td>${escapeHtml(item.due_date)}</td>
             <td>${formatMoney(item.total_due)}</td>
             <td>${formatMoney(item.paid_amount)}</td>
-            <td>
-              ${formatMoney(installmentBalance(item))}
-            </td>
+            <td>${formatMoney(item.ordinary_balance)}</td>
+            <td>${formatMoney(item.late_fee_balance)}</td>
+            <td>${formatMoney(item.total_balance)}</td>
             <td>${formatStatus(item.status)}</td>
           </tr>
         `).join("")}
@@ -414,8 +434,18 @@ function updatePaymentLimit() {
 
 
 async function openLoan(loanId) {
+  const params = new URLSearchParams();
+
+  if (paymentDate.value) {
+    params.set("as_of", paymentDate.value);
+  }
+
+  const suffix = params.toString()
+    ? `?${params.toString()}`
+    : "";
+
   const loan = await apiRequest(
-    `${PRODUCT_BASE}/cashier/loans/${loanId}`
+    `${PRODUCT_BASE}/cashier/loans/${loanId}${suffix}`
   );
 
   selectedLoanId = loan.id;
@@ -443,18 +473,27 @@ async function openLoan(loanId) {
       )}
     </p>
     <p>
-      <strong>Total:</strong>
+      <strong>Total contractual:</strong>
       ${formatMoney(loan.total_due)}
       · <strong>Pagado:</strong>
       ${formatMoney(loan.paid_amount)}
-      · <strong>Saldo:</strong>
+    </p>
+    <p>
+      <strong>Saldo ordinario:</strong>
+      ${formatMoney(loan.ordinary_balance_due)}
+      · <strong>Mora:</strong>
+      ${formatMoney(loan.late_fee_balance_due)}
+      · <strong>Total exigible:</strong>
       ${formatMoney(loan.balance_due)}
     </p>
     <p>
-      <strong>Estado:</strong>
+      <strong>Calculado al:</strong>
+      ${escapeHtml(loan.projected_through)}
+      · <strong>Estado:</strong>
       ${formatStatus(loan.status)}
     </p>
   `;
+
 
   renderInstallments(loan.installments);
   renderPaymentOptions(loan.installments);
@@ -553,6 +592,24 @@ paymentInstallment.addEventListener(
 );
 
 
+paymentDate.addEventListener(
+  "change",
+  async () => {
+    clearMessages();
+
+    try {
+      await searchLoans(loanSearchQuery.value);
+
+      if (selectedLoanId) {
+        await openLoan(selectedLoanId);
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
 paymentForm.addEventListener(
   "submit",
   async event => {
@@ -622,11 +679,35 @@ paymentForm.addEventListener(
           <strong>${formatMoney(receipt.amount)}</strong>
         </p>
         <p>
-          Saldo de cuota:
+          Aplicado a mora:
+          ${formatMoney(receipt.late_fee_amount)}
+        </p>
+        <p>
+          Aplicado a interés:
+          ${formatMoney(receipt.interest_amount)}
+        </p>
+        <p>
+          Aplicado a principal:
+          ${formatMoney(receipt.principal_amount)}
+        </p>
+        <p>
+          Saldo ordinario de cuota:
+          ${formatMoney(
+            receipt.installment_ordinary_balance
+          )}
+        </p>
+        <p>
+          Mora pendiente:
+          ${formatMoney(
+            receipt.installment_late_fee_balance
+          )}
+        </p>
+        <p>
+          Total pendiente de cuota:
           ${formatMoney(receipt.installment_balance)}
         </p>
         <p>
-          Saldo del préstamo:
+          Saldo total del préstamo:
           ${formatMoney(receipt.loan_balance)}
         </p>
         <p>
