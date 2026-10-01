@@ -253,6 +253,11 @@ class InstallmentRead(BaseModel):
     interest_due: Decimal
     total_due: Decimal
     paid_amount: Decimal
+    principal_paid: Decimal
+    interest_paid: Decimal
+    late_fee_accrued: Decimal
+    late_fee_paid: Decimal
+    late_fee_assessed_through: date | None
     status: InstallmentStatus
     created_at: datetime
     updated_at: datetime

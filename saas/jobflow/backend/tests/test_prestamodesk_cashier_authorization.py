@@ -7,6 +7,7 @@ from app.models import Product, Tenant
 from app.products.prestamodesk.models import (
     Borrower,
     Installment,
+    LateFeePolicy,
     Loan,
     Payment,
 )
@@ -77,7 +78,24 @@ def create_cashier_test_records(db_session):
         paid_amount=Decimal("0.00"),
         status="pending",
     )
-    db_session.add(installment)
+    second_installment = Installment(
+        tenant_id=tenant.id,
+        loan_id=loan.id,
+        sequence_number=2,
+        due_date=date(2026, 12, 1),
+        principal_due=Decimal("5000.00"),
+        interest_due=Decimal("500.00"),
+        total_due=Decimal("5500.00"),
+        paid_amount=Decimal("0.00"),
+        status="pending",
+    )
+
+    db_session.add_all(
+        [
+            installment,
+            second_installment,
+        ]
+    )
     db_session.commit()
 
     return tenant, borrower, loan, installment
@@ -279,7 +297,7 @@ def test_cashier_search_returns_minimum_payment_data(
     assert Decimal(payload["balance_due"]) == Decimal(
         "10900.00"
     )
-    assert len(payload["installments"]) == 1
+    assert len(payload["installments"]) == 2
     assert Decimal(
         payload["installments"][0]["paid_amount"]
     ) == Decimal("100.00")
@@ -361,3 +379,67 @@ def test_cashier_can_list_historical_personal_loan(
     assert response.json()[0]["id"] == loan.id
     assert response.json()[0]["loan_type"] == "personal"
     assert response.json()[0]["vehicle_make"] is None
+
+def test_cashier_projects_late_fee_without_persisting_it(
+    authenticated_client,
+    db_session,
+):
+    tenant, _, loan, installment = (
+        create_cashier_test_records(db_session)
+    )
+    headers = authenticated_client.auth_headers(tenant)
+
+    installment.due_date = date(2026, 8, 1)
+
+    policy = LateFeePolicy(
+        tenant_id=tenant.id,
+        enabled=True,
+        daily_rate_percent=Decimal("0.1000"),
+        grace_days=5,
+        cap_percent=Decimal("25.0000"),
+        effective_date=date(2026, 9, 1),
+    )
+    db_session.add(policy)
+    db_session.commit()
+
+    response = authenticated_client.get(
+        f"{BASE_URL}/cashier/loans/{loan.id}",
+        headers=headers,
+        params={"as_of": "2026-09-03"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert Decimal(
+        payload["ordinary_balance_due"]
+    ) == Decimal("11000.00")
+    assert Decimal(
+        payload["late_fee_balance_due"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        payload["balance_due"]
+    ) == Decimal("11016.50")
+    assert payload["projected_through"] == "2026-09-03"
+
+    first = payload["installments"][0]
+
+    assert Decimal(
+        first["ordinary_balance"]
+    ) == Decimal("5500.00")
+    assert Decimal(
+        first["projected_late_fee_accrued"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        first["late_fee_balance"]
+    ) == Decimal("16.50")
+    assert Decimal(
+        first["total_balance"]
+    ) == Decimal("5516.50")
+    assert first["projected_through"] == "2026-09-03"
+
+    db_session.refresh(installment)
+
+    assert installment.late_fee_accrued == Decimal("0.00")
+    assert installment.late_fee_paid == Decimal("0.00")
+    assert installment.late_fee_assessed_through is None
