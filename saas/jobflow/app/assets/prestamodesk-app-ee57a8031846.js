@@ -9,6 +9,7 @@ let borrowers = [];
 let loans = [];
 let loanDetails = [];
 let prospects = [];
+let applications = [];
 let prospectPage = null;
 
 const authPanel = document.getElementById("authPanel");
@@ -44,6 +45,8 @@ const vehicleDownPayment =
 const paymentForm = document.getElementById("paymentForm");
 const borrowerList = document.getElementById("borrowerList");
 const loanList = document.getElementById("loanList");
+const applicationList =
+  document.getElementById("applicationList");
 const prospectList =
   document.getElementById("prospectList");
 const publicProspectPageLink =
@@ -97,7 +100,9 @@ function formatStatus(value) {
     pending: "Pendiente",
     partial: "Parcial",
     overdue: "Vencida",
-    new: "Nuevo",
+    new: "Nueva",
+    reviewing: "En revisión",
+    approved: "Aprobada",
     contacted: "Contactado",
     qualified: "Calificado",
     rejected: "Rechazado",
@@ -356,6 +361,159 @@ function renderBorrowerOptions() {
         </option>
       `)
       .join("");
+}
+
+
+function renderApplications() {
+  document.getElementById(
+    "applicationResultCount"
+  ).textContent = String(applications.length);
+
+  if (applications.length === 0) {
+    applicationList.innerHTML = `
+      <p class="notice">
+        No hay solicitudes de préstamo.
+      </p>
+    `;
+    return;
+  }
+
+  applicationList.innerHTML = applications
+    .map(application => {
+      let actions = "";
+
+      if (application.status === "new") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="reviewing"
+            data-application-id="${application.id}"
+          >
+            Iniciar revisión
+          </button>
+        `;
+      } else if (application.status === "reviewing") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="approved"
+            data-application-id="${application.id}"
+          >
+            Aprobar
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            data-application-status="rejected"
+            data-application-id="${application.id}"
+          >
+            Rechazar
+          </button>
+        `;
+      } else if (application.status === "approved") {
+        actions = `
+          <button
+            type="button"
+            data-convert-application="${application.id}"
+          >
+            Convertir en préstamo
+          </button>
+        `;
+      } else if (
+        application.status === "converted"
+        && application.converted_loan_id
+      ) {
+        actions = `
+          <button
+            type="button"
+            data-application-loan="${
+              application.converted_loan_id
+            }"
+          >
+            Ver préstamo
+          </button>
+        `;
+      }
+
+      const contact = [
+        application.phone,
+        application.email
+      ].filter(Boolean).join(" · ");
+
+      const vehicle = [
+        application.vehicle_make,
+        application.vehicle_model,
+        application.vehicle_year
+      ].filter(Boolean).join(" ");
+
+      return `
+        <article class="item-card">
+          <div class="section-heading">
+            <h3>
+              Solicitud #${application.id}
+              · ${escapeHtml(application.full_name)}
+            </h3>
+            <span class="badge">
+              ${escapeHtml(
+                formatStatus(application.status)
+              )}
+            </span>
+          </div>
+
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(
+                application.document_type
+              )}:
+              ${escapeHtml(
+                application.document_number || "No indicado"
+              )}
+            </span>
+            ${
+              contact
+                ? `<span>${escapeHtml(contact)}</span>`
+                : ""
+            }
+            <span>
+              Vehículo: ${escapeHtml(vehicle)}
+            </span>
+            <span>
+              Precio: ${formatMoney(
+                application.vehicle_cash_price
+              )}
+            </span>
+            <span>
+              Inicial: ${formatMoney(
+                application.vehicle_down_payment
+              )}
+            </span>
+            <span>
+              Financiado: ${formatMoney(
+                application.principal_amount
+              )}
+            </span>
+            <span>
+              Interés: ${formatMoney(
+                application.total_interest
+              )}
+            </span>
+            <span>
+              Total: ${formatMoney(
+                application.total_due
+              )}
+            </span>
+            <span>
+              Cuotas: ${application.installment_count}
+            </span>
+          </div>
+
+          <div class="item-actions">
+            ${actions}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 
@@ -632,6 +790,16 @@ function renderLoans() {
 function updatePortfolioSummary() {
   const today = new Date().toISOString().slice(0, 10);
 
+  document.getElementById(
+    "openApplicationCount"
+  ).textContent = String(
+    applications.filter(
+      item => !["rejected", "converted"].includes(
+        item.status
+      )
+    ).length
+  );
+
   let outstanding = 0;
   let overdue = 0;
 
@@ -667,11 +835,13 @@ async function loadDashboard() {
     borrowers,
     loans,
     prospects,
+    applications,
     prospectPage
   ] = await Promise.all([
     apiRequest(`${PRODUCT_BASE}/borrowers`),
     apiRequest(`${PRODUCT_BASE}/loans`),
     apiRequest(`${PRODUCT_BASE}/prospects`),
+    apiRequest(`${PRODUCT_BASE}/applications`),
     apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
   ]);
 
@@ -683,6 +853,7 @@ async function loadDashboard() {
     )
   );
 
+  renderApplications();
   renderProspects();
   renderBorrowers();
   renderLoans();
@@ -1038,6 +1209,87 @@ paymentForm.addEventListener(
       }
 
       showSuccess("Pago registrado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+applicationList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-application-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-application]"
+    );
+    const loanButton = event.target.closest(
+      "button[data-application-loan]"
+    );
+
+    try {
+      if (statusButton) {
+        const nextStatus =
+          statusButton.dataset.applicationStatus;
+
+        await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            statusButton.dataset.applicationId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status: nextStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          nextStatus === "reviewing"
+            ? "Solicitud puesta en revisión."
+            : nextStatus === "approved"
+              ? "Solicitud aprobada."
+              : "Solicitud rechazada."
+        );
+        return;
+      }
+
+      if (convertButton) {
+        const confirmed = window.confirm(
+          "Esta acción creará el prestatario, "
+          + "el préstamo activo y todas sus cuotas. "
+          + "¿Desea continuar?"
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        const result = await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            convertButton.dataset.convertApplication
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Solicitud convertida en préstamo."
+        );
+        await openLoan(result.loan_id);
+        return;
+      }
+
+      if (loanButton) {
+        await openLoan(
+          Number(loanButton.dataset.applicationLoan)
+        );
+      }
     } catch (error) {
       showError(error.message);
     }
