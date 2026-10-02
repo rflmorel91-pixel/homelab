@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tenant
+from app.products.prestamodesk.authorization import (
+    require_prestamodesk_operations_member,
+)
 from app.products.prestamodesk.models import (
     Borrower,
     Prospect,
@@ -24,6 +27,9 @@ router = APIRouter(
     prefix="/prospects",
     tags=["PréstamoDesk Prospects"],
     dependencies=[
+        Depends(
+            require_prestamodesk_operations_member
+        ),
         Depends(require_current_tenant_owner),
     ],
 )

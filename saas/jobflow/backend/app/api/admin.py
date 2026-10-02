@@ -10,6 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.membership_roles import (
+    MembershipRole,
+    membership_role_allowed_for_product,
+)
 from app.models import (
     BillingAccount,
     BillingOffer,
@@ -774,11 +778,11 @@ class UserAdminUpdate(BaseModel):
 
 class MembershipCreate(BaseModel):
     user_id: int
-    role: Literal["owner", "member"] = "member"
+    role: MembershipRole = "member"
 
 
 class MembershipUpdate(BaseModel):
-    role: Literal["owner", "member"]
+    role: MembershipRole
 
 
 class BillingOfferWrite(BaseModel):
@@ -1848,6 +1852,26 @@ def admin_create_membership(
             detail="Tenant not found",
         )
 
+    product = db.get(
+        Product,
+        tenant.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Tenant product is unavailable",
+        )
+
+    if not membership_role_allowed_for_product(
+        role=payload.role,
+        product_slug=product.slug,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Role is not available for this product",
+        )
+
     user = db.get(User, payload.user_id)
 
     if user is None:
@@ -1918,6 +1942,37 @@ def admin_update_membership(
         raise HTTPException(
             status_code=404,
             detail="Membership not found",
+        )
+
+    tenant = db.get(
+        Tenant,
+        membership.tenant_id,
+    )
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    product = db.get(
+        Product,
+        tenant.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Tenant product is unavailable",
+        )
+
+    if not membership_role_allowed_for_product(
+        role=payload.role,
+        product_slug=product.slug,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Role is not available for this product",
         )
 
     if (

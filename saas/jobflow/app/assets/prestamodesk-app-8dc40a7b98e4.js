@@ -353,6 +353,13 @@ async function discoverAccess() {
   }
 
   const client = access.clients[0];
+
+  if (client.role === "collector") {
+    window.location.replace(
+      "/prestamodesk/cobros"
+    );
+    return;
+  }
   tenantId = String(client.tenant_id);
 
   localStorage.setItem(

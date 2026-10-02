@@ -647,7 +647,41 @@
     }
   }
 
-  function membershipRow(tenantId, membership) {
+  function membershipRoleOptions(
+    productSlug,
+    selectedRole = "member"
+  ) {
+    const roles = [
+      ["member", "Member"],
+      ["owner", "Owner"]
+    ];
+
+    if (productSlug === "prestamodesk") {
+      roles.splice(
+        1,
+        0,
+        ["collector", "Collector"]
+      );
+    }
+
+    return roles.map(
+      ([value, label]) => `
+        <option
+          value="${value}"
+          ${selectedRole === value ? "selected" : ""}
+        >
+          ${label}
+        </option>
+      `
+    ).join("");
+  }
+
+
+  function membershipRow(
+    tenantId,
+    membership,
+    productSlug
+  ) {
     return `
       <div class="membership-row">
         <div class="row-primary">
@@ -665,23 +699,10 @@
           data-tenant-id="${tenantId}"
           data-original-role="${escapeHtml(membership.role)}"
         >
-          <option
-            value="member"
-            ${membership.role === "member"
-              ? "selected"
-              : ""}
-          >
-            Member
-          </option>
-
-          <option
-            value="owner"
-            ${membership.role === "owner"
-              ? "selected"
-              : ""}
-          >
-            Owner
-          </option>
+          ${membershipRoleOptions(
+            productSlug,
+            membership.role
+          )}
         </select>
 
         <div class="membership-actions">
@@ -1057,6 +1078,11 @@
           ? "client"
           : "workspace";
 
+      const tenantProduct =
+        productForTenant(data.tenant);
+      const tenantProductSlug =
+        tenantProduct?.slug || "";
+
       const invitationRows =
         invitationData.invitations.length
           ? invitationData.invitations.map(
@@ -1159,8 +1185,9 @@
               >
 
               <select id="clientInvitationRole">
-                <option value="member">Member</option>
-                <option value="owner">Owner</option>
+                ${membershipRoleOptions(
+                  tenantProductSlug
+                )}
               </select>
 
               <button
@@ -1233,8 +1260,9 @@
               </select>
 
               <select id="newMembershipRole">
-                <option value="member">Member</option>
-                <option value="owner">Owner</option>
+                ${membershipRoleOptions(
+                  tenantProductSlug
+                )}
               </select>
 
               <button
@@ -1261,7 +1289,8 @@
               membership =>
                 membershipRow(
                   tenantId,
-                  membership
+                  membership,
+                  tenantProductSlug
                 )
             ).join("")
           : '<div class="empty">No memberships.</div>';

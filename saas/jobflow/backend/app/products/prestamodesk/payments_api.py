@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tenant, TenantMembership
+from app.products.prestamodesk.authorization import (
+    require_prestamodesk_operations_member,
+)
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.late_fees import (
     calculate_late_fee,
@@ -20,6 +23,9 @@ from app.products.prestamodesk.models import (
 from app.products.prestamodesk.payment_allocation import (
     allocate_payment,
 )
+from app.products.prestamodesk.promise_reconciliation import (
+    reconcile_payment_promises,
+)
 from app.products.prestamodesk.schemas import (
     PaymentCreate,
     PaymentRead,
@@ -32,6 +38,11 @@ from app.tenant_context import (
 
 
 router = APIRouter(
+    dependencies=[
+        Depends(
+            require_prestamodesk_operations_member
+        ),
+    ],
     prefix="/payments",
     tags=["PréstamoDesk Payments"],
 )
@@ -138,6 +149,14 @@ def record_payment(
         get_current_tenant_membership
     ),
 ):
+    if membership.role == "collector":
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Collectors cannot record payments"
+            ),
+        )
+
     installment = db.scalar(
         select(Installment)
         .where(
@@ -285,6 +304,11 @@ def record_payment(
     try:
         db.add(payment)
         db.flush()
+
+        reconcile_payment_promises(
+            db=db,
+            payment=payment,
+        )
 
         loan_balance = money(
             sum(

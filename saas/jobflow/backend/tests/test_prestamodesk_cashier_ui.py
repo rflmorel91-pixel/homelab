@@ -120,7 +120,7 @@ def test_nginx_serves_cashier_with_enforced_csp():
         )
 
     assert (
-        r"prestamodesk(?:-(?:app|caja)\.html"
+        r"prestamodesk(?:-(?:app|caja|cobros)\.html"
         in production
     )
     assert (
@@ -166,3 +166,23 @@ def test_cashier_page_supports_personal_cash_closing():
         'currentRole !== "member"',
     ):
         assert expected in html + script
+
+
+
+def test_collector_is_redirected_from_cashier_workspace():
+    script = cashier_script_path().read_text()
+
+    role_check = 'client.role === "collector"'
+    redirect = (
+        'window.location.replace(\n'
+        '      "/prestamodesk/cobros"'
+    )
+    tenant_assignment = (
+        "tenantId = String(client.tenant_id)"
+    )
+
+    assert role_check in script
+    assert redirect in script
+    assert script.index(role_check) < script.index(
+        tenant_assignment
+    )
