@@ -114,7 +114,16 @@ def validate():
         env = cfg['services'][name]['environment']
         require(env['FIELDLOOKERS_STAGING_ONLY'] == '1', 'staging flag')
         require('@staging-db:5432/fieldlookers_staging' in env['DATABASE_URL'], 'database URL')
-        require(env['PLATFORM_PUBLIC_BASE_URL'] == 'https://localhost:8443', 'public URL')
+        require(
+            env['PLATFORM_PUBLIC_BASE_URL']
+            == 'https://prestamodesk-staging.fieldlookers.com',
+            'public URL',
+        )
+        require(
+            env['CORS_ALLOWED_ORIGINS']
+            == 'https://prestamodesk-simulador.rflmorel91.chatgpt.site',
+            'CORS origin',
+        )
         require(env['OPENAI_API_KEY'] == '', 'external API key')
         for prefix in ('PLATFORM', 'RENEWALDESK'):
             require(env[prefix + '_SMTP_HOST'] == 'staging-mail', 'email destination')

@@ -11,11 +11,11 @@ Production remains unchanged at its verified commit. Unfinished JobFlow source i
 - Fresh database password and JWT secret generated locally in ignored .runtime/.
 - Backend and mail services attached only to a Docker internal network; no OpenAI key, SMTP relay or forwarding is configured.
 - Both platform and RenewalDesk SMTP go to staging-mail:1025. SMTP TLS is disabled only for this private captured-mail connection, not for browser login.
-- Only staging-web joins a second, non-internal ingress network. It publishes browser HTTPS on host loopback 18443 and proxies the email UI on host loopback 18025. Mailpit has no published ports. Backend, database, migration and mail containers remain internal-only. No public DNS, Cloudflare tunnel or production network attachment.
+- Only staging-web joins a second, non-internal ingress network. It publishes browser HTTPS on host loopback 18443 and proxies the email UI on host loopback 18025. Mailpit has no published ports. Backend, database, migration and mail containers remain internal-only. Compose creates no public DNS, tunnel, or production-network attachment. The approved private staging origin is managed externally and must route only to the loopback gateway.
 - The gateway has ordinary bridge egress; it is not a general forward proxy and its upstreams are fixed staging service names. This is a testing boundary, not a hardened sandbox against a compromised gateway.
 - CPU/memory limits and restart: no. Start manually and stop when finished. Image building can use additional resources and requires package downloads.
 - Backend builds from this worktree, not a production container. Nginx/Postgres use exact local production image IDs; Mailpit uses the exact locally pulled image ID recorded at initialization.
-- Existing secure session cookie behavior is unchanged. App URL is https://localhost:8443 through SSH forwarding.
+- Existing secure session cookie behavior is unchanged. The approved app origin is https://prestamodesk-staging.fieldlookers.com; https://localhost:8443 remains available through SSH forwarding for direct infrastructure checks.
 
 ## Review and launch sequence — do not run all steps blindly
 
