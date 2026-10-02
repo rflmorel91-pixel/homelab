@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tenant
+from app.products.prestamodesk.authorization import (
+    require_prestamodesk_operations_member,
+)
 from app.products.prestamodesk.late_fee_schemas import (
     LateFeePolicyRead,
     LateFeePolicyUpdate,
@@ -19,6 +22,9 @@ router = APIRouter(
     prefix="/late-fee-policy",
     tags=["PréstamoDesk Late Fees"],
     dependencies=[
+        Depends(
+            require_prestamodesk_operations_member
+        ),
         Depends(require_current_tenant_owner),
     ],
 )

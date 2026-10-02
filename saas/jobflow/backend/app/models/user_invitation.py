@@ -26,7 +26,7 @@ class UserInvitation(Base):
             (
                 lead_id IS NULL
                 AND tenant_id IS NOT NULL
-                AND role IN ('owner', 'member')
+                AND role IN ('owner', 'member', 'collector')
             )
             """,
             name="ck_user_invitations_single_target",

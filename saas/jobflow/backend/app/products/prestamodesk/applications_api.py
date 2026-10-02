@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tenant
+from app.products.prestamodesk.authorization import (
+    require_prestamodesk_operations_member,
+)
 from app.products.prestamodesk.amortization import (
     build_fixed_schedule,
 )
@@ -30,6 +33,9 @@ router = APIRouter(
     prefix="/applications",
     tags=["PréstamoDesk Applications"],
     dependencies=[
+        Depends(
+            require_prestamodesk_operations_member
+        ),
         Depends(require_current_tenant_owner),
     ],
 )

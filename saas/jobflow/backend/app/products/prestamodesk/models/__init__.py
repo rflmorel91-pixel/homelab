@@ -1,3 +1,8 @@
+from app.products.prestamodesk.models.collection import (
+    CollectionActivity,
+    PaymentPromise,
+    PromisePaymentAllocation,
+)
 from app.products.prestamodesk.models.cash_closing import CashClosing
 from app.products.prestamodesk.models.application import LoanApplication
 from app.products.prestamodesk.models.borrower import Borrower
@@ -8,6 +13,9 @@ from app.products.prestamodesk.models.prospect import Prospect
 
 __all__ = [
     "Borrower",
+    "PromisePaymentAllocation",
+    "PaymentPromise",
+    "CollectionActivity",
     "Installment",
     "LateFeePolicy",
     "Loan",

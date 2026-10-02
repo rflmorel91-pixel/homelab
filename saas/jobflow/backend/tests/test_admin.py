@@ -1312,3 +1312,113 @@ def test_product_detail_separates_active_and_converted_leads(
     assert payload["counts"]["converted_records"] == len(
         payload["converted_history"]
     )
+
+
+def test_platform_admin_can_add_prestamodesk_collector(
+    client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import (
+        Product,
+        Tenant,
+        TenantMembership,
+        User,
+    )
+
+    make_platform_admin(db_session)
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "prestamodesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=990,
+        name="PréstamoDesk Collector Client",
+        slug="prestamodesk-collector-client",
+        status="active",
+    )
+    user = User(
+        email="collector-admin@example.com",
+        display_name="Collector Admin Test",
+        password_hash="unused",
+        is_active=True,
+    )
+    db_session.add_all([tenant, user])
+    db_session.commit()
+    db_session.refresh(tenant)
+    db_session.refresh(user)
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/memberships",
+        json={
+            "user_id": user.id,
+            "role": "collector",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["role"] == "collector"
+
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id == user.id,
+        )
+    )
+    assert membership is not None
+    assert membership.role == "collector"
+
+
+def test_platform_admin_rejects_collector_for_other_product(
+    client,
+    db_session,
+):
+    from sqlalchemy import select
+
+    from app.models import Product, Tenant, User
+
+    make_platform_admin(db_session)
+
+    product = db_session.scalar(
+        select(Product).where(
+            Product.slug == "renewaldesk"
+        )
+    )
+    assert product is not None
+
+    tenant = Tenant(
+        product_id=product.id,
+        client_number=991,
+        name="RenewalDesk Collector Rejection",
+        slug="renewaldesk-collector-rejection",
+        status="active",
+    )
+    user = User(
+        email="invalid-collector@example.com",
+        display_name="Invalid Collector",
+        password_hash="unused",
+        is_active=True,
+    )
+    db_session.add_all([tenant, user])
+    db_session.commit()
+    db_session.refresh(tenant)
+    db_session.refresh(user)
+
+    response = client.post(
+        f"/api/v1/admin/tenants/{tenant.id}/memberships",
+        json={
+            "user_id": user.id,
+            "role": "collector",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Role is not available for this product"
+    )

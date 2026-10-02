@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tenant
+from app.products.prestamodesk.authorization import (
+    require_prestamodesk_operations_member,
+)
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.cashier_schemas import (
     CashierInstallmentRead,
@@ -27,6 +30,11 @@ from app.tenant_context import get_current_tenant
 
 
 router = APIRouter(
+    dependencies=[
+        Depends(
+            require_prestamodesk_operations_member
+        ),
+    ],
     prefix="/cashier",
     tags=["PréstamoDesk Cashier"],
 )

@@ -12,6 +12,10 @@ from app.tenant_context import (
     get_current_tenant,
     require_current_tenant_owner,
 )
+from app.membership_roles import (
+    MembershipRole,
+    membership_role_allowed_for_product,
+)
 from app.models import (
     Lead,
     Product,
@@ -51,7 +55,7 @@ class ClientInvitationCreate(BaseModel):
         min_length=3,
         max_length=320,
     )
-    role: Literal["owner", "member"] = "member"
+    role: MembershipRole = "member"
 
     @field_validator("display_name")
     @classmethod
@@ -100,7 +104,7 @@ class InvitationAccept(BaseModel):
 
 
 class ClientMembershipUpdate(BaseModel):
-    role: Literal["owner", "member"]
+    role: MembershipRole
 
 
 admin_router = APIRouter(
@@ -391,6 +395,15 @@ def create_client_user_invitation(
         raise HTTPException(
             status_code=500,
             detail="Client product is unavailable",
+        )
+
+    if not membership_role_allowed_for_product(
+        role=payload.role,
+        product_slug=product.slug,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Role is not available for this product",
         )
 
     existing_user = db.scalar(
@@ -750,6 +763,26 @@ def update_current_client_membership(
             detail="Membership not found",
         )
 
+    product = db.get(
+        Product,
+        tenant.product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Client product is unavailable",
+        )
+
+    if not membership_role_allowed_for_product(
+        role=payload.role,
+        product_slug=product.slug,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Role is not available for this product",
+        )
+
     if (
         membership.role == "owner"
         and payload.role != "owner"
@@ -1026,7 +1059,7 @@ def accept_user_invitation(
 
     elif (
         invitation.tenant_id is not None
-        and invitation.role in {"owner", "member"}
+        and invitation.role in {"owner", "member", "collector"}
     ):
         tenant = db.get(
             Tenant,
@@ -1046,6 +1079,23 @@ def accept_user_invitation(
             raise HTTPException(
                 status_code=409,
                 detail="Invitation client is not active",
+            )
+
+        product = db.get(
+            Product,
+            tenant.product_id,
+        )
+
+        if (
+            product is None
+            or not membership_role_allowed_for_product(
+                role=invitation.role,
+                product_slug=product.slug,
+            )
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Invitation role is unavailable",
             )
 
         product = db.get(

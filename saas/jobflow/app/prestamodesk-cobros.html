@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>PréstamoDesk | Gestión de cobros</title>
+  <link
+    rel="stylesheet"
+    href="/assets/prestamodesk-app-b4c00c256964.css"
+  >
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <span class="eyebrow">FieldLookers</span>
+      <h1>PréstamoDesk · Gestión de cobros</h1>
+      <p>
+        Cartera vencida, seguimiento y promesas de pago
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <span id="clientContext" class="badge" hidden></span>
+      <span id="healthStatus">Comprobando API…</span>
+      <button id="logoutButton" class="secondary" hidden>
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div id="errorMessage" class="message error" hidden></div>
+    <div id="successMessage" class="message success" hidden></div>
+
+    <section id="authPanel" class="panel auth-panel">
+      <h2>Iniciar sesión en gestión de cobros</h2>
+
+      <form id="loginForm" class="form-grid">
+        <label>
+          Correo electrónico
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="username"
+            required
+          >
+        </label>
+
+        <label>
+          Contraseña
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          >
+        </label>
+
+        <button type="submit">Iniciar sesión</button>
+      </form>
+    </section>
+
+    <div id="collectionsWorkspace" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Cartera vencida</h2>
+            <p class="notice">
+              Incluye todos los préstamos con cuotas vencidas
+              y saldo pendiente del cliente seleccionado.
+            </p>
+          </div>
+
+          <button
+            id="refreshPortfolioButton"
+            type="button"
+            class="secondary"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        <form id="portfolioFilterForm" class="form-grid">
+          <label>
+            Fecha de corte
+            <input
+              id="portfolioAsOf"
+              type="date"
+              required
+            >
+          </label>
+
+          <button type="submit">Consultar cartera</button>
+        </form>
+
+        <p>
+          Préstamos vencidos:
+          <strong id="portfolioCount">0</strong>
+        </p>
+
+        <div id="portfolioList" class="table-wrap"></div>
+      </section>
+
+      <section id="collectionDetailPanel" class="panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2 id="collectionDetailTitle">
+              Gestión del préstamo
+            </h2>
+            <div id="collectionDetailSummary"></div>
+          </div>
+
+          <button
+            id="closeCollectionDetail"
+            type="button"
+            class="secondary"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div class="summary-grid">
+          <section>
+            <h3>Registrar gestión</h3>
+
+            <form id="activityForm" class="form-grid">
+              <label>
+                Canal
+                <select id="activityChannel" required>
+                  <option value="phone">Llamada</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="sms">SMS</option>
+                  <option value="email">Correo</option>
+                  <option value="visit">Visita</option>
+                  <option value="other">Otro</option>
+                </select>
+              </label>
+
+              <label>
+                Resultado
+                <input
+                  id="activityOutcome"
+                  maxlength="100"
+                  required
+                >
+              </label>
+
+              <label>
+                Fecha y hora del contacto
+                <input
+                  id="activityContactedAt"
+                  type="datetime-local"
+                  required
+                >
+              </label>
+
+              <label>
+                Próximo seguimiento
+                <input
+                  id="activityNextFollowUpAt"
+                  type="datetime-local"
+                >
+              </label>
+
+              <label>
+                Notas
+                <textarea
+                  id="activityNotes"
+                  maxlength="2000"
+                ></textarea>
+              </label>
+
+              <button type="submit">Guardar gestión</button>
+            </form>
+          </section>
+
+          <section>
+            <h3>Registrar promesa de pago</h3>
+
+            <form id="promiseForm" class="form-grid">
+              <label>
+                Monto prometido
+                <input
+                  id="promiseAmount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                >
+              </label>
+
+              <label>
+                Fecha prometida
+                <input
+                  id="promiseDueDate"
+                  type="date"
+                  required
+                >
+              </label>
+
+              <label>
+                Notas
+                <textarea
+                  id="promiseNotes"
+                  maxlength="2000"
+                ></textarea>
+              </label>
+
+              <button type="submit">Guardar promesa</button>
+            </form>
+          </section>
+        </div>
+
+        <section>
+          <h3>Historial de gestiones</h3>
+          <div
+            id="collectionActivityHistory"
+            class="table-wrap"
+          ></div>
+        </section>
+
+        <section>
+          <h3>Promesas de pago</h3>
+          <div
+            id="paymentPromiseHistory"
+            class="table-wrap"
+          ></div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Promesas vencidas</h2>
+            <p class="notice">
+              Promesas pendientes o parciales cuya fecha ya
+              venció.
+            </p>
+          </div>
+
+          <button
+            id="refreshOverduePromisesButton"
+            type="button"
+            class="secondary"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        <div
+          id="overduePromiseList"
+          class="table-wrap"
+        ></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>PréstamoDesk · FieldLookers</span>
+  </footer>
+
+  <script
+    src="/assets/prestamodesk-cobros-4f7a2c9d8e31.js"
+    defer
+  ></script>
+</body>
+</html>

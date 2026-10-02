@@ -96,7 +96,7 @@ def test_production_nginx_serves_prestamodesk_pages():
     )
 
     assert (
-        r"~^/prestamodesk(?:-(?:app|caja)\.html|/(?:app|caja))"
+        r"~^/prestamodesk(?:-(?:app|caja|cobros)\.html|/(?:app|caja|cobros))"
         in contents
     )
     assert (
@@ -285,3 +285,27 @@ def test_prestamodesk_workspace_configures_late_fee_policy():
         "error.status === 404",
     ):
         assert expected in html + script
+
+
+
+def test_collector_is_redirected_from_admin_workspace():
+    script = (
+        APP_ROOT
+        / "assets"
+        / "prestamodesk-app-a3582ba5bcd7.js"
+    ).read_text()
+
+    role_check = 'client.role === "collector"'
+    redirect = (
+        'window.location.replace(\n'
+        '      "/prestamodesk/cobros"'
+    )
+    tenant_assignment = (
+        "tenantId = String(client.tenant_id)"
+    )
+
+    assert role_check in script
+    assert redirect in script
+    assert script.index(role_check) < script.index(
+        tenant_assignment
+    )
