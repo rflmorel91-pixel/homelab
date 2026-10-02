@@ -42,6 +42,12 @@ class Payment(Base):
         index=True,
     )
 
+    cash_closing_id: Mapped[int | None] = mapped_column(
+        ForeignKey("prestamodesk_cash_closings.id"),
+        nullable=True,
+        index=True,
+    )
+
     amount: Mapped[Decimal] = mapped_column(
         Numeric(14, 2),
         nullable=False,

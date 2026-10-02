@@ -128,3 +128,41 @@ def test_nginx_serves_cashier_with_enforced_csp():
         "\"default-src 'self';"
         in staging
     )
+
+
+def test_cashier_page_supports_personal_cash_closing():
+    html = CASHIER_PAGE.read_text()
+    script = cashier_script_path().read_text()
+
+    for element_id in (
+        "cashClosingPanel",
+        "cashClosingPreview",
+        "cashClosingForm",
+        "cashCounted",
+        "cashClosingNotes",
+        "cashClosingReceipt",
+        "cashClosingReceiptContent",
+        "printCashClosingButton",
+        "cashClosingHistoryPanel",
+        "cashClosingHistory",
+    ):
+        assert f'id="{element_id}"' in html
+
+    for expected in (
+        "Cierre de caja",
+        "Efectivo contado",
+        "Cerrar mi caja",
+        "Comprobante de cierre",
+        "Mis cierres anteriores",
+        "/cashier/closing-preview",
+        "/cashier/closings",
+        "cash_counted",
+        "cash_difference",
+        "bank_transfer_total",
+        "card_total",
+        "other_total",
+        "loadCashClosing",
+        "Caja cerrada correctamente.",
+        'currentRole !== "member"',
+    ):
+        assert expected in html + script

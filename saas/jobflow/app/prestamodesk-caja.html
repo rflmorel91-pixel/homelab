@@ -222,6 +222,62 @@
           Imprimir recibo
         </button>
       </article>
+
+      <section id="cashClosingPanel" class="panel" hidden>
+        <h2>Cierre de caja</h2>
+        <p class="notice">
+          El cierre incluye solamente pagos de préstamos
+          registrados por este cajero y que todavía no pertenecen
+          a otro cierre.
+        </p>
+
+        <div id="cashClosingPreview"></div>
+
+        <form id="cashClosingForm" class="form-grid">
+          <label>
+            Efectivo contado (DOP)
+            <input
+              id="cashCounted"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+            >
+          </label>
+
+          <label>
+            Observaciones
+            <textarea
+              id="cashClosingNotes"
+              maxlength="1000"
+              rows="3"
+            ></textarea>
+          </label>
+
+          <button type="submit">Cerrar mi caja</button>
+        </form>
+      </section>
+
+      <article
+        id="cashClosingReceipt"
+        class="panel receipt"
+        hidden
+      >
+        <h2>Comprobante de cierre</h2>
+        <div id="cashClosingReceiptContent"></div>
+        <button
+          id="printCashClosingButton"
+          type="button"
+          class="secondary"
+        >
+          Imprimir cierre
+        </button>
+      </article>
+
+      <section id="cashClosingHistoryPanel" class="panel" hidden>
+        <h2>Mis cierres anteriores</h2>
+        <div id="cashClosingHistory" class="table-wrap"></div>
+      </section>
     </div>
   </main>
 
