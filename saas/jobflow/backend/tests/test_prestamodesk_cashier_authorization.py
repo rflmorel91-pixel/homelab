@@ -390,6 +390,7 @@ def test_cashier_projects_late_fee_without_persisting_it(
     headers = authenticated_client.auth_headers(tenant)
 
     installment.due_date = date(2026, 8, 1)
+    loan.late_fee_enabled = True
 
     policy = LateFeePolicy(
         tenant_id=tenant.id,

@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -6,6 +7,7 @@ from app.models import Product, Tenant
 from app.products.prestamodesk.models import (
     Borrower,
     Installment,
+    LateFeePolicy,
     Loan,
 )
 
@@ -91,6 +93,7 @@ def test_create_loan_generates_fixed_schedule(
     assert Decimal(body["total_due"]) == Decimal("11000.00")
     assert body["currency"] == "DOP"
     assert body["status"] == "active"
+    assert body["late_fee_enabled"] is False
     assert len(body["installments"]) == 5
 
     assert [
@@ -112,6 +115,7 @@ def test_create_loan_generates_fixed_schedule(
     loan = db_session.get(Loan, body["id"])
     assert loan is not None
     assert loan.tenant_id == tenant.id
+    assert loan.late_fee_enabled is False
 
     installment_count = db_session.scalar(
         select(func.count(Installment.id)).where(
@@ -373,3 +377,148 @@ def test_personal_loan_rejects_vehicle_fields(
     )
 
     assert response.status_code == 422
+
+def test_late_fee_requires_enabled_tenant_policy(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Loan Mora Requirement Tenant",
+        "prestamodesk-loan-mora-requirement",
+    )
+    borrower = create_borrower(db_session, tenant)
+    payload = loan_payload(borrower.id)
+    payload["late_fee_enabled"] = True
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.owner_headers(tenant),
+        json=payload,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Configure and enable the tenant "
+        "late-fee policy first"
+    )
+    assert db_session.scalars(select(Loan)).all() == []
+
+
+def test_owner_selects_mora_for_individual_loan(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Per Loan Mora Tenant",
+        "prestamodesk-per-loan-mora",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    created = client.post(
+        LOANS_URL,
+        headers=client.owner_headers(tenant),
+        json=loan_payload(borrower.id),
+    )
+    assert created.status_code == 201
+    loan_id = created.json()["id"]
+    assert created.json()["late_fee_enabled"] is False
+
+    db_session.add(
+        LateFeePolicy(
+            tenant_id=tenant.id,
+            enabled=True,
+            daily_rate_percent=Decimal("0.1000"),
+            grace_days=5,
+            cap_percent=Decimal("25.0000"),
+            effective_date=date(2026, 10, 1),
+        )
+    )
+    db_session.commit()
+
+    member_attempt = client.put(
+        f"{LOANS_URL}/{loan_id}/late-fee",
+        headers=client.auth_headers(tenant),
+        json={"late_fee_enabled": True},
+    )
+    assert member_attempt.status_code == 403
+    assert member_attempt.json()["detail"] == (
+        "Tenant owner access required"
+    )
+
+    enabled = client.put(
+        f"{LOANS_URL}/{loan_id}/late-fee",
+        headers=client.owner_headers(tenant),
+        json={"late_fee_enabled": True},
+    )
+    assert enabled.status_code == 200
+    assert enabled.json()["late_fee_enabled"] is True
+
+    stored = db_session.get(Loan, loan_id)
+    assert stored is not None
+    db_session.refresh(stored)
+    assert stored.late_fee_enabled is True
+
+    disabled = client.put(
+        f"{LOANS_URL}/{loan_id}/late-fee",
+        headers=client.owner_headers(tenant),
+        json={"late_fee_enabled": False},
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["late_fee_enabled"] is False
+
+    db_session.refresh(stored)
+    assert stored.late_fee_enabled is False
+
+
+def test_owner_can_create_selected_mora_loan(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Selected Mora Creation Tenant",
+        "prestamodesk-selected-mora-creation",
+    )
+    borrower = create_borrower(db_session, tenant)
+
+    db_session.add(
+        LateFeePolicy(
+            tenant_id=tenant.id,
+            enabled=True,
+            daily_rate_percent=Decimal("0.1000"),
+            grace_days=5,
+            cap_percent=Decimal("25.0000"),
+            effective_date=date(2026, 10, 1),
+        )
+    )
+    db_session.commit()
+
+    payload = loan_payload(borrower.id)
+    payload["late_fee_enabled"] = True
+
+    response = client.post(
+        LOANS_URL,
+        headers=client.owner_headers(tenant),
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["late_fee_enabled"] is True
+
+    stored = db_session.get(
+        Loan,
+        response.json()["id"],
+    )
+    assert stored is not None
+    assert stored.late_fee_enabled is True

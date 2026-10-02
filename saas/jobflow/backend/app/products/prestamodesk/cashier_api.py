@@ -74,9 +74,14 @@ def ordinary_balance(
 def projected_late_fee(
     installment: Installment,
     policy: LateFeePolicy | None,
+    loan_late_fee_enabled: bool,
     as_of: date,
 ) -> Decimal:
-    if policy is None or not policy.enabled:
+    if (
+        not loan_late_fee_enabled
+        or policy is None
+        or not policy.enabled
+    ):
         return money(
             installment.late_fee_accrued
         )
@@ -108,12 +113,14 @@ def projected_late_fee(
 def build_installment_read(
     installment: Installment,
     policy: LateFeePolicy | None,
+    loan_late_fee_enabled: bool,
     as_of: date,
 ) -> CashierInstallmentRead:
     ordinary = ordinary_balance(installment)
     projected_accrued = projected_late_fee(
         installment,
         policy,
+        loan_late_fee_enabled,
         as_of,
     )
     late_balance = money(
@@ -150,6 +157,7 @@ def build_summary(
         build_installment_read(
             installment,
             policy,
+            loan.late_fee_enabled,
             as_of,
         )
         for installment in installments
@@ -203,6 +211,7 @@ def build_summary(
         vehicle_year=loan.vehicle_year,
         currency=loan.currency,
         status=loan.status,
+        late_fee_enabled=loan.late_fee_enabled,
         total_due=loan.total_due,
         paid_amount=paid_amount,
         ordinary_balance_due=ordinary_due,
@@ -375,6 +384,7 @@ def get_cashier_loan_detail(
             build_installment_read(
                 installment,
                 policy,
+                loan.late_fee_enabled,
                 selected_date,
             )
             for installment in installments

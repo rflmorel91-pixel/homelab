@@ -34,6 +34,8 @@ const errorMessage = document.getElementById("errorMessage");
 const successMessage = document.getElementById("successMessage");
 const borrowerForm = document.getElementById("borrowerForm");
 const loanForm = document.getElementById("loanForm");
+const loanLateFeeEnabled =
+  document.getElementById("loanLateFeeEnabled");
 const loanType = document.getElementById("loanType");
 const loanPrincipal =
   document.getElementById("loanPrincipal");
@@ -59,6 +61,10 @@ const loanDetailTitle =
   document.getElementById("loanDetailTitle");
 const loanDetailSummary =
   document.getElementById("loanDetailSummary");
+const loanLateFeeForm =
+  document.getElementById("loanLateFeeForm");
+const loanLateFeeSelected =
+  document.getElementById("loanLateFeeSelected");
 const installmentList =
   document.getElementById("installmentList");
 const paymentPanel =
@@ -221,7 +227,8 @@ function buildLoanPayload() {
     first_payment_date:
       document.getElementById(
         "loanFirstPaymentDate"
-      ).value
+      ).value,
+    late_fee_enabled: loanLateFeeEnabled.checked
   };
 
   if (loanType.value === "vehicle") {
@@ -788,6 +795,13 @@ function renderLoans() {
                 formatStatus(loan.status)
               )}
             </span>
+            <span>
+              Mora: ${
+                loan.late_fee_enabled
+                  ? "Activada"
+                  : "No activada"
+              }
+            </span>
           </div>
           <div class="item-actions">
             <button
@@ -1040,9 +1054,20 @@ function renderLoanDetail(detail) {
           formatStatus(detail.status)
         )}
       </span>
+      <span>
+        Mora: ${
+          detail.late_fee_enabled
+            ? "Activada"
+            : "No activada"
+        }
+      </span>
     </div>
     ${vehicleSummary}
   `;
+
+  loanLateFeeSelected.checked = (
+    detail.late_fee_enabled
+  );
 
   installmentList.innerHTML = `
     <table>
@@ -1123,6 +1148,43 @@ async function openLoan(loanId) {
     block: "start"
   });
 }
+
+
+loanLateFeeForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (!selectedLoanId) {
+      showError("Seleccione un préstamo.");
+      return;
+    }
+
+    const loanId = selectedLoanId;
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/loans/${loanId}/late-fee`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            late_fee_enabled:
+              loanLateFeeSelected.checked
+          })
+        }
+      );
+
+      await loadDashboard();
+      await openLoan(loanId);
+      showSuccess(
+        "Selección de mora del préstamo guardada."
+      );
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
 
 
 lateFeePolicyForm.addEventListener(

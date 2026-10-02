@@ -328,6 +328,14 @@
               >
             </label>
 
+            <label>
+              <input
+                id="loanLateFeeEnabled"
+                type="checkbox"
+              >
+              Cobrar mora en este préstamo
+            </label>
+
             <button type="submit">Crear préstamo</button>
           </form>
 
@@ -398,9 +406,11 @@
       <section class="panel">
         <h2>Política de mora</h2>
         <p>
-          Configure el cargo por atraso aplicable a las cuotas
-          vencidas. Los pagos se aplican primero a mora, luego a
-          interés y finalmente a principal.
+          Configure los valores predeterminados de mora del
+          cliente. La mora solo se aplica a los préstamos donde
+          se marque expresamente la opción correspondiente. Los
+          pagos se aplican primero a mora, luego a interés y
+          finalmente a principal.
         </p>
 
         <form id="lateFeePolicyForm" class="form-grid">
@@ -483,6 +493,25 @@
         </div>
 
         <div id="loanDetailSummary"></div>
+
+        <form id="loanLateFeeForm" class="form-grid">
+          <label>
+            <input
+              id="loanLateFeeSelected"
+              type="checkbox"
+            >
+            Cobrar mora en este préstamo
+          </label>
+
+          <button type="submit">
+            Guardar selección de mora
+          </button>
+        </form>
+
+        <p class="notice">
+          Cuando está activada, usa la tasa, los días de gracia,
+          el tope y la fecha efectiva de la política del cliente.
+        </p>
 
         <h3>Calendario de cuotas</h3>
         <div id="installmentList" class="table-wrap"></div>

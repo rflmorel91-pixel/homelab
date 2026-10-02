@@ -70,9 +70,14 @@ def assess_late_fee(
     *,
     installment: Installment,
     policy: LateFeePolicy | None,
+    loan_late_fee_enabled: bool,
     payment_date,
 ) -> None:
-    if policy is None or not policy.enabled:
+    if (
+        not loan_late_fee_enabled
+        or policy is None
+        or not policy.enabled
+    ):
         return
 
     if (
@@ -204,6 +209,9 @@ def record_payment(
     assess_late_fee(
         installment=installment,
         policy=policy,
+        loan_late_fee_enabled=(
+            loan.late_fee_enabled
+        ),
         payment_date=payment_date,
     )
 
