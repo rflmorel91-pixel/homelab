@@ -249,6 +249,7 @@ def convert_application(
         first_payment_date=application.first_payment_date,
         currency="DOP",
         status="active",
+        late_fee_enabled=False,
         notes=application.notes,
     )
 

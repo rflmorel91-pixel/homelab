@@ -31,6 +31,7 @@ class CashierLoanSummary(BaseModel):
     vehicle_year: int | None
     currency: Literal["DOP"]
     status: LoanStatus
+    late_fee_enabled: bool
     total_due: Decimal
     paid_amount: Decimal
     ordinary_balance_due: Decimal

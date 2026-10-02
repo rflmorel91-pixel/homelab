@@ -145,6 +145,7 @@ class LoanCreate(BaseModel):
     payment_frequency: PaymentFrequency
     start_date: date
     first_payment_date: date
+    late_fee_enabled: bool = False
     notes: str | None = None
 
     @model_validator(mode="after")
@@ -237,6 +238,7 @@ class LoanRead(BaseModel):
     first_payment_date: date
     currency: Literal["DOP"]
     status: LoanStatus
+    late_fee_enabled: bool
     notes: str | None
     created_at: datetime
     updated_at: datetime
@@ -267,6 +269,12 @@ class InstallmentRead(BaseModel):
 
 class LoanDetail(LoanRead):
     installments: list[InstallmentRead]
+
+
+class LoanLateFeeUpdate(BaseModel):
+    late_fee_enabled: bool
+
+    model_config = ConfigDict(extra="forbid")
 
 
 PaymentMethod = Literal[

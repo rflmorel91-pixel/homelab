@@ -277,6 +277,13 @@ def test_overdue_payment_applies_to_mora_then_interest(
 
     installment.due_date = date(2026, 8, 1)
 
+    stored_loan = db_session.get(
+        Loan,
+        loan["id"],
+    )
+    assert stored_loan is not None
+    stored_loan.late_fee_enabled = True
+
     policy = LateFeePolicy(
         tenant_id=tenant.id,
         enabled=True,
@@ -393,6 +400,13 @@ def test_late_fee_assessment_uses_reduced_balance(
     assert installment is not None
 
     installment.due_date = date(2026, 8, 1)
+
+    stored_loan = db_session.get(
+        Loan,
+        loan["id"],
+    )
+    assert stored_loan is not None
+    stored_loan.late_fee_enabled = True
     db_session.add(
         LateFeePolicy(
             tenant_id=tenant.id,
@@ -473,6 +487,13 @@ def test_payment_cannot_precede_late_fee_assessment(
     assert installment is not None
 
     installment.due_date = date(2026, 8, 1)
+
+    stored_loan = db_session.get(
+        Loan,
+        loan["id"],
+    )
+    assert stored_loan is not None
+    stored_loan.late_fee_enabled = True
     db_session.add(
         LateFeePolicy(
             tenant_id=tenant.id,
@@ -511,3 +532,80 @@ def test_payment_cannot_precede_late_fee_assessment(
         "Payment date precedes an existing "
         "late-fee assessment"
     )
+
+def test_active_policy_does_not_charge_unselected_loan(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Unselected Mora Payment Tenant",
+        "unselected-mora-payment-tenant",
+    )
+    borrower = create_borrower(
+        db_session,
+        tenant,
+        "Cliente Sin Mora Seleccionada",
+    )
+    loan = create_two_installment_loan(
+        client,
+        tenant,
+        borrower,
+    )
+    assert loan["late_fee_enabled"] is False
+
+    installment = db_session.get(
+        Installment,
+        loan["installments"][0]["id"],
+    )
+    assert installment is not None
+    installment.due_date = date(2026, 8, 1)
+
+    db_session.add(
+        LateFeePolicy(
+            tenant_id=tenant.id,
+            enabled=True,
+            daily_rate_percent=Decimal("0.1000"),
+            grace_days=5,
+            cap_percent=Decimal("25.0000"),
+            effective_date=date(2026, 9, 1),
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment.id,
+            "amount": "20.00",
+            "payment_method": "cash",
+            "reference": "NO-PER-LOAN-MORA",
+            "paid_at": "2026-09-03T12:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+    receipt = response.json()
+
+    assert Decimal(
+        receipt["late_fee_amount"]
+    ) == Decimal("0.00")
+    assert Decimal(
+        receipt["interest_amount"]
+    ) == Decimal("20.00")
+    assert Decimal(
+        receipt["principal_amount"]
+    ) == Decimal("0.00")
+    assert Decimal(
+        receipt["installment_late_fee_accrued"]
+    ) == Decimal("0.00")
+
+    db_session.refresh(installment)
+
+    assert installment.late_fee_accrued == Decimal("0.00")
+    assert installment.late_fee_paid == Decimal("0.00")
+    assert installment.late_fee_assessed_through is None

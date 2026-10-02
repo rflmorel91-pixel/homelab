@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -139,6 +140,12 @@ class Loan(Base):
         String(30),
         nullable=False,
         default="active",
+    )
+
+    late_fee_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
     )
 
     notes: Mapped[str | None] = mapped_column(

@@ -10,12 +10,14 @@ from app.products.prestamodesk.amortization import (
 from app.products.prestamodesk.models import (
     Borrower,
     Installment,
+    LateFeePolicy,
     Loan,
 )
 from app.products.prestamodesk.schemas import (
     InstallmentRead,
     LoanCreate,
     LoanDetail,
+    LoanLateFeeUpdate,
     LoanRead,
 )
 from app.tenant_context import (
@@ -49,6 +51,27 @@ def get_loan_or_404(
         )
 
     return loan
+
+
+def require_enabled_late_fee_policy(
+    db: Session,
+    tenant_id: int,
+) -> None:
+    policy = db.scalar(
+        select(LateFeePolicy).where(
+            LateFeePolicy.tenant_id == tenant_id,
+            LateFeePolicy.enabled.is_(True),
+        )
+    )
+
+    if policy is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Configure and enable the tenant "
+                "late-fee policy first"
+            ),
+        )
 
 
 def build_loan_detail(
@@ -112,6 +135,12 @@ def create_loan(
             ),
         )
 
+    if payload.late_fee_enabled:
+        require_enabled_late_fee_policy(
+            db,
+            tenant.id,
+        )
+
     calculation = build_fixed_schedule(
         principal_amount=payload.principal_amount,
         flat_interest_rate_percent=(
@@ -148,6 +177,7 @@ def create_loan(
         first_payment_date=payload.first_payment_date,
         currency="DOP",
         status="active",
+        late_fee_enabled=payload.late_fee_enabled,
         notes=payload.notes,
     )
 
@@ -179,6 +209,39 @@ def create_loan(
         raise
 
     return build_loan_detail(loan, db)
+
+
+@router.put(
+    "/{loan_id}/late-fee",
+    response_model=LoanRead,
+)
+def update_loan_late_fee(
+    loan_id: int,
+    payload: LoanLateFeeUpdate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    loan = get_loan_or_404(
+        loan_id,
+        tenant,
+        db,
+    )
+
+    if payload.late_fee_enabled:
+        require_enabled_late_fee_policy(
+            db,
+            tenant.id,
+        )
+
+    loan.late_fee_enabled = payload.late_fee_enabled
+
+    db.commit()
+    db.refresh(loan)
+
+    return loan
 
 
 @router.get("", response_model=list[LoanRead])
