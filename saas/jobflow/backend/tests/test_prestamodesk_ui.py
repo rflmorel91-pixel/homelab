@@ -292,7 +292,7 @@ def test_collector_is_redirected_from_admin_workspace():
     script = (
         APP_ROOT
         / "assets"
-        / "prestamodesk-app-a3582ba5bcd7.js"
+        / "prestamodesk-app-8dc40a7b98e4.js"
     ).read_text()
 
     role_check = 'client.role === "collector"'

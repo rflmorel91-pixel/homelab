@@ -9,7 +9,7 @@ def test_admin_manages_clients_inside_products():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'data-view="products"' in page
     assert 'data-view="tenants"' not in page
@@ -37,7 +37,7 @@ def test_tenant_detail_loads_owning_product_context():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert (
         "state.currentProductId"
@@ -57,7 +57,7 @@ def test_stale_tenant_navigation_cannot_render():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "tenantNavigationGeneration: 0" in page
     assert (
@@ -87,7 +87,7 @@ def test_global_users_are_identity_registry_only():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-cac3598ae666.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "Identity &amp; Access" in page
     assert "shared platform identities and security" in page

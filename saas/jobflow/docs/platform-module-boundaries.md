@@ -13,7 +13,7 @@ Extraction should occur only when related product work next changes the affected
 The primary concentrated modules are:
 
 - `backend/app/api/admin.py`: platform administration routes and mutations.
-- `app/assets/admin-cac3598ae666.js`: administration state, rendering, API calls, event
+- `app/assets/admin-208a679dbd82.js`: administration state, rendering, API calls, event
   handling, authentication, billing, tenant, user, and audit behavior.
 - `backend/app/products/workflow_automation/prospecting_api.py`: prospect qualification
   and outreach activity routes.
