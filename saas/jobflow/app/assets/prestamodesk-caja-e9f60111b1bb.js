@@ -8,6 +8,7 @@ let tenantId = localStorage.getItem(
 );
 let selectedLoanId = null;
 let selectedLoan = null;
+let currentRole = null;
 
 const authPanel = document.getElementById("authPanel");
 const cashierWorkspace =
@@ -64,6 +65,28 @@ const receiptPanel =
   document.getElementById("receiptPanel");
 const receiptContent =
   document.getElementById("receiptContent");
+const cashClosingPanel =
+  document.getElementById("cashClosingPanel");
+const cashClosingPreview =
+  document.getElementById("cashClosingPreview");
+const cashClosingForm =
+  document.getElementById("cashClosingForm");
+const cashCounted =
+  document.getElementById("cashCounted");
+const cashClosingNotes =
+  document.getElementById("cashClosingNotes");
+const cashClosingReceipt =
+  document.getElementById("cashClosingReceipt");
+const cashClosingReceiptContent =
+  document.getElementById(
+    "cashClosingReceiptContent"
+  );
+const cashClosingHistoryPanel =
+  document.getElementById(
+    "cashClosingHistoryPanel"
+  );
+const cashClosingHistory =
+  document.getElementById("cashClosingHistory");
 
 
 function escapeHtml(value) {
@@ -98,6 +121,17 @@ function formatStatus(value) {
   };
 
   return labels[value] || value;
+}
+
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat(
+    "es-DO",
+    {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }
+  ).format(new Date(value));
 }
 
 
@@ -239,9 +273,120 @@ async function discoverAccess() {
       : "Cajero"
   );
 
+  currentRole = client.role;
+  cashClosingPanel.hidden = currentRole !== "member";
+  cashClosingHistoryPanel.hidden =
+    currentRole !== "member";
+
   clientContext.textContent =
     `Cliente #${client.client_number} · `
     + `${client.name} · ${roleLabel}`;
+}
+
+
+function renderClosingPreview(preview) {
+  cashClosingPreview.innerHTML = `
+    <div class="summary-grid">
+      <p>
+        Pagos pendientes de cierre:
+        <strong>${preview.payment_count}</strong>
+      </p>
+      <p>
+        Total cobrado:
+        <strong>${
+          formatMoney(preview.total_collected)
+        }</strong>
+      </p>
+      <p>
+        Efectivo esperado:
+        <strong>${
+          formatMoney(preview.cash_expected)
+        }</strong>
+      </p>
+      <p>
+        Transferencias:
+        ${formatMoney(preview.bank_transfer_total)}
+      </p>
+      <p>Tarjetas: ${formatMoney(preview.card_total)}</p>
+      <p>Otros: ${formatMoney(preview.other_total)}</p>
+      <p>
+        Período iniciado:
+        ${escapeHtml(formatDateTime(preview.opened_at))}
+      </p>
+    </div>
+  `;
+
+  cashCounted.value = Number(
+    preview.cash_expected
+  ).toFixed(2);
+}
+
+
+function renderClosingHistory(closings) {
+  if (closings.length === 0) {
+    cashClosingHistory.innerHTML = `
+      <p class="notice">No hay cierres registrados.</p>
+    `;
+    return;
+  }
+
+  cashClosingHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cierre</th>
+          <th>Fecha</th>
+          <th>Pagos</th>
+          <th>Total</th>
+          <th>Efectivo esperado</th>
+          <th>Efectivo contado</th>
+          <th>Diferencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${closings.map(closing => `
+          <tr>
+            <td>#${closing.id}</td>
+            <td>${escapeHtml(
+              formatDateTime(closing.closed_at)
+            )}</td>
+            <td>${closing.payment_count}</td>
+            <td>${formatMoney(
+              closing.total_collected
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_expected
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_counted
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_difference
+            )}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+async function loadCashClosing() {
+  if (currentRole !== "member") {
+    return;
+  }
+
+  const [preview, history] = await Promise.all([
+    apiRequest(
+      `${PRODUCT_BASE}/cashier/closing-preview`
+    ),
+    apiRequest(
+      `${PRODUCT_BASE}/cashier/closings`
+    )
+  ]);
+
+  renderClosingPreview(preview);
+  renderClosingHistory(history);
 }
 
 
@@ -724,6 +869,7 @@ paymentForm.addEventListener(
       await openLoan(selectedLoanId);
       receiptPanel.hidden = false;
       await searchLoans(loanSearchQuery.value);
+      await loadCashClosing();
 
       showSuccess("Pago registrado.");
     } catch (error) {
@@ -735,6 +881,96 @@ paymentForm.addEventListener(
 
 document.getElementById(
   "printReceiptButton"
+).addEventListener(
+  "click",
+  () => window.print()
+);
+
+
+cashClosingForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      const closing = await apiRequest(
+        `${PRODUCT_BASE}/cashier/closings`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            cash_counted: cashCounted.value,
+            notes:
+              cashClosingNotes.value.trim()
+              || null
+          })
+        }
+      );
+
+      cashClosingReceiptContent.innerHTML = `
+        <p>
+          <strong>Cierre #${closing.id}</strong>
+        </p>
+        <p>
+          Cerrado:
+          ${escapeHtml(
+            formatDateTime(closing.closed_at)
+          )}
+        </p>
+        <p>Pagos: ${closing.payment_count}</p>
+        <p>
+          Total cobrado:
+          <strong>${
+            formatMoney(closing.total_collected)
+          }</strong>
+        </p>
+        <p>
+          Efectivo esperado:
+          ${formatMoney(closing.cash_expected)}
+        </p>
+        <p>
+          Efectivo contado:
+          ${formatMoney(closing.cash_counted)}
+        </p>
+        <p>
+          Diferencia:
+          <strong>${
+            formatMoney(closing.cash_difference)
+          }</strong>
+        </p>
+        <p>
+          Transferencias:
+          ${formatMoney(
+            closing.bank_transfer_total
+          )}
+        </p>
+        <p>
+          Tarjetas:
+          ${formatMoney(closing.card_total)}
+        </p>
+        <p>
+          Otros:
+          ${formatMoney(closing.other_total)}
+        </p>
+        <p>
+          Observaciones:
+          ${escapeHtml(closing.notes || "—")}
+        </p>
+      `;
+
+      cashClosingReceipt.hidden = false;
+      cashClosingForm.reset();
+      await loadCashClosing();
+      showSuccess("Caja cerrada correctamente.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "printCashClosingButton"
 ).addEventListener(
   "click",
   () => window.print()
@@ -820,6 +1056,7 @@ loginForm.addEventListener(
 
       await discoverAccess();
       await searchLoans();
+      await loadCashClosing();
       loginForm.reset();
       setAuthenticatedUI(true);
       showSuccess("Sesión de caja iniciada.");
@@ -861,6 +1098,7 @@ async function initialize() {
   try {
     await discoverAccess();
     await searchLoans();
+    await loadCashClosing();
     setAuthenticatedUI(true);
   } catch {
     tenantId = null;

@@ -17,6 +17,9 @@ from app.products.prestamodesk.borrowers_api import (
 from app.products.prestamodesk.cashier_api import (
     router as cashier_router,
 )
+from app.products.prestamodesk.cash_closings_api import (
+    router as cash_closings_router,
+)
 from app.products.prestamodesk.late_fee_policy_api import (
     router as late_fee_policy_router,
 )
@@ -53,6 +56,7 @@ PRESTAMODESK_PRODUCT = register_product(
             applications_router,
             borrowers_router,
             cashier_router,
+            cash_closings_router,
             late_fee_policy_router,
             loans_router,
             payments_router,

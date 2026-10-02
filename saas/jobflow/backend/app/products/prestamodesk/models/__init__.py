@@ -1,3 +1,4 @@
+from app.products.prestamodesk.models.cash_closing import CashClosing
 from app.products.prestamodesk.models.application import LoanApplication
 from app.products.prestamodesk.models.borrower import Borrower
 from app.products.prestamodesk.models.late_fee_policy import LateFeePolicy

@@ -308,6 +308,7 @@ class PaymentRead(BaseModel):
     loan_id: int
     installment_id: int
     recorded_by_user_id: int
+    cash_closing_id: int | None
     amount: Decimal
     principal_amount: Decimal
     interest_amount: Decimal
