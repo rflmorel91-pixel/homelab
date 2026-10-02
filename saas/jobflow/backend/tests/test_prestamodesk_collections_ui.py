@@ -69,6 +69,7 @@ def test_collections_page_supports_required_workflow():
 
     for element_id in (
         "collectionsWorkspace",
+        "supervisionLink",
         "portfolioFilterForm",
         "portfolioAsOf",
         "portfolioCount",
@@ -92,6 +93,9 @@ def test_collections_page_supports_required_workflow():
 
     for expected in (
         "Gestión de cobros",
+        "Supervisión",
+        "/prestamodesk/cobros/supervision",
+        'client.role !== "owner"',
         "Cartera vencida",
         "Registrar gestión",
         "Registrar promesa de pago",
@@ -135,7 +139,7 @@ def test_nginx_serves_collections_with_enforced_csp():
         )
 
     assert (
-        r"prestamodesk(?:-(?:app|caja|cobros)"
+        r"prestamodesk(?:-(?:app|caja|cobros|cobros-supervision)"
         in production
     )
     assert (

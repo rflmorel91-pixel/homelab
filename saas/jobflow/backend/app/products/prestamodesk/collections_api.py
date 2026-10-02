@@ -2,16 +2,22 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Tenant, TenantMembership
+from app.models import (
+    Tenant,
+    TenantMembership,
+    User,
+)
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.collections_schemas import (
     CollectionActivityCreate,
     CollectionActivityRead,
     CollectionPortfolioItem,
+    CollectionsSupervisionRead,
+    CollectorPerformanceRead,
     PaymentPromiseCancel,
     PaymentPromiseCreate,
     PaymentPromiseRead,
@@ -22,6 +28,7 @@ from app.products.prestamodesk.models import (
     CollectionActivity,
     Installment,
     Loan,
+    Payment,
     PaymentPromise,
     PromisePaymentAllocation,
 )
@@ -636,4 +643,276 @@ def list_promise_allocations(
                 PromisePaymentAllocation.id,
             )
         ).all()
+    )
+
+
+
+def fulfillment_percent(
+    *,
+    fulfilled: Decimal | int,
+    total: Decimal | int,
+) -> Decimal:
+    total_decimal = Decimal(total)
+
+    if total_decimal <= Decimal("0"):
+        return Decimal("0.00")
+
+    return money(
+        Decimal(fulfilled)
+        / total_decimal
+        * Decimal("100")
+    )
+
+
+def performance_for_collector(
+    *,
+    user: User,
+    activities: list[CollectionActivity],
+    promises: list[PaymentPromise],
+    as_of: date,
+) -> CollectorPerformanceRead:
+    user_activities = [
+        activity
+        for activity in activities
+        if activity.recorded_by_user_id == user.id
+    ]
+    user_promises = [
+        promise
+        for promise in promises
+        if promise.created_by_user_id == user.id
+    ]
+
+    promised_amount = money(
+        sum(
+            (
+                promise.promised_amount
+                for promise in user_promises
+            ),
+            Decimal("0.00"),
+        )
+    )
+    fulfilled_amount = money(
+        sum(
+            (
+                promise.fulfilled_amount
+                for promise in user_promises
+            ),
+            Decimal("0.00"),
+        )
+    )
+    fulfilled_count = sum(
+        promise.status == "fulfilled"
+        for promise in user_promises
+    )
+
+    return CollectorPerformanceRead(
+        user_id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        activity_count=len(user_activities),
+        promise_count=len(user_promises),
+        pending_promise_count=sum(
+            promise.status == "pending"
+            for promise in user_promises
+        ),
+        partial_promise_count=sum(
+            promise.status == "partial"
+            for promise in user_promises
+        ),
+        fulfilled_promise_count=fulfilled_count,
+        cancelled_promise_count=sum(
+            promise.status == "cancelled"
+            for promise in user_promises
+        ),
+        overdue_promise_count=sum(
+            promise.status in {"pending", "partial"}
+            and promise.due_date < as_of
+            for promise in user_promises
+        ),
+        promised_amount=promised_amount,
+        fulfilled_amount=fulfilled_amount,
+        promise_count_fulfillment_percent=(
+            fulfillment_percent(
+                fulfilled=fulfilled_count,
+                total=len(user_promises),
+            )
+        ),
+        promise_amount_fulfillment_percent=(
+            fulfillment_percent(
+                fulfilled=fulfilled_amount,
+                total=promised_amount,
+            )
+        ),
+    )
+
+
+@router.get(
+    "/supervision",
+    response_model=CollectionsSupervisionRead,
+)
+def read_collections_supervision(
+    as_of: date = Query(default_factory=date.today),
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    if membership.role != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Owner role required",
+        )
+
+    overdue_installments = db.scalars(
+        select(Installment)
+        .join(
+            Loan,
+            Loan.id == Installment.loan_id,
+        )
+        .where(
+            Installment.tenant_id == tenant.id,
+            Loan.tenant_id == tenant.id,
+            Loan.status == "active",
+            Installment.due_date < as_of,
+        )
+    ).all()
+
+    overdue_loan_ids: set[int] = set()
+    overdue_balance = Decimal("0.00")
+
+    for installment in overdue_installments:
+        balance = money(
+            installment_ordinary_balance(installment)
+            + installment_late_fee_balance(installment)
+        )
+
+        if balance <= Decimal("0.00"):
+            continue
+
+        overdue_loan_ids.add(installment.loan_id)
+        overdue_balance += balance
+
+    overdue_balance = money(overdue_balance)
+
+    activities = list(
+        db.scalars(
+            select(CollectionActivity).where(
+                CollectionActivity.tenant_id
+                == tenant.id
+            )
+        ).all()
+    )
+    promises = list(
+        db.scalars(
+            select(PaymentPromise).where(
+                PaymentPromise.tenant_id
+                == tenant.id
+            )
+        ).all()
+    )
+    collectors = list(
+        db.scalars(
+            select(User)
+            .join(
+                TenantMembership,
+                TenantMembership.user_id == User.id,
+            )
+            .where(
+                TenantMembership.tenant_id == tenant.id,
+                TenantMembership.role == "collector",
+                User.is_active.is_(True),
+            )
+            .order_by(
+                User.display_name,
+                User.email,
+                User.id,
+            )
+        ).all()
+    )
+
+    total_recovered = money(
+        db.scalar(
+            select(
+                func.coalesce(
+                    func.sum(Payment.amount),
+                    Decimal("0.00"),
+                )
+            ).where(
+                Payment.tenant_id == tenant.id
+            )
+        )
+        or Decimal("0.00")
+    )
+    promised_amount = money(
+        sum(
+            (
+                promise.promised_amount
+                for promise in promises
+            ),
+            Decimal("0.00"),
+        )
+    )
+    fulfilled_amount = money(
+        sum(
+            (
+                promise.fulfilled_amount
+                for promise in promises
+            ),
+            Decimal("0.00"),
+        )
+    )
+    fulfilled_count = sum(
+        promise.status == "fulfilled"
+        for promise in promises
+    )
+
+    return CollectionsSupervisionRead(
+        as_of=as_of,
+        overdue_loan_count=len(overdue_loan_ids),
+        overdue_balance=overdue_balance,
+        total_recovered=total_recovered,
+        activity_count=len(activities),
+        promise_count=len(promises),
+        pending_promise_count=sum(
+            promise.status == "pending"
+            for promise in promises
+        ),
+        partial_promise_count=sum(
+            promise.status == "partial"
+            for promise in promises
+        ),
+        fulfilled_promise_count=fulfilled_count,
+        cancelled_promise_count=sum(
+            promise.status == "cancelled"
+            for promise in promises
+        ),
+        overdue_promise_count=sum(
+            promise.status in {"pending", "partial"}
+            and promise.due_date < as_of
+            for promise in promises
+        ),
+        promised_amount=promised_amount,
+        fulfilled_amount=fulfilled_amount,
+        promise_count_fulfillment_percent=(
+            fulfillment_percent(
+                fulfilled=fulfilled_count,
+                total=len(promises),
+            )
+        ),
+        promise_amount_fulfillment_percent=(
+            fulfillment_percent(
+                fulfilled=fulfilled_amount,
+                total=promised_amount,
+            )
+        ),
+        collectors=[
+            performance_for_collector(
+                user=user,
+                activities=activities,
+                promises=promises,
+                as_of=as_of,
+            )
+            for user in collectors
+        ],
     )

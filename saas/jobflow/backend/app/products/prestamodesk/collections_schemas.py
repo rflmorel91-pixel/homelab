@@ -119,3 +119,40 @@ class PromisePaymentAllocationRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+
+class CollectorPerformanceRead(BaseModel):
+    user_id: int
+    email: str
+    display_name: str
+    activity_count: int
+    promise_count: int
+    pending_promise_count: int
+    partial_promise_count: int
+    fulfilled_promise_count: int
+    cancelled_promise_count: int
+    overdue_promise_count: int
+    promised_amount: Decimal
+    fulfilled_amount: Decimal
+    promise_count_fulfillment_percent: Decimal
+    promise_amount_fulfillment_percent: Decimal
+
+
+class CollectionsSupervisionRead(BaseModel):
+    as_of: date
+    overdue_loan_count: int
+    overdue_balance: Decimal
+    total_recovered: Decimal
+    activity_count: int
+    promise_count: int
+    pending_promise_count: int
+    partial_promise_count: int
+    fulfilled_promise_count: int
+    cancelled_promise_count: int
+    overdue_promise_count: int
+    promised_amount: Decimal
+    fulfilled_amount: Decimal
+    promise_count_fulfillment_percent: Decimal
+    promise_amount_fulfillment_percent: Decimal
+    collectors: list[CollectorPerformanceRead]

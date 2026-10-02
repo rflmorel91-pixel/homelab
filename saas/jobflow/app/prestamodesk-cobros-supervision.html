@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>PréstamoDesk | Supervisión de cobros</title>
+  <link
+    rel="stylesheet"
+    href="/assets/prestamodesk-app-b4c00c256964.css"
+  >
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <span class="eyebrow">FieldLookers</span>
+      <h1>PréstamoDesk · Supervisión de cobros</h1>
+      <p>
+        Resultados generales y desempeño del equipo de cobros
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <a href="/prestamodesk/cobros">
+        Gestión de cobros
+      </a>
+      <span id="clientContext" class="badge" hidden></span>
+      <span id="healthStatus">Comprobando API…</span>
+      <button id="logoutButton" class="secondary" hidden>
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div id="errorMessage" class="message error" hidden></div>
+
+    <section id="authPanel" class="panel auth-panel">
+      <h2>Iniciar sesión en supervisión de cobros</h2>
+      <p class="notice">
+        Esta página está disponible únicamente para el
+        propietario del cliente.
+      </p>
+
+      <form id="loginForm" class="form-grid">
+        <label>
+          Correo electrónico
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="username"
+            required
+          >
+        </label>
+
+        <label>
+          Contraseña
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          >
+        </label>
+
+        <button type="submit">Iniciar sesión</button>
+      </form>
+    </section>
+
+    <div id="supervisionWorkspace" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Resumen general</h2>
+            <p class="notice">
+              Las gestiones, promesas y cobros recuperados
+              incluyen todo el historial. La fecha de corte
+              se aplica a la cartera y promesas vencidas.
+            </p>
+          </div>
+
+          <button
+            id="refreshSupervisionButton"
+            type="button"
+            class="secondary"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        <form id="supervisionFilterForm" class="form-grid">
+          <label>
+            Fecha de corte
+            <input
+              id="supervisionAsOf"
+              type="date"
+              required
+            >
+          </label>
+
+          <button type="submit">Consultar supervisión</button>
+        </form>
+
+        <div id="generalSummary" class="summary-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Promesas de pago</h2>
+        <div id="promiseSummary" class="summary-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Desempeño por cobrador</h2>
+            <p class="notice">
+              El monto recuperado se presenta solamente como
+              total general. No se atribuyen pagos a un
+              cobrador individual.
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="collectorPerformance"
+          class="table-wrap"
+        ></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>PréstamoDesk · FieldLookers</span>
+  </footer>
+
+  <script
+    src="/assets/prestamodesk-cobros-supervision-458d51b4710b.js"
+    defer
+  ></script>
+</body>
+</html>
