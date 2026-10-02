@@ -120,7 +120,7 @@ def test_nginx_serves_cashier_with_enforced_csp():
         )
 
     assert (
-        r"prestamodesk(?:-(?:app|caja|cobros)\.html"
+        r"prestamodesk(?:-(?:app|caja|cobros|cobros-supervision)\.html"
         in production
     )
     assert (

@@ -19,6 +19,8 @@ const logoutButton =
   document.getElementById("logoutButton");
 const clientContext =
   document.getElementById("clientContext");
+const supervisionLink =
+  document.getElementById("supervisionLink");
 const healthStatus =
   document.getElementById("healthStatus");
 const errorMessage =
@@ -309,6 +311,9 @@ async function discoverAccess() {
   clientContext.textContent =
     `Cliente #${client.client_number} · `
     + `${client.name} · ${formatRole(client.role)}`;
+
+  supervisionLink.hidden =
+    client.role !== "owner";
 }
 
 
