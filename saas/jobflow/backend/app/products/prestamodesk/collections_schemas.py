@@ -36,6 +36,8 @@ class CollectionPortfolioItem(BaseModel):
     ordinary_balance_due: Decimal
     late_fee_balance_due: Decimal
     total_balance_due: Decimal
+    assigned_collector_user_id: int | None = None
+    assigned_collector_display_name: str | None = None
 
 
 class CollectionActivityCreate(BaseModel):
@@ -156,3 +158,38 @@ class CollectionsSupervisionRead(BaseModel):
     promise_count_fulfillment_percent: Decimal
     promise_amount_fulfillment_percent: Decimal
     collectors: list[CollectorPerformanceRead]
+
+class CollectorAssignmentCreate(BaseModel):
+    collector_user_id: int = Field(gt=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CollectorAssignmentRelease(BaseModel):
+    reason: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CollectorAssignmentRead(BaseModel):
+    id: int
+    tenant_id: int
+    loan_id: int
+    collector_user_id: int
+    collector_email: str
+    collector_display_name: str
+    assigned_by_user_id: int
+    assigned_at: datetime
+    released_at: datetime | None
+    released_by_user_id: int | None
+    release_reason: str | None
+    is_active: bool
+
+
+class CollectorOptionRead(BaseModel):
+    user_id: int
+    email: str
+    display_name: str

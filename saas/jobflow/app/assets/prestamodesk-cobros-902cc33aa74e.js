@@ -7,6 +7,8 @@ let tenantId = localStorage.getItem(
   TENANT_STORAGE_KEY
 );
 let selectedPortfolioItem = null;
+let currentRole = null;
+let availableCollectors = [];
 
 const authPanel = document.getElementById("authPanel");
 const collectionsWorkspace =
@@ -73,6 +75,28 @@ const paymentPromiseHistory =
   );
 const overduePromiseList =
   document.getElementById("overduePromiseList");
+const portfolioTitle =
+  document.getElementById("portfolioTitle");
+const portfolioNotice =
+  document.getElementById("portfolioNotice");
+const assignmentStatusField =
+  document.getElementById("assignmentStatusField");
+const assignmentStatus =
+  document.getElementById("assignmentStatus");
+const collectorAssignmentPanel =
+  document.getElementById("collectorAssignmentPanel");
+const collectorAssignmentForm =
+  document.getElementById("collectorAssignmentForm");
+const collectorAssignmentUser =
+  document.getElementById("collectorAssignmentUser");
+const releaseCollectorAssignment =
+  document.getElementById(
+    "releaseCollectorAssignment"
+  );
+const collectorAssignmentHistory =
+  document.getElementById(
+    "collectorAssignmentHistory"
+  );
 
 
 function escapeHtml(value) {
@@ -302,6 +326,7 @@ async function discoverAccess() {
     );
   }
 
+  currentRole = client.role;
   tenantId = String(client.tenant_id);
   localStorage.setItem(
     TENANT_STORAGE_KEY,
@@ -314,6 +339,103 @@ async function discoverAccess() {
 
   supervisionLink.hidden =
     client.role !== "owner";
+
+  const isOwner = client.role === "owner";
+
+  assignmentStatusField.hidden = !isOwner;
+  collectorAssignmentPanel.hidden = !isOwner;
+
+  if (isOwner) {
+    portfolioTitle.textContent = "Cartera vencida";
+    portfolioNotice.textContent =
+      "Incluye todos los préstamos vencidos del cliente. "
+      + "Puede filtrar y administrar sus asignaciones.";
+  } else {
+    portfolioTitle.textContent = "Mi cartera";
+    portfolioNotice.textContent =
+      "Muestra solamente los préstamos vencidos "
+      + "asignados a su usuario.";
+  }
+}
+
+
+function renderCollectorOptions() {
+  collectorAssignmentUser.innerHTML = `
+    <option value="">Seleccione un cobrador</option>
+    ${availableCollectors.map(collector => `
+      <option value="${collector.user_id}">
+        ${escapeHtml(collector.display_name)}
+        · ${escapeHtml(collector.email)}
+      </option>
+    `).join("")}
+  `;
+}
+
+
+async function loadCollectors() {
+  if (currentRole !== "owner") {
+    availableCollectors = [];
+    return;
+  }
+
+  availableCollectors = await apiRequest(
+    `${PRODUCT_BASE}/collections/collectors`
+  );
+  renderCollectorOptions();
+}
+
+
+function renderAssignments(items) {
+  const active = items.find(item => item.is_active);
+
+  releaseCollectorAssignment.hidden = !active;
+
+  if (active) {
+    collectorAssignmentUser.value =
+      String(active.collector_user_id);
+  } else {
+    collectorAssignmentUser.value = "";
+  }
+
+  if (items.length === 0) {
+    collectorAssignmentHistory.innerHTML =
+      '<p class="empty">No hay asignaciones registradas.</p>';
+    return;
+  }
+
+  collectorAssignmentHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cobrador</th>
+          <th>Asignada</th>
+          <th>Liberada</th>
+          <th>Estado</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(
+                item.collector_display_name
+              )}</strong><br>
+              ${escapeHtml(item.collector_email)}
+            </td>
+            <td>${formatDateTime(item.assigned_at)}</td>
+            <td>${formatDateTime(item.released_at)}</td>
+            <td>
+              ${item.is_active ? "Activa" : "Finalizada"}
+            </td>
+            <td>
+              ${escapeHtml(item.release_reason || "—")}
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 
@@ -337,6 +459,7 @@ function renderPortfolio(items) {
           <th>Días vencidos</th>
           <th>Cuotas</th>
           <th>Saldo vencido</th>
+          <th>Cobrador asignado</th>
           <th>Acción</th>
         </tr>
       </thead>
@@ -371,6 +494,12 @@ function renderPortfolio(items) {
               )}</strong>
             </td>
             <td>
+              ${escapeHtml(
+                item.assigned_collector_display_name
+                || "Sin asignar"
+              )}
+            </td>
+            <td>
               <button
                 type="button"
                 class="secondary"
@@ -393,6 +522,13 @@ async function loadPortfolio() {
   const params = new URLSearchParams({
     as_of: portfolioAsOf.value
   });
+
+  if (currentRole === "owner") {
+    params.set(
+      "assignment_status",
+      assignmentStatus.value
+    );
+  }
   const items = await apiRequest(
     `${PRODUCT_BASE}/collections/portfolio?${params}`
   );
@@ -555,7 +691,7 @@ async function loadLoanHistory() {
   }
 
   const loanId = selectedPortfolioItem.loan_id;
-  const [activities, promises] = await Promise.all([
+  const requests = [
     apiRequest(
       `${PRODUCT_BASE}/collections/loans/`
       + `${loanId}/activities`
@@ -564,10 +700,26 @@ async function loadLoanHistory() {
       `${PRODUCT_BASE}/collections/loans/`
       + `${loanId}/promises`
     )
-  ]);
+  ];
+
+  if (currentRole === "owner") {
+    requests.push(
+      apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${loanId}/assignments`
+      )
+    );
+  }
+
+  const [activities, promises, assignments] =
+    await Promise.all(requests);
 
   renderActivities(activities);
   renderPromises(promises);
+
+  if (currentRole === "owner") {
+    renderAssignments(assignments);
+  }
 }
 
 
@@ -614,6 +766,13 @@ async function openLoan(item) {
       Saldo vencido:
       <strong>${formatMoney(
         item.total_balance_due
+      )}</strong>
+    </p>
+    <p>
+      Cobrador asignado:
+      <strong>${escapeHtml(
+        item.assigned_collector_display_name
+        || "Sin asignar"
       )}</strong>
     </p>
   `;
@@ -758,6 +917,100 @@ activityForm.addEventListener(
 );
 
 
+collectorAssignmentForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (
+      currentRole !== "owner"
+      || !selectedPortfolioItem
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}/assignment`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            collector_user_id: Number(
+              collectorAssignmentUser.value
+            )
+          })
+        }
+      );
+
+      const refreshedItems = await loadPortfolio();
+      selectedPortfolioItem = refreshedItems.find(
+        item =>
+          item.loan_id === selectedPortfolioItem.loan_id
+      ) || selectedPortfolioItem;
+
+      await loadLoanHistory();
+      showSuccess("Cobrador asignado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+releaseCollectorAssignment.addEventListener(
+  "click",
+  async () => {
+    clearMessages();
+
+    if (
+      currentRole !== "owner"
+      || !selectedPortfolioItem
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "¿Desea liberar esta asignación?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}`
+        + "/assignment/release",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            reason: "Liberada desde gestión de cobros"
+          })
+        }
+      );
+
+      const refreshedItems = await loadPortfolio();
+      selectedPortfolioItem = refreshedItems.find(
+        item =>
+          item.loan_id === selectedPortfolioItem.loan_id
+      ) || {
+        ...selectedPortfolioItem,
+        assigned_collector_user_id: null,
+        assigned_collector_display_name: null
+      };
+
+      await loadLoanHistory();
+      showSuccess("Asignación liberada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
 promiseForm.addEventListener(
   "submit",
   async event => {
@@ -849,6 +1102,7 @@ loginForm.addEventListener(
       );
 
       await discoverAccess();
+      await loadCollectors();
       await Promise.all([
         loadPortfolio(),
         loadOverduePromises()
@@ -893,6 +1147,7 @@ async function initialize() {
 
   try {
     await discoverAccess();
+    await loadCollectors();
     await Promise.all([
       loadPortfolio(),
       loadOverduePromises()
