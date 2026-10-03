@@ -73,6 +73,7 @@ def test_supervision_page_supports_owner_dashboard():
         "supervisionWorkspace",
         "supervisionFilterForm",
         "supervisionAsOf",
+        "exportSupervisionButton",
         "refreshSupervisionButton",
         "generalSummary",
         "dailyOperationsSummary",
@@ -85,6 +86,10 @@ def test_supervision_page_supports_owner_dashboard():
     for expected in (
         "Supervisión de cobros",
         "Resumen general",
+        "Exportar CSV",
+        "/collections/supervision/export.csv",
+        '"Accept": "text/csv"',
+        "URL.createObjectURL",
         "Préstamos asignados",
         "Saldo asignado",
         "Préstamos sin asignar",
