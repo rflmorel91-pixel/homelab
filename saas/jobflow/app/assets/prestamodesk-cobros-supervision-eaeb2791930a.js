@@ -263,19 +263,19 @@ function renderDailyOperations(data) {
   dailyOperationsSummary.innerHTML = [
     metric(
       "Promesas para hoy",
-      data.promises_due_today
+      data.promises_due_today_count
     ),
     metric(
       "Seguimientos para hoy",
-      data.follow_ups_due_today
+      data.follow_ups_due_today_count
     ),
     metric(
       "Seguimientos vencidos",
-      data.overdue_follow_ups
+      data.overdue_follow_up_count
     ),
     metric(
       "Promesas vencidas",
-      data.overdue_promises
+      data.overdue_promise_count
     ),
   ].join("");
 }
@@ -285,7 +285,7 @@ function renderAgingSummary(buckets) {
     metric(
       bucket.label,
       `${bucket.loan_count} · ${
-        formatMoney(bucket.overdue_balance)
+        formatMoney(bucket.balance)
       }`
     )
   )).join("");

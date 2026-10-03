@@ -107,6 +107,27 @@ def test_supervision_page_supports_owner_dashboard():
     ):
         assert expected in contents
 
+    for api_field in (
+        "data.promises_due_today_count",
+        "data.follow_ups_due_today_count",
+        "data.overdue_follow_up_count",
+        "data.overdue_promise_count",
+        "bucket.balance",
+    ):
+        assert api_field in script
+
+    for invalid_field in (
+        "data.promises_due_today",
+        "data.follow_ups_due_today",
+        "data.overdue_follow_ups",
+        "data.overdue_promises",
+        "bucket.overdue_balance",
+    ):
+        assert not re.search(
+            rf"\b{re.escape(invalid_field)}\b",
+            script,
+        )
+
     assert "collector.total_recovered" not in script
 
 
