@@ -147,3 +147,39 @@ def test_nginx_serves_collections_with_enforced_csp():
         '"default-src \'self\';'
         in staging
     )
+
+def test_collections_page_supports_collector_assignments():
+    html = COLLECTIONS_PAGE.read_text()
+    script = collections_script_path().read_text()
+    contents = html + script
+
+    for element_id in (
+        "portfolioTitle",
+        "portfolioNotice",
+        "assignmentStatusField",
+        "assignmentStatus",
+        "collectorAssignmentPanel",
+        "collectorAssignmentForm",
+        "collectorAssignmentUser",
+        "releaseCollectorAssignment",
+        "collectorAssignmentHistory",
+    ):
+        assert f'id="{element_id}"' in html
+
+    for expected in (
+        "Mi cartera",
+        "Sin asignar",
+        "Cobrador asignado",
+        "Asignar o reasignar",
+        "Liberar asignación",
+        "/collections/collectors",
+        "assignment_status",
+        "/assignment",
+        "/assignment/release",
+        "/assignments",
+        "collector_user_id",
+        "assigned_collector_display_name",
+        "Cobrador asignado.",
+        "Asignación liberada.",
+    ):
+        assert expected in contents

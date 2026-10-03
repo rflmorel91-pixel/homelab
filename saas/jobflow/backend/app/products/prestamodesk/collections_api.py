@@ -37,6 +37,18 @@ from app.tenant_context import (
     get_current_tenant_membership,
 )
 
+from sqlalchemy.exc import IntegrityError
+
+from app.products.prestamodesk.collections_schemas import (
+    CollectorAssignmentCreate,
+    CollectorAssignmentRead,
+    CollectorAssignmentRelease,
+    CollectorOptionRead,
+)
+from app.products.prestamodesk.models import (
+    LoanCollectorAssignment,
+)
+
 
 router = APIRouter(
     prefix="/collections",
@@ -173,6 +185,7 @@ def promise_read(
 )
 def list_overdue_portfolio(
     as_of: date = Query(default_factory=date.today),
+    assignment_status: str = Query(default="all"),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
     membership: TenantMembership = Depends(
@@ -181,11 +194,23 @@ def list_overdue_portfolio(
 ):
     require_collections_access(membership)
 
-    rows = db.execute(
+    if assignment_status not in {
+        "all",
+        "assigned",
+        "unassigned",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid assignment status",
+        )
+
+    statement = (
         select(
             Loan,
             Borrower,
             Installment,
+            LoanCollectorAssignment,
+            User,
         )
         .join(
             Borrower,
@@ -195,6 +220,27 @@ def list_overdue_portfolio(
             Installment,
             Installment.loan_id == Loan.id,
         )
+        .outerjoin(
+            LoanCollectorAssignment,
+            (
+                LoanCollectorAssignment.tenant_id
+                == tenant.id
+            )
+            & (
+                LoanCollectorAssignment.loan_id
+                == Loan.id
+            )
+            & (
+                LoanCollectorAssignment.released_at.is_(
+                    None
+                )
+            ),
+        )
+        .outerjoin(
+            User,
+            User.id
+            == LoanCollectorAssignment.collector_user_id,
+        )
         .where(
             Loan.tenant_id == tenant.id,
             Borrower.tenant_id == tenant.id,
@@ -202,7 +248,24 @@ def list_overdue_portfolio(
             Loan.status == "active",
             Installment.due_date < as_of,
         )
-        .order_by(
+    )
+
+    if membership.role == "collector":
+        statement = statement.where(
+            LoanCollectorAssignment.collector_user_id
+            == membership.user_id
+        )
+    elif assignment_status == "assigned":
+        statement = statement.where(
+            LoanCollectorAssignment.id.is_not(None)
+        )
+    elif assignment_status == "unassigned":
+        statement = statement.where(
+            LoanCollectorAssignment.id.is_(None)
+        )
+
+    rows = db.execute(
+        statement.order_by(
             Installment.due_date,
             Loan.id,
             Installment.sequence_number,
@@ -214,7 +277,13 @@ def list_overdue_portfolio(
         CollectionPortfolioItem,
     ] = {}
 
-    for loan, borrower, installment in rows:
+    for (
+        loan,
+        borrower,
+        installment,
+        assignment,
+        collector,
+    ) in rows:
         ordinary = installment_ordinary_balance(
             installment
         )
@@ -256,6 +325,16 @@ def list_overdue_portfolio(
                 ),
                 total_balance_due=Decimal(
                     "0.00"
+                ),
+                assigned_collector_user_id=(
+                    assignment.collector_user_id
+                    if assignment is not None
+                    else None
+                ),
+                assigned_collector_display_name=(
+                    collector.display_name
+                    if collector is not None
+                    else None
                 ),
             )
             portfolio[loan.id] = item
@@ -301,6 +380,13 @@ def create_collection_activity(
         db=db,
         tenant_id=tenant.id,
         loan_id=loan_id,
+    )
+
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        membership=membership,
     )
 
     if (
@@ -360,6 +446,13 @@ def list_collection_activities(
         loan_id=loan_id,
     )
 
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        membership=membership,
+    )
+
     return list(
         db.scalars(
             select(CollectionActivity)
@@ -398,6 +491,13 @@ def create_payment_promise(
         tenant_id=tenant.id,
         loan_id=loan_id,
         lock=True,
+    )
+
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        membership=membership,
     )
 
     if loan.status != "active":
@@ -466,6 +566,13 @@ def list_payment_promises(
         loan_id=loan_id,
     )
 
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        membership=membership,
+    )
+
     promises = db.scalars(
         select(PaymentPromise)
         .where(
@@ -503,6 +610,31 @@ def list_tenant_promises(
     statement = select(PaymentPromise).where(
         PaymentPromise.tenant_id == tenant.id
     )
+
+    if membership.role == "collector":
+        statement = (
+            statement
+            .join(
+                LoanCollectorAssignment,
+                (
+                    LoanCollectorAssignment.loan_id
+                    == PaymentPromise.loan_id
+                )
+                & (
+                    LoanCollectorAssignment.tenant_id
+                    == tenant.id
+                )
+                & (
+                    LoanCollectorAssignment.released_at.is_(
+                        None
+                    )
+                ),
+            )
+            .where(
+                LoanCollectorAssignment.collector_user_id
+                == membership.user_id
+            )
+        )
 
     if status is not None:
         if status not in {
@@ -571,6 +703,13 @@ def cancel_payment_promise(
             detail="Payment promise not found",
         )
 
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=promise.loan_id,
+        membership=membership,
+    )
+
     if promise.status not in {
         "pending",
         "partial",
@@ -628,6 +767,13 @@ def list_promise_allocations(
             status_code=404,
             detail="Payment promise not found",
         )
+
+    require_collector_assignment_access(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=promise.loan_id,
+        membership=membership,
+    )
 
     return list(
         db.scalars(
@@ -916,3 +1062,377 @@ def read_collections_supervision(
             for user in collectors
         ],
     )
+
+
+def require_collections_owner(
+    membership: TenantMembership,
+) -> None:
+    if membership.role != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Owner role required",
+        )
+
+
+def active_collector_assignment(
+    *,
+    db: Session,
+    tenant_id: int,
+    loan_id: int,
+    lock: bool = False,
+) -> LoanCollectorAssignment | None:
+    statement = select(
+        LoanCollectorAssignment
+    ).where(
+        LoanCollectorAssignment.tenant_id
+        == tenant_id,
+        LoanCollectorAssignment.loan_id
+        == loan_id,
+        LoanCollectorAssignment.released_at.is_(
+            None
+        ),
+    )
+
+    if lock:
+        statement = statement.with_for_update()
+
+    return db.scalar(statement)
+
+
+def collector_assignment_read(
+    *,
+    db: Session,
+    assignment: LoanCollectorAssignment,
+) -> CollectorAssignmentRead:
+    collector = db.get(
+        User,
+        assignment.collector_user_id,
+    )
+
+    if collector is None:
+        raise RuntimeError(
+            "Collector assignment references "
+            "a missing user"
+        )
+
+    return CollectorAssignmentRead(
+        id=assignment.id,
+        tenant_id=assignment.tenant_id,
+        loan_id=assignment.loan_id,
+        collector_user_id=(
+            assignment.collector_user_id
+        ),
+        collector_email=collector.email,
+        collector_display_name=(
+            collector.display_name
+        ),
+        assigned_by_user_id=(
+            assignment.assigned_by_user_id
+        ),
+        assigned_at=assignment.assigned_at,
+        released_at=assignment.released_at,
+        released_by_user_id=(
+            assignment.released_by_user_id
+        ),
+        release_reason=assignment.release_reason,
+        is_active=assignment.released_at is None,
+    )
+
+
+def get_active_tenant_collector(
+    *,
+    db: Session,
+    tenant_id: int,
+    user_id: int,
+) -> User:
+    collector = db.scalar(
+        select(User)
+        .join(
+            TenantMembership,
+            TenantMembership.user_id == User.id,
+        )
+        .where(
+            User.id == user_id,
+            User.is_active.is_(True),
+            TenantMembership.tenant_id
+            == tenant_id,
+            TenantMembership.role == "collector",
+        )
+    )
+
+    if collector is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Active collector not found",
+        )
+
+    return collector
+
+
+@router.get(
+    "/collectors",
+    response_model=list[CollectorOptionRead],
+)
+def list_collections_collectors(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    require_collections_owner(membership)
+
+    collectors = db.scalars(
+        select(User)
+        .join(
+            TenantMembership,
+            TenantMembership.user_id == User.id,
+        )
+        .where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.role == "collector",
+            User.is_active.is_(True),
+        )
+        .order_by(
+            User.display_name,
+            User.email,
+            User.id,
+        )
+    ).all()
+
+    return [
+        CollectorOptionRead(
+            user_id=collector.id,
+            email=collector.email,
+            display_name=collector.display_name,
+        )
+        for collector in collectors
+    ]
+
+
+@router.post(
+    "/loans/{loan_id}/assignment",
+    response_model=CollectorAssignmentRead,
+)
+def assign_loan_collector(
+    loan_id: int,
+    payload: CollectorAssignmentCreate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    require_collections_owner(membership)
+
+    loan = get_tenant_loan(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        lock=True,
+    )
+
+    if loan.status != "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Loan is not active",
+        )
+
+    get_active_tenant_collector(
+        db=db,
+        tenant_id=tenant.id,
+        user_id=payload.collector_user_id,
+    )
+
+    current = active_collector_assignment(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        lock=True,
+    )
+
+    if (
+        current is not None
+        and current.collector_user_id
+        == payload.collector_user_id
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Loan is already assigned "
+                "to this collector"
+            ),
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if current is not None:
+        current.released_at = now
+        current.released_by_user_id = (
+            membership.user_id
+        )
+        current.release_reason = "Reassigned"
+
+    assignment = LoanCollectorAssignment(
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        collector_user_id=(
+            payload.collector_user_id
+        ),
+        assigned_by_user_id=membership.user_id,
+        assigned_at=now,
+    )
+
+    try:
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Loan already has an active "
+                "collector assignment"
+            ),
+        ) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return collector_assignment_read(
+        db=db,
+        assignment=assignment,
+    )
+
+
+@router.post(
+    "/loans/{loan_id}/assignment/release",
+    response_model=CollectorAssignmentRead,
+)
+def release_loan_collector(
+    loan_id: int,
+    payload: CollectorAssignmentRelease,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    require_collections_owner(membership)
+
+    get_tenant_loan(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        lock=True,
+    )
+
+    assignment = active_collector_assignment(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+        lock=True,
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Active collector assignment "
+                "not found"
+            ),
+        )
+
+    assignment.released_at = datetime.now(
+        timezone.utc
+    )
+    assignment.released_by_user_id = (
+        membership.user_id
+    )
+    assignment.release_reason = payload.reason
+
+    try:
+        db.commit()
+        db.refresh(assignment)
+    except Exception:
+        db.rollback()
+        raise
+
+    return collector_assignment_read(
+        db=db,
+        assignment=assignment,
+    )
+
+
+@router.get(
+    "/loans/{loan_id}/assignments",
+    response_model=list[CollectorAssignmentRead],
+)
+def list_loan_collector_assignments(
+    loan_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    require_collections_owner(membership)
+
+    get_tenant_loan(
+        db=db,
+        tenant_id=tenant.id,
+        loan_id=loan_id,
+    )
+
+    assignments = db.scalars(
+        select(LoanCollectorAssignment)
+        .where(
+            LoanCollectorAssignment.tenant_id
+            == tenant.id,
+            LoanCollectorAssignment.loan_id
+            == loan_id,
+        )
+        .order_by(
+            LoanCollectorAssignment.assigned_at.desc(),
+            LoanCollectorAssignment.id.desc(),
+        )
+    ).all()
+
+    return [
+        collector_assignment_read(
+            db=db,
+            assignment=assignment,
+        )
+        for assignment in assignments
+    ]
+
+
+def require_collector_assignment_access(
+    *,
+    db: Session,
+    tenant_id: int,
+    loan_id: int,
+    membership: TenantMembership,
+) -> None:
+    if membership.role == "owner":
+        return
+
+    assignment = active_collector_assignment(
+        db=db,
+        tenant_id=tenant_id,
+        loan_id=loan_id,
+    )
+
+    if (
+        assignment is None
+        or assignment.collector_user_id
+        != membership.user_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Loan is not assigned "
+                "to this collector"
+            ),
+        )

@@ -14,6 +14,7 @@ from app.products.prestamodesk.models import (
     CollectionActivity,
     Installment,
     Loan,
+    LoanCollectorAssignment,
     Payment,
     PaymentPromise,
     PromisePaymentAllocation,
@@ -152,7 +153,7 @@ def create_loan(
     return borrower, loan, installment
 
 
-def test_collector_sees_entire_tenant_overdue_portfolio(
+def test_collector_sees_only_assigned_overdue_portfolio(
     authenticated_client,
     db_session,
 ):
@@ -200,6 +201,20 @@ def test_collector_sees_entire_tenant_overdue_portfolio(
         "collector",
     )
 
+    db_session.add(
+        LoanCollectorAssignment(
+            tenant_id=tenant.id,
+            loan_id=first_loan.id,
+            collector_user_id=(
+                authenticated_client.auth_user.id
+            ),
+            assigned_by_user_id=(
+                authenticated_client.auth_user.id
+            ),
+        )
+    )
+    db_session.commit()
+
     response = authenticated_client.get(
         f"{BASE_URL}/collections/portfolio",
         params={"as_of": "2026-10-02"},
@@ -214,7 +229,10 @@ def test_collector_sees_entire_tenant_overdue_portfolio(
         for item in portfolio
     } == {
         first_loan.id,
-        second_loan.id,
+    }
+    assert second_loan.id not in {
+        item["loan_id"]
+        for item in portfolio
     }
     assert future_loan.id not in {
         item["loan_id"]
@@ -234,12 +252,13 @@ def test_collector_sees_entire_tenant_overdue_portfolio(
     assert first["overdue_installment_count"] == 1
     assert first["total_balance_due"] == "1000.00"
 
-    second = next(
-        item
-        for item in portfolio
-        if item["loan_id"] == second_loan.id
+    assert first["assigned_collector_user_id"] == (
+        authenticated_client.auth_user.id
     )
-    assert second["total_balance_due"] == "750.00"
+    assert (
+        first["assigned_collector_display_name"]
+        == authenticated_client.auth_user.display_name
+    )
 
 
 def test_collections_require_owner_or_collector(
@@ -330,6 +349,13 @@ def test_collector_records_activity_and_cannot_cross_tenants(
         "collector",
     )
 
+    assign_current_collector(
+        db_session,
+        authenticated_client=authenticated_client,
+        tenant=tenant,
+        loan=loan,
+    )
+
     created = authenticated_client.post(
         (
             f"{BASE_URL}/collections/loans/"
@@ -409,6 +435,13 @@ def test_payments_reconcile_oldest_promises_once(
         db_session,
         tenant,
         "collector",
+    )
+
+    assign_current_collector(
+        db_session,
+        authenticated_client=authenticated_client,
+        tenant=tenant,
+        loan=loan,
     )
 
     first_response = authenticated_client.post(
@@ -603,6 +636,13 @@ def test_promise_cancellation_and_overdue_filter(
         db_session,
         tenant,
         "collector",
+    )
+
+    assign_current_collector(
+        db_session,
+        authenticated_client=authenticated_client,
+        tenant=tenant,
+        loan=loan,
     )
 
     created = authenticated_client.post(
@@ -1140,3 +1180,25 @@ def test_empty_collections_supervision_uses_zero_metrics(
         == "0.00"
     )
     assert supervision["collectors"] == []
+
+
+def assign_current_collector(
+    db_session,
+    *,
+    authenticated_client,
+    tenant,
+    loan,
+):
+    db_session.add(
+        LoanCollectorAssignment(
+            tenant_id=tenant.id,
+            loan_id=loan.id,
+            collector_user_id=(
+                authenticated_client.auth_user.id
+            ),
+            assigned_by_user_id=(
+                authenticated_client.auth_user.id
+            ),
+        )
+    )
+    db_session.commit()

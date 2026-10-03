@@ -74,8 +74,8 @@
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2>Cartera vencida</h2>
-            <p class="notice">
+            <h2 id="portfolioTitle">Cartera vencida</h2>
+            <p id="portfolioNotice" class="notice">
               Incluye todos los préstamos con cuotas vencidas
               y saldo pendiente del cliente seleccionado.
             </p>
@@ -98,6 +98,15 @@
               type="date"
               required
             >
+          </label>
+
+          <label id="assignmentStatusField" hidden>
+            Asignación
+            <select id="assignmentStatus">
+              <option value="all">Todos</option>
+              <option value="assigned">Asignados</option>
+              <option value="unassigned">Sin asignar</option>
+            </select>
           </label>
 
           <button type="submit">Consultar cartera</button>
@@ -221,6 +230,37 @@
           </section>
         </div>
 
+        <section id="collectorAssignmentPanel" hidden>
+          <h3>Asignación de cobrador</h3>
+
+          <form id="collectorAssignmentForm" class="form-grid">
+            <label>
+              Cobrador
+              <select id="collectorAssignmentUser" required>
+                <option value="">Seleccione un cobrador</option>
+              </select>
+            </label>
+
+            <button type="submit">
+              Asignar o reasignar
+            </button>
+          </form>
+
+          <button
+            id="releaseCollectorAssignment"
+            type="button"
+            class="secondary"
+            hidden
+          >
+            Liberar asignación
+          </button>
+
+          <div
+            id="collectorAssignmentHistory"
+            class="table-wrap"
+          ></div>
+        </section>
+
         <section>
           <h3>Historial de gestiones</h3>
           <div
@@ -270,7 +310,7 @@
   </footer>
 
   <script
-    src="/assets/prestamodesk-cobros-cf554467823e.js"
+    src="/assets/prestamodesk-cobros-902cc33aa74e.js"
     defer
   ></script>
 </body>
