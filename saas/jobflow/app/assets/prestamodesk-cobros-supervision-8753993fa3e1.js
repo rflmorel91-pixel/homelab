@@ -32,6 +32,10 @@ const refreshSupervisionButton =
   );
 const generalSummary =
   document.getElementById("generalSummary");
+const dailyOperationsSummary =
+  document.getElementById("dailyOperationsSummary");
+const agingSummary =
+  document.getElementById("agingSummary");
 const promiseSummary =
   document.getElementById("promiseSummary");
 const collectorPerformance =
@@ -220,6 +224,22 @@ function renderGeneralSummary(data) {
       formatMoney(data.overdue_balance)
     ),
     metric(
+      "Préstamos asignados",
+      data.assigned_overdue_loan_count
+    ),
+    metric(
+      "Saldo asignado",
+      formatMoney(data.assigned_overdue_balance)
+    ),
+    metric(
+      "Préstamos sin asignar",
+      data.unassigned_overdue_loan_count
+    ),
+    metric(
+      "Saldo sin asignar",
+      formatMoney(data.unassigned_overdue_balance)
+    ),
+    metric(
       "Total recuperado",
       formatMoney(data.total_recovered)
     ),
@@ -238,6 +258,38 @@ function renderGeneralSummary(data) {
   ].join("");
 }
 
+
+function renderDailyOperations(data) {
+  dailyOperationsSummary.innerHTML = [
+    metric(
+      "Promesas para hoy",
+      data.promises_due_today
+    ),
+    metric(
+      "Seguimientos para hoy",
+      data.follow_ups_due_today
+    ),
+    metric(
+      "Seguimientos vencidos",
+      data.overdue_follow_ups
+    ),
+    metric(
+      "Promesas vencidas",
+      data.overdue_promises
+    ),
+  ].join("");
+}
+
+function renderAgingSummary(buckets) {
+  agingSummary.innerHTML = buckets.map((bucket) => (
+    metric(
+      bucket.label,
+      `${bucket.loan_count} · ${
+        formatMoney(bucket.overdue_balance)
+      }`
+    )
+  )).join("");
+}
 
 function renderPromiseSummary(data) {
   promiseSummary.innerHTML = [
@@ -299,6 +351,10 @@ function renderCollectorPerformance(collectors) {
           ${escapeHtml(collector.email)}
         </span>
       </td>
+      <td>${collector.active_overdue_loan_count}</td>
+      <td>${formatMoney(
+        collector.active_overdue_balance
+      )}</td>
       <td>${collector.activity_count}</td>
       <td>${collector.promise_count}</td>
       <td>${collector.pending_promise_count}</td>
@@ -326,6 +382,8 @@ function renderCollectorPerformance(collectors) {
       <thead>
         <tr>
           <th>Cobrador</th>
+          <th>Préstamos asignados</th>
+          <th>Saldo asignado</th>
           <th>Gestiones</th>
           <th>Promesas</th>
           <th>Pendientes</th>
@@ -356,6 +414,8 @@ async function loadSupervision() {
   );
 
   renderGeneralSummary(data);
+  renderDailyOperations(data);
+  renderAgingSummary(data.aging_buckets);
   renderPromiseSummary(data);
   renderCollectorPerformance(data.collectors);
 }
