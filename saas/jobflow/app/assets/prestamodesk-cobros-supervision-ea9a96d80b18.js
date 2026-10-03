@@ -26,6 +26,10 @@ const supervisionFilterForm =
   document.getElementById("supervisionFilterForm");
 const supervisionAsOf =
   document.getElementById("supervisionAsOf");
+const exportSupervisionButton =
+  document.getElementById(
+    "exportSupervisionButton"
+  );
 const refreshSupervisionButton =
   document.getElementById(
     "refreshSupervisionButton"
@@ -403,6 +407,56 @@ function renderCollectorPerformance(collectors) {
 }
 
 
+async function exportSupervision() {
+  clearError();
+  exportSupervisionButton.disabled = true;
+
+  try {
+    const params = new URLSearchParams({
+      as_of: supervisionAsOf.value
+    });
+    const response = await fetch(
+      `${API_BASE}${PRODUCT_BASE}` +
+        `/collections/supervision/export.csv?${params}`,
+      {
+        headers: {
+          "Accept": "text/csv",
+          "X-Tenant-ID": tenantId
+        }
+      }
+    );
+
+    if (!response.ok) {
+      let message = "No se pudo exportar el reporte.";
+
+      try {
+        const error = await response.json();
+        message = error.detail || message;
+      } catch {
+        // Preserve the default export error.
+      }
+
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download =
+      `prestamodesk-cartera-vencida-` +
+      `${supervisionAsOf.value}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+  } finally {
+    exportSupervisionButton.disabled = false;
+  }
+}
+
+
 async function loadSupervision() {
   clearError();
 
@@ -428,6 +482,18 @@ supervisionFilterForm.addEventListener(
 
     try {
       await loadSupervision();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+exportSupervisionButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await exportSupervision();
     } catch (error) {
       showError(error.message);
     }

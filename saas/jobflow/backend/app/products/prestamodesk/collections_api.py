@@ -1,7 +1,15 @@
+import csv
 from datetime import date, datetime, timezone
 from decimal import Decimal
+import io
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -898,6 +906,111 @@ def performance_for_collector(
                 total=promised_amount,
             )
         ),
+    )
+
+
+def spreadsheet_safe_value(
+    value: object | None,
+) -> str:
+    text = "" if value is None else str(value)
+
+    if text.startswith(
+        ("=", "+", "-", "@", "\t", "\r")
+    ):
+        return "'" + text
+
+    return text
+
+
+@router.get("/supervision/export.csv")
+def export_collections_supervision_csv(
+    as_of: date = Query(default_factory=date.today),
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        get_current_tenant_membership
+    ),
+):
+    require_collections_owner(membership)
+
+    portfolio = list_overdue_portfolio(
+        as_of=as_of,
+        assignment_status="all",
+        db=db,
+        tenant=tenant,
+        membership=membership,
+    )
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(
+        output,
+        lineterminator="\r\n",
+    )
+    writer.writerow(
+        (
+            "Préstamo",
+            "Cliente",
+            "Documento",
+            "Teléfono",
+            "Correo electrónico",
+            "Cobrador asignado",
+            "Fecha vencida más antigua",
+            "Días de atraso",
+            "Cuotas vencidas",
+            "Capital e interés vencido",
+            "Mora vencida",
+            "Saldo vencido total",
+            "Moneda",
+            "Fecha de corte",
+        )
+    )
+
+    for item in portfolio:
+        writer.writerow(
+            (
+                item.loan_id,
+                spreadsheet_safe_value(
+                    item.borrower_full_name
+                ),
+                spreadsheet_safe_value(
+                    item.borrower_document_number
+                ),
+                spreadsheet_safe_value(
+                    item.borrower_phone
+                ),
+                spreadsheet_safe_value(
+                    item.borrower_email
+                ),
+                spreadsheet_safe_value(
+                    item.assigned_collector_display_name
+                    or "Sin asignar"
+                ),
+                item.oldest_due_date.isoformat(),
+                item.days_overdue,
+                item.overdue_installment_count,
+                str(item.ordinary_balance_due),
+                str(item.late_fee_balance_due),
+                str(item.total_balance_due),
+                item.currency,
+                as_of.isoformat(),
+            )
+        )
+
+    filename = (
+        "prestamodesk-cartera-vencida-"
+        f"{as_of.isoformat()}.csv"
+    )
+    content = "\ufeff" + output.getvalue()
+
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+            ),
+            "Cache-Control": "no-store",
+        },
     )
 
 
