@@ -124,10 +124,26 @@ class PromisePaymentAllocationRead(BaseModel):
 
 
 
+class CollectionsAgingBucketRead(BaseModel):
+    key: Literal[
+        "days_1_30",
+        "days_31_60",
+        "days_61_90",
+        "days_91_plus",
+    ]
+    label: str
+    minimum_days: int
+    maximum_days: int | None
+    loan_count: int
+    balance: Decimal
+
+
 class CollectorPerformanceRead(BaseModel):
     user_id: int
     email: str
     display_name: str
+    active_overdue_loan_count: int
+    active_overdue_balance: Decimal
     activity_count: int
     promise_count: int
     pending_promise_count: int
@@ -145,6 +161,14 @@ class CollectionsSupervisionRead(BaseModel):
     as_of: date
     overdue_loan_count: int
     overdue_balance: Decimal
+    assigned_overdue_loan_count: int
+    assigned_overdue_balance: Decimal
+    unassigned_overdue_loan_count: int
+    unassigned_overdue_balance: Decimal
+    promises_due_today_count: int
+    follow_ups_due_today_count: int
+    overdue_follow_up_count: int
+    aging_buckets: list[CollectionsAgingBucketRead]
     total_recovered: Decimal
     activity_count: int
     promise_count: int

@@ -16,6 +16,7 @@ from app.products.prestamodesk.collections_schemas import (
     CollectionActivityCreate,
     CollectionActivityRead,
     CollectionPortfolioItem,
+    CollectionsAgingBucketRead,
     CollectionsSupervisionRead,
     CollectorPerformanceRead,
     PaymentPromiseCancel,
@@ -816,6 +817,8 @@ def performance_for_collector(
     activities: list[CollectionActivity],
     promises: list[PaymentPromise],
     as_of: date,
+    active_overdue_loan_count: int,
+    active_overdue_balance: Decimal,
 ) -> CollectorPerformanceRead:
     user_activities = [
         activity
@@ -855,6 +858,12 @@ def performance_for_collector(
         user_id=user.id,
         email=user.email,
         display_name=user.display_name,
+        active_overdue_loan_count=(
+            active_overdue_loan_count
+        ),
+        active_overdue_balance=money(
+            active_overdue_balance
+        ),
         activity_count=len(user_activities),
         promise_count=len(user_promises),
         pending_promise_count=sum(
@@ -924,8 +933,7 @@ def read_collections_supervision(
         )
     ).all()
 
-    overdue_loan_ids: set[int] = set()
-    overdue_balance = Decimal("0.00")
+    overdue_loans: dict[int, dict[str, object]] = {}
 
     for installment in overdue_installments:
         balance = money(
@@ -936,10 +944,112 @@ def read_collections_supervision(
         if balance <= Decimal("0.00"):
             continue
 
-        overdue_loan_ids.add(installment.loan_id)
-        overdue_balance += balance
+        loan_summary = overdue_loans.setdefault(
+            installment.loan_id,
+            {
+                "oldest_due_date": installment.due_date,
+                "balance": Decimal("0.00"),
+            },
+        )
+        loan_summary["oldest_due_date"] = min(
+            loan_summary["oldest_due_date"],
+            installment.due_date,
+        )
+        loan_summary["balance"] = money(
+            loan_summary["balance"] + balance
+        )
 
-    overdue_balance = money(overdue_balance)
+    overdue_loan_ids = set(overdue_loans)
+    overdue_balance = money(
+        sum(
+            (
+                summary["balance"]
+                for summary in overdue_loans.values()
+            ),
+            Decimal("0.00"),
+        )
+    )
+
+    active_assignments = list(
+        db.scalars(
+            select(LoanCollectorAssignment).where(
+                LoanCollectorAssignment.tenant_id
+                == tenant.id,
+                LoanCollectorAssignment.released_at.is_(
+                    None
+                ),
+            )
+        ).all()
+    )
+    assignment_by_loan = {
+        assignment.loan_id: assignment
+        for assignment in active_assignments
+        if assignment.loan_id in overdue_loan_ids
+    }
+
+    assigned_loan_ids = (
+        overdue_loan_ids & set(assignment_by_loan)
+    )
+    unassigned_loan_ids = (
+        overdue_loan_ids - assigned_loan_ids
+    )
+
+    assigned_overdue_balance = money(
+        sum(
+            (
+                overdue_loans[loan_id]["balance"]
+                for loan_id in assigned_loan_ids
+            ),
+            Decimal("0.00"),
+        )
+    )
+    unassigned_overdue_balance = money(
+        overdue_balance - assigned_overdue_balance
+    )
+
+    aging_definitions = (
+        ("days_1_30", "1–30 días", 1, 30),
+        ("days_31_60", "31–60 días", 31, 60),
+        ("days_61_90", "61–90 días", 61, 90),
+        ("days_91_plus", "91 días o más", 91, None),
+    )
+    aging_buckets = []
+
+    for key, label, minimum, maximum in aging_definitions:
+        matching = [
+            summary
+            for summary in overdue_loans.values()
+            if (
+                (as_of - summary["oldest_due_date"]).days
+                >= minimum
+                and (
+                    maximum is None
+                    or (
+                        as_of
+                        - summary["oldest_due_date"]
+                    ).days
+                    <= maximum
+                )
+            )
+        ]
+        aging_buckets.append(
+            CollectionsAgingBucketRead(
+                key=key,
+                label=label,
+                minimum_days=minimum,
+                maximum_days=maximum,
+                loan_count=len(matching),
+                balance=money(
+                    sum(
+                        (
+                            summary["balance"]
+                            for summary in matching
+                        ),
+                        Decimal("0.00"),
+                    )
+                ),
+            )
+        )
 
     activities = list(
         db.scalars(
@@ -1013,10 +1123,68 @@ def read_collections_supervision(
         for promise in promises
     )
 
+    active_promise_statuses = {"pending", "partial"}
+    promises_due_today_count = sum(
+        promise.status in active_promise_statuses
+        and promise.due_date == as_of
+        for promise in promises
+    )
+    follow_ups_due_today_count = sum(
+        activity.next_follow_up_at is not None
+        and activity.next_follow_up_at.date() == as_of
+        for activity in activities
+    )
+    overdue_follow_up_count = sum(
+        activity.next_follow_up_at is not None
+        and activity.next_follow_up_at.date() < as_of
+        for activity in activities
+    )
+
+    collector_portfolios: dict[
+        int,
+        dict[str, Decimal | int],
+    ] = {}
+
+    for loan_id, assignment in assignment_by_loan.items():
+        summary = collector_portfolios.setdefault(
+            assignment.collector_user_id,
+            {
+                "loan_count": 0,
+                "balance": Decimal("0.00"),
+            },
+        )
+        summary["loan_count"] += 1
+        summary["balance"] = money(
+            summary["balance"]
+            + overdue_loans[loan_id]["balance"]
+        )
+
     return CollectionsSupervisionRead(
         as_of=as_of,
         overdue_loan_count=len(overdue_loan_ids),
         overdue_balance=overdue_balance,
+        assigned_overdue_loan_count=len(
+            assigned_loan_ids
+        ),
+        assigned_overdue_balance=(
+            assigned_overdue_balance
+        ),
+        unassigned_overdue_loan_count=len(
+            unassigned_loan_ids
+        ),
+        unassigned_overdue_balance=(
+            unassigned_overdue_balance
+        ),
+        promises_due_today_count=(
+            promises_due_today_count
+        ),
+        follow_ups_due_today_count=(
+            follow_ups_due_today_count
+        ),
+        overdue_follow_up_count=(
+            overdue_follow_up_count
+        ),
+        aging_buckets=aging_buckets,
         total_recovered=total_recovered,
         activity_count=len(activities),
         promise_count=len(promises),
@@ -1058,6 +1226,21 @@ def read_collections_supervision(
                 activities=activities,
                 promises=promises,
                 as_of=as_of,
+                active_overdue_loan_count=int(
+                    collector_portfolios.get(
+                        user.id,
+                        {},
+                    ).get("loan_count", 0)
+                ),
+                active_overdue_balance=Decimal(
+                    collector_portfolios.get(
+                        user.id,
+                        {},
+                    ).get(
+                        "balance",
+                        Decimal("0.00"),
+                    )
+                ),
             )
             for user in collectors
         ],
