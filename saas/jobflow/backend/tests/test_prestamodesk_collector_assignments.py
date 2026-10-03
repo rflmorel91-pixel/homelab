@@ -1,6 +1,6 @@
 from app.models import TenantMembership, User
 
-from test_prestamodesk_collections import (
+from tests.test_prestamodesk_collections import (
     BASE_URL,
     add_collector,
     create_loan,
