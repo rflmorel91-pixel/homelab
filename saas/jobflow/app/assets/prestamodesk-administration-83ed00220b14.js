@@ -7,7 +7,7 @@
   let team = null;
   const labels = {owner: "Propietario", administrator: "Administrador", supervisor: "Supervisor", collector: "Cobrador", cashier: "Cajero", member: "Miembro (caja existente)"};
   const permissions = {operations: "Prestatarios, préstamos, solicitudes y configuración", loan_read: "Consultar préstamos", payments: "Consultar caja y registrar pagos", collections: "Cartera completa y gestiones", assignments: "Asignar y liberar carteras", supervision: "Supervisión y exportación", team: "Equipo operativo e invitaciones", privileged_roles: "Propietarios y administradores", assigned_collections: "Solo su cartera asignada", own_cash_closing: "Cierre de su propia caja"};
-  const actions = {"payments.voided": "Pago anulado","client_team.role_changed": "Cambio de rol", "client_team.status_changed": "Cambio de acceso", "client_team.member_removed": "Integrante retirado", "client_user.invitation_created": "Invitación creada", "client_user.invitation_revoked": "Invitación revocada", "client_user.invitation_accepted": "Invitación aceptada", "collections.assignment_created": "Cartera asignada", "collections.assignment_released": "Cartera liberada"};
+  const actions = {"customer_data.exported": "Datos del cliente exportados","payments.voided": "Pago anulado","client_team.role_changed": "Cambio de rol", "client_team.status_changed": "Cambio de acceso", "client_team.member_removed": "Integrante retirado", "client_user.invitation_created": "Invitación creada", "client_user.invitation_revoked": "Invitación revocada", "client_user.invitation_accepted": "Invitación aceptada", "collections.assignment_created": "Cartera asignada", "collections.assignment_released": "Cartera liberada"};
   const element = (tag, text) => {const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;};
   function notify(text, error = false) {message.textContent = text; message.className = "message " + (error ? "error" : "success"); message.hidden = false;}
   async function request(path, method = "GET", body) {
@@ -74,6 +74,24 @@
   };
   window.addEventListener("prestamodesk-access", handleAccess);
   if (window.prestamodeskAccess) handleAccess({detail: window.prestamodeskAccess});
+  document.getElementById("customerExport").addEventListener("click", async event => {
+    if (!client || !confirm("¿Descargar los datos de este cliente? El archivo contiene información personal y financiera.")) return;
+    const selected = client.tenant_id; const button = event.currentTarget; button.disabled = true;
+    try {
+      const response = await fetch(base + "/export.zip", {method: "POST", credentials: "same-origin", headers: {"X-Tenant-ID": String(selected)}});
+      if (!response.ok) {
+        if ([401, 403].includes(response.status)) panel.hidden = true;
+        throw new Error(response.status === 413 ? "El archivo supera el límite. Solicite una exportación asistida." : "No se pudo exportar. Revise su acceso e intente nuevamente.");
+      }
+      const blob = await response.blob();
+      if (!client || client.tenant_id !== selected) return;
+      const url = URL.createObjectURL(blob); const link = element("a"); link.href = url;
+      link.download = "prestamodesk-cliente-" + selected + ".zip"; document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      notify("Archivo descargado. Guárdelo en un lugar seguro.");
+      try {await refresh();} catch (_) {notify("Archivo descargado; actualice el historial para ver el registro de exportación.");}
+    } catch (error) {notify(error.message, true);} finally {button.disabled = false;}
+  });
   document.getElementById("administrationRefresh").addEventListener("click", async () => {try {await refresh();} catch (error) {notify(error.message, true);}});
   document.getElementById("administrationInvite").addEventListener("submit", async event => {
     event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector("button"); submit.disabled = true;
