@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.products.prestamodesk.payment_corrections import lock_financial_actor, installment_snapshot
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.authorization import (
     require_prestamodesk_payment_member,
@@ -157,6 +158,8 @@ def record_payment(
             ),
         )
 
+    lock_financial_actor(db, tenant, membership, {"owner", "administrator", "member", "cashier"})
+
     installment = db.scalar(
         select(Installment)
         .where(
@@ -225,6 +228,8 @@ def record_payment(
             detail="Payment date cannot be in the future",
         )
 
+    before_payment = installment_snapshot(installment)
+
     assess_late_fee(
         installment=installment,
         policy=policy,
@@ -281,6 +286,7 @@ def record_payment(
     )
 
     payment = Payment(
+        correction_snapshot={"before": before_payment, "after": installment_snapshot(installment)},
         tenant_id=tenant.id,
         loan_id=loan.id,
         installment_id=installment.id,

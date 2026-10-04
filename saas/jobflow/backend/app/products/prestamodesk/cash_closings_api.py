@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.products.prestamodesk.payment_corrections import lock_financial_actor
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.cash_closing_schemas import (
@@ -50,6 +51,7 @@ def unclosed_payments_statement(
             Payment.tenant_id == tenant_id,
             Payment.recorded_by_user_id == user_id,
             Payment.cash_closing_id.is_(None),
+            Payment.voided_at.is_(None),
         )
         .order_by(Payment.created_at, Payment.id)
     )
@@ -181,6 +183,7 @@ def close_cashier_register(
         get_current_tenant_membership
     ),
 ):
+    lock_financial_actor(db, tenant, membership, {"member", "cashier"})
     require_cashier(membership)
 
     db.scalar(

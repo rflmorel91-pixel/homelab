@@ -1,3 +1,4 @@
+from app.products.prestamodesk.payment_corrections_api import router as payment_corrections_router
 from app.platform import (
     ProductDefinition,
     register_product,
@@ -57,6 +58,7 @@ PRESTAMODESK_PRODUCT = register_product(
             applications_public_router,
         ),
         tenant_routers=(
+            payment_corrections_router,
             administration_router,
             applications_router,
             borrowers_router,

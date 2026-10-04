@@ -155,6 +155,13 @@
         </div>
 
         <div id="loanDetailSummary"></div>
+        <section id="paymentCorrectionPanel" hidden aria-labelledby="paymentCorrectionTitle">
+          <h3 id="paymentCorrectionTitle">Pagos y correcciones</h3>
+          <p>Solo el propietario o administrador puede anular el último pago registrado antes de su cierre de caja. El recibo se conserva con el motivo de anulación. Los pagos anteriores a esta función requieren conciliación.</p>
+          <div id="paymentCorrectionMessage" class="message" role="status" hidden></div>
+          <div id="paymentCorrectionList"></div>
+        </section>
+
 
         <h3>Calendario de cuotas</h3>
         <div id="installmentList" class="table-wrap"></div>
@@ -282,8 +289,9 @@
   </main>
 
   <script
-    src="/assets/prestamodesk-caja-60c2a819e60e.js"
+    src="/assets/prestamodesk-caja-2e49256b076e.js"
     defer
   ></script>
+  <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
 </body>
 </html>

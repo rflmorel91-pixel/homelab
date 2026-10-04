@@ -1213,7 +1213,8 @@ def read_collections_supervision(
                     Decimal("0.00"),
                 )
             ).where(
-                Payment.tenant_id == tenant.id
+                Payment.tenant_id == tenant.id,
+                Payment.voided_at.is_(None),
             )
         )
         or Decimal("0.00")

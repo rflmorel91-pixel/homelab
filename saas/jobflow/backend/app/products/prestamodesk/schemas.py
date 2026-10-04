@@ -303,7 +303,25 @@ class PaymentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class PaymentVoidCreate(BaseModel):
+    reason: str = Field(min_length=5, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 5:
+            raise ValueError("Provide a correction reason of at least five characters")
+        return value
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class PaymentRead(BaseModel):
+    voided_at: datetime | None = None
+    voided_by_user_id: int | None = None
+    void_reason: str | None = None
+    correction_supported: bool = False
     id: int
     loan_id: int
     installment_id: int

@@ -114,6 +114,7 @@ class PaymentPromiseRead(BaseModel):
 
 
 class PromisePaymentAllocationRead(BaseModel):
+    reversed_at: datetime | None = None
     id: int
     promise_id: int
     payment_id: int
