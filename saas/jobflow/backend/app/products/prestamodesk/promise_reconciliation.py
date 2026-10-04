@@ -23,6 +23,9 @@ def reconcile_payment_promises(
     db: Session,
     payment: Payment,
 ) -> list[PromisePaymentAllocation]:
+    if payment.voided_at is not None:
+        return []
+
     already_allocated = db.scalar(
         select(
             func.coalesce(
@@ -36,6 +39,7 @@ def reconcile_payment_promises(
             == payment.tenant_id,
             PromisePaymentAllocation.payment_id
             == payment.id,
+            PromisePaymentAllocation.reversed_at.is_(None),
         )
     )
 

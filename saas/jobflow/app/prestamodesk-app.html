@@ -519,6 +519,13 @@
         </div>
 
         <div id="loanDetailSummary"></div>
+        <section id="paymentCorrectionPanel" hidden aria-labelledby="paymentCorrectionTitle">
+          <h3 id="paymentCorrectionTitle">Pagos y correcciones</h3>
+          <p>Solo el propietario o administrador puede anular el último pago registrado antes de su cierre de caja. El recibo se conserva con el motivo de anulación. Los pagos anteriores a esta función requieren conciliación.</p>
+          <div id="paymentCorrectionMessage" class="message" role="status" hidden></div>
+          <div id="paymentCorrectionList"></div>
+        </section>
+
 
         <form id="loanLateFeeForm" class="form-grid">
           <label>
@@ -613,7 +620,8 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-b0e38eb32a70.js" defer></script>
-  <script src="/assets/prestamodesk-administration-a1472464eeca.js" defer></script>
+  <script src="/assets/prestamodesk-app-6dd2358bbef6.js" defer></script>
+  <script src="/assets/prestamodesk-administration-1aa97f7058e6.js" defer></script>
+  <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
 </body>
 </html>

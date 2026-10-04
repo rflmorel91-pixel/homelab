@@ -189,6 +189,7 @@ class PaymentPromise(Base):
 
 
 class PromisePaymentAllocation(Base):
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     __tablename__ = (
         "prestamodesk_promise_payment_allocations"
     )

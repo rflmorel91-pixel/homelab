@@ -659,6 +659,7 @@ async function openLoan(loanId) {
     loan.status !== "active"
   );
   receiptPanel.hidden = true;
+  await window.prestamodeskPaymentHistory?.load(loan.id, currentRole);
 }
 
 

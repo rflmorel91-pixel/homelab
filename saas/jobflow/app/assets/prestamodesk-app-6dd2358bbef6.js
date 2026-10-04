@@ -1160,6 +1160,7 @@ async function openLoan(loanId) {
 
   selectedLoanId = loanId;
   renderLoanDetail(detail);
+  await window.prestamodeskPaymentHistory?.load(loanId, window.prestamodeskAccess?.role);
   loanDetailPanel.scrollIntoView({
     behavior: "smooth",
     block: "start"

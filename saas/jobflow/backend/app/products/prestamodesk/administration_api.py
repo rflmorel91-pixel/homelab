@@ -157,7 +157,7 @@ def audit(response: Response, limit: int = Query(default=50, ge=1, le=200),
         AdminAuditLog.action.in_(["client_team.role_changed", "client_team.member_removed",
                                  "client_team.status_changed", "client_user.invitation_created",
                                  "client_user.invitation_revoked", "client_user.invitation_accepted",
-                                 "collections.assignment_created", "collections.assignment_released"]),
+                                 "collections.assignment_created", "collections.assignment_released", "payments.voided"]),
     ).order_by(AdminAuditLog.id.desc()).limit(limit)).all()
     return [{"id": row.id, "actor_user_id": row.operator_user_id, "action": row.action,
              "target_id": row.target_id, "created_at": row.created_at,
