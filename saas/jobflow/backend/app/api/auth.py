@@ -128,6 +128,7 @@ def product_access(
         )
         .where(
             TenantMembership.user_id == user.id,
+            TenantMembership.is_active.is_(True),
             Tenant.product_id == product.id,
             Tenant.client_number.is_not(None),
         )

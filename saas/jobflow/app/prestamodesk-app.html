@@ -22,6 +22,7 @@
 
     <div class="header-actions">
       <span id="clientContext" class="badge" hidden></span>
+      <a id="administrationLink" href="#administrationPanel" hidden>Administración</a>
       <span id="healthStatus">Comprobando API…</span>
       <button id="logoutButton" class="secondary" hidden>
         Cerrar sesión
@@ -106,6 +107,31 @@
     </section>
 
     <div id="workspace" hidden>
+    <section id="administrationPanel" class="panel" hidden>
+      <h2>Administración</h2>
+      <p>Controle el equipo, sus permisos y responsabilidades en este cliente.</p>
+      <p><a href="/prestamodesk/cobros">Asignar carteras</a> ·
+         <a href="/prestamodesk/cobros/supervision">Supervisión de cobros</a></p>
+      <p>Solo el propietario administra propietarios y administradores. Libere las carteras antes de suspender un cobrador.</p>
+      <div id="administrationMessage" class="message" role="status" hidden></div>
+      <button id="administrationRefresh" type="button" class="secondary">Actualizar equipo</button>
+      <h3>Equipo y responsabilidades</h3>
+      <div id="administrationMembers"></div>
+      <h3>Invitar integrante</h3>
+      <form id="administrationInvite" class="form-grid">
+        <label>Nombre <input name="display_name" maxlength="200" required></label>
+        <label>Correo electrónico <input name="email" type="email" maxlength="320" required></label>
+        <label>Rol <select name="role" id="administrationInviteRole"></select></label>
+        <button type="submit">Crear invitación</button>
+      </form>
+      <p id="administrationActivation" hidden></p>
+      <h3>Invitaciones</h3>
+      <div id="administrationInvitations"></div>
+      <h3>Permisos por rol</h3>
+      <div id="administrationPermissions"></div>
+      <h3>Historial reciente</h3>
+      <div id="administrationAudit"></div>
+    </section>
       <section class="summary-grid">
         <article class="summary-card">
           <span>Solicitudes abiertas</span>
@@ -579,12 +605,15 @@
         </article>
       </section>
     </div>
+
+
   </main>
 
   <footer>
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-8dc40a7b98e4.js" defer></script>
+  <script src="/assets/prestamodesk-app-b0e38eb32a70.js" defer></script>
+  <script src="/assets/prestamodesk-administration-a1472464eeca.js" defer></script>
 </body>
 </html>

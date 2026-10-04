@@ -268,6 +268,10 @@ async function discoverAccess() {
     return;
   }
 
+  if (client.role === "supervisor") {
+    window.location.replace("/prestamodesk/cobros/supervision");
+    return;
+  }
   tenantId = String(client.tenant_id);
   localStorage.setItem(
     TENANT_STORAGE_KEY,
@@ -275,15 +279,15 @@ async function discoverAccess() {
   );
 
   const roleLabel = (
-    client.role === "owner"
+    ["owner", "administrator"].includes(client.role)
       ? "Administrador"
       : "Cajero"
   );
 
   currentRole = client.role;
-  cashClosingPanel.hidden = currentRole !== "member";
+  cashClosingPanel.hidden = !["member", "cashier"].includes(currentRole);
   cashClosingHistoryPanel.hidden =
-    currentRole !== "member";
+    !["member", "cashier"].includes(currentRole);
 
   clientContext.textContent =
     `Cliente #${client.client_number} · `
@@ -379,7 +383,7 @@ function renderClosingHistory(closings) {
 
 
 async function loadCashClosing() {
-  if (currentRole !== "member") {
+  if (!["member", "cashier"].includes(currentRole)) {
     return;
   }
 

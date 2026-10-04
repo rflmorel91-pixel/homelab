@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import Tenant
 from app.products.prestamodesk.authorization import (
     require_prestamodesk_operations_member,
+    require_prestamodesk_manager as require_current_tenant_owner,
 )
 from app.products.prestamodesk.amortization import (
     build_fixed_schedule,
@@ -25,7 +26,6 @@ from app.products.prestamodesk.models import (
 )
 from app.tenant_context import (
     get_current_tenant,
-    require_current_tenant_owner,
 )
 
 

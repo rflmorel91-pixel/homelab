@@ -289,10 +289,9 @@ def test_prestamodesk_workspace_configures_late_fee_policy():
 
 
 def test_collector_is_redirected_from_admin_workspace():
-    script = (
-        APP_ROOT
-        / "assets"
-        / "prestamodesk-app-8dc40a7b98e4.js"
+    script = next(
+        asset for asset in page_asset_paths(WORKSPACE_PAGE)
+        if asset.name.startswith("prestamodesk-app-") and asset.suffix == ".js"
     ).read_text()
 
     role_check = 'client.role === "collector"'

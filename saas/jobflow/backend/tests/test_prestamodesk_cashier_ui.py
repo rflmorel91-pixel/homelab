@@ -163,7 +163,7 @@ def test_cashier_page_supports_personal_cash_closing():
         "other_total",
         "loadCashClosing",
         "Caja cerrada correctamente.",
-        'currentRole !== "member"',
+        '!["member", "cashier"].includes(currentRole)',
     ):
         assert expected in html + script
 

@@ -151,7 +151,9 @@ function formatDateTime(value) {
 
 function formatRole(value) {
   const labels = {
-    owner: "Administrador",
+    owner: "Propietario",
+    administrator: "Administrador",
+    supervisor: "Supervisor",
     collector: "Cobrador"
   };
 
@@ -320,7 +322,7 @@ async function discoverAccess() {
 
   const client = access.clients[0];
 
-  if (!["owner", "collector"].includes(client.role)) {
+  if (!["owner", "administrator", "supervisor", "collector"].includes(client.role)) {
     throw new Error(
       "Esta cuenta no tiene acceso a gestión de cobros."
     );
@@ -338,9 +340,9 @@ async function discoverAccess() {
     + `${client.name} · ${formatRole(client.role)}`;
 
   supervisionLink.hidden =
-    client.role !== "owner";
+    !["owner", "administrator", "supervisor"].includes(client.role);
 
-  const isOwner = client.role === "owner";
+  const isOwner = ["owner", "administrator", "supervisor"].includes(client.role);
 
   assignmentStatusField.hidden = !isOwner;
   collectorAssignmentPanel.hidden = !isOwner;
@@ -373,7 +375,7 @@ function renderCollectorOptions() {
 
 
 async function loadCollectors() {
-  if (currentRole !== "owner") {
+  if (!["owner", "administrator", "supervisor"].includes(currentRole)) {
     availableCollectors = [];
     return;
   }
@@ -523,7 +525,7 @@ async function loadPortfolio() {
     as_of: portfolioAsOf.value
   });
 
-  if (currentRole === "owner") {
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
     params.set(
       "assignment_status",
       assignmentStatus.value
@@ -702,7 +704,7 @@ async function loadLoanHistory() {
     )
   ];
 
-  if (currentRole === "owner") {
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
     requests.push(
       apiRequest(
         `${PRODUCT_BASE}/collections/loans/`
@@ -717,7 +719,7 @@ async function loadLoanHistory() {
   renderActivities(activities);
   renderPromises(promises);
 
-  if (currentRole === "owner") {
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
     renderAssignments(assignments);
   }
 }
@@ -924,7 +926,7 @@ collectorAssignmentForm.addEventListener(
     clearMessages();
 
     if (
-      currentRole !== "owner"
+      !["owner", "administrator", "supervisor"].includes(currentRole)
       || !selectedPortfolioItem
     ) {
       return;
@@ -965,7 +967,7 @@ releaseCollectorAssignment.addEventListener(
     clearMessages();
 
     if (
-      currentRole !== "owner"
+      !["owner", "administrator", "supervisor"].includes(currentRole)
       || !selectedPortfolioItem
     ) {
       return;

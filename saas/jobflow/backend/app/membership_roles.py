@@ -5,6 +5,9 @@ MembershipRole: TypeAlias = Literal[
     "owner",
     "member",
     "collector",
+    "administrator",
+    "supervisor",
+    "cashier",
 ]
 
 
@@ -17,6 +20,6 @@ def membership_role_allowed_for_product(
         return True
 
     return (
-        role == "collector"
+        role in {"collector", "administrator", "supervisor", "cashier"}
         and product_slug == "prestamodesk"
     )

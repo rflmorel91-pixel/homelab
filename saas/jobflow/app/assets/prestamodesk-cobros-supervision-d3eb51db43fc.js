@@ -187,9 +187,9 @@ async function discoverAccess() {
     return false;
   }
 
-  if (client.role !== "owner") {
+  if (!["owner", "administrator", "supervisor"].includes(client.role)) {
     throw new Error(
-      "La supervisión de cobros requiere rol de propietario."
+      "La supervisión requiere rol de propietario, administrador o supervisor."
     );
   }
 
@@ -201,7 +201,7 @@ async function discoverAccess() {
 
   clientContext.textContent =
     `Cliente #${client.client_number} · `
-    + `${client.name} · Propietario`;
+    + `${client.name} · ${client.role}`;
 
   return true;
 }

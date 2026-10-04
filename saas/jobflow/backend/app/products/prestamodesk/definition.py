@@ -2,6 +2,7 @@ from app.platform import (
     ProductDefinition,
     register_product,
 )
+from app.products.prestamodesk.administration_api import router as administration_router
 from app.products.prestamodesk.api import (
     router as status_router,
 )
@@ -56,6 +57,7 @@ PRESTAMODESK_PRODUCT = register_product(
             applications_public_router,
         ),
         tenant_routers=(
+            administration_router,
             applications_router,
             borrowers_router,
             cashier_router,

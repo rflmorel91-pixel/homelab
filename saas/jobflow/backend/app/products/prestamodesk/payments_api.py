@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.authorization import (
-    require_prestamodesk_operations_member,
+    require_prestamodesk_payment_member,
 )
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.late_fees import (
@@ -40,7 +40,7 @@ from app.tenant_context import (
 router = APIRouter(
     dependencies=[
         Depends(
-            require_prestamodesk_operations_member
+            require_prestamodesk_payment_member
         ),
     ],
     prefix="/payments",

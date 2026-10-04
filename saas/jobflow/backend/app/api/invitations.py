@@ -731,7 +731,9 @@ def get_current_client_team(
                 "display_name": user.display_name,
                 "email": user.email,
                 "role": membership.role,
-                "is_active": user.is_active,
+                "is_active": user.is_active and membership.is_active,
+                "membership_active": membership.is_active,
+                "account_active": user.is_active,
             }
             for membership, user in rows
         ],
@@ -750,6 +752,8 @@ def update_current_client_membership(
         require_current_tenant_owner
     ),
 ):
+    db.scalar(select(Tenant).where(Tenant.id == tenant.id).with_for_update())
+
     membership = db.scalar(
         select(TenantMembership).where(
             TenantMembership.id == membership_id,
@@ -790,9 +794,12 @@ def update_current_client_membership(
         owner_count = db.scalar(
             select(func.count())
             .select_from(TenantMembership)
+            .join(User, User.id == TenantMembership.user_id)
             .where(
                 TenantMembership.tenant_id == tenant.id,
                 TenantMembership.role == "owner",
+                TenantMembership.is_active.is_(True),
+                User.is_active.is_(True),
             )
         )
 
@@ -801,6 +808,10 @@ def update_current_client_membership(
                 status_code=409,
                 detail="Client must retain at least one owner",
             )
+
+    if membership.role == "collector" and payload.role != "collector":
+        from app.products.prestamodesk.administration_api import require_released_portfolio
+        require_released_portfolio(db, tenant.id, membership.user_id)
 
     previous_role = membership.role
     membership.role = payload.role
@@ -845,6 +856,8 @@ def remove_current_client_membership(
         require_current_tenant_owner
     ),
 ):
+    db.scalar(select(Tenant).where(Tenant.id == tenant.id).with_for_update())
+
     membership = db.scalar(
         select(TenantMembership).where(
             TenantMembership.id == membership_id,
@@ -862,9 +875,12 @@ def remove_current_client_membership(
         owner_count = db.scalar(
             select(func.count())
             .select_from(TenantMembership)
+            .join(User, User.id == TenantMembership.user_id)
             .where(
                 TenantMembership.tenant_id == tenant.id,
                 TenantMembership.role == "owner",
+                TenantMembership.is_active.is_(True),
+                User.is_active.is_(True),
             )
         )
 
@@ -873,6 +889,10 @@ def remove_current_client_membership(
                 status_code=409,
                 detail="Client must retain at least one owner",
             )
+
+    if membership.role == "collector":
+        from app.products.prestamodesk.administration_api import require_released_portfolio
+        require_released_portfolio(db, tenant.id, membership.user_id)
 
     audit_membership_id = membership.id
     audit_user_id = membership.user_id
@@ -1059,7 +1079,7 @@ def accept_user_invitation(
 
     elif (
         invitation.tenant_id is not None
-        and invitation.role in {"owner", "member", "collector"}
+        and invitation.role in {"owner", "member", "collector", "administrator", "supervisor", "cashier"}
     ):
         tenant = db.get(
             Tenant,

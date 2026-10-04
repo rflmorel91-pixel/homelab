@@ -32,7 +32,7 @@ router = APIRouter(
 def require_cashier(
     membership: TenantMembership,
 ) -> None:
-    if membership.role != "member":
+    if membership.role not in {"member", "cashier"}:
         raise HTTPException(
             status_code=403,
             detail="Cashier membership required",
