@@ -360,7 +360,17 @@ async function discoverAccess() {
     );
     return;
   }
+  if (client.role === "supervisor") {
+    window.location.replace("/prestamodesk/cobros/supervision");
+    return;
+  }
+  if (client.role === "cashier") {
+    window.location.replace("/prestamodesk/caja");
+    return;
+  }
   tenantId = String(client.tenant_id);
+  window.prestamodeskAccess = client;
+  window.dispatchEvent(new CustomEvent("prestamodesk-access", {detail: client}));
 
   localStorage.setItem(
     "prestamodesk_tenant_id",

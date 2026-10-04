@@ -95,7 +95,7 @@ def test_collections_page_supports_required_workflow():
         "Gestión de cobros",
         "Supervisión",
         "/prestamodesk/cobros/supervision",
-        'client.role !== "owner"',
+        '!["owner", "administrator", "supervisor"].includes(client.role)',
         "Cartera vencida",
         "Registrar gestión",
         "Registrar promesa de pago",

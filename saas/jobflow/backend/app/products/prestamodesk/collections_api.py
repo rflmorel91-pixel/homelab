@@ -13,6 +13,8 @@ from fastapi import (
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.products.prestamodesk.authorization import COLLECTIONS_MANAGEMENT_ROLES
+from app.api.admin import add_admin_audit
 from app.database import get_db
 from app.models import (
     Tenant,
@@ -70,6 +72,8 @@ def require_collections_access(
 ) -> None:
     if membership.role not in {
         "owner",
+        "administrator",
+        "supervisor",
         "collector",
     }:
         raise HTTPException(
@@ -1026,7 +1030,7 @@ def read_collections_supervision(
         get_current_tenant_membership
     ),
 ):
-    if membership.role != "owner":
+    if not membership.is_active or membership.role not in COLLECTIONS_MANAGEMENT_ROLES:
         raise HTTPException(
             status_code=403,
             detail="Owner role required",
@@ -1190,6 +1194,7 @@ def read_collections_supervision(
             .where(
                 TenantMembership.tenant_id == tenant.id,
                 TenantMembership.role == "collector",
+            TenantMembership.is_active.is_(True),
                 User.is_active.is_(True),
             )
             .order_by(
@@ -1363,7 +1368,7 @@ def read_collections_supervision(
 def require_collections_owner(
     membership: TenantMembership,
 ) -> None:
-    if membership.role != "owner":
+    if not membership.is_active or membership.role not in COLLECTIONS_MANAGEMENT_ROLES:
         raise HTTPException(
             status_code=403,
             detail="Owner role required",
@@ -1453,6 +1458,7 @@ def get_active_tenant_collector(
             TenantMembership.tenant_id
             == tenant_id,
             TenantMembership.role == "collector",
+            TenantMembership.is_active.is_(True),
         )
     )
 
@@ -1487,6 +1493,7 @@ def list_collections_collectors(
         .where(
             TenantMembership.tenant_id == tenant.id,
             TenantMembership.role == "collector",
+            TenantMembership.is_active.is_(True),
             User.is_active.is_(True),
         )
         .order_by(
@@ -1519,6 +1526,8 @@ def assign_loan_collector(
         get_current_tenant_membership
     ),
 ):
+    db.scalar(select(Tenant).where(Tenant.id == tenant.id).with_for_update())
+    db.refresh(membership)
     require_collections_owner(membership)
 
     loan = get_tenant_loan(
@@ -1581,6 +1590,12 @@ def assign_loan_collector(
 
     try:
         db.add(assignment)
+        db.flush()
+        add_admin_audit(db, operator_user_id=membership.user_id,
+                        action="collections.assignment_created", target_type="collector_assignment",
+                        target_id=assignment.id, tenant_id=tenant.id,
+                        before_data={"collector_user_id": current.collector_user_id} if current else None,
+                        after_data={"loan_id": loan_id, "collector_user_id": assignment.collector_user_id})
         db.commit()
         db.refresh(assignment)
     except IntegrityError as exc:
@@ -1615,6 +1630,8 @@ def release_loan_collector(
         get_current_tenant_membership
     ),
 ):
+    db.scalar(select(Tenant).where(Tenant.id == tenant.id).with_for_update())
+    db.refresh(membership)
     require_collections_owner(membership)
 
     get_tenant_loan(
@@ -1647,6 +1664,12 @@ def release_loan_collector(
         membership.user_id
     )
     assignment.release_reason = payload.reason
+
+    add_admin_audit(db, operator_user_id=membership.user_id,
+                    action="collections.assignment_released", target_type="collector_assignment",
+                    target_id=assignment.id, tenant_id=tenant.id,
+                    after_data={"loan_id": loan_id, "collector_user_id": assignment.collector_user_id,
+                                "reason": payload.reason})
 
     try:
         db.commit()
@@ -1711,7 +1734,7 @@ def require_collector_assignment_access(
     loan_id: int,
     membership: TenantMembership,
 ) -> None:
-    if membership.role == "owner":
+    if membership.role in COLLECTIONS_MANAGEMENT_ROLES:
         return
 
     assignment = active_collector_assignment(

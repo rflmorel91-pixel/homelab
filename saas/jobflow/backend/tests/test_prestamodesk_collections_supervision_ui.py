@@ -105,7 +105,7 @@ def test_supervision_page_supports_owner_dashboard():
         "Cumplimiento por cantidad",
         "Cumplimiento por monto",
         "/collections/supervision",
-        'client.role !== "owner"',
+        '!["owner", "administrator", "supervisor"].includes(client.role)',
         'client.role === "collector"',
         '"/prestamodesk/cobros"',
         "todo el historial",

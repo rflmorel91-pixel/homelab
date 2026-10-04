@@ -36,7 +36,7 @@ def get_current_tenant(
         )
     )
 
-    if membership is None:
+    if membership is None or not membership.is_active:
         raise HTTPException(
             status_code=403,
             detail="User is not a member of this tenant",
@@ -71,7 +71,7 @@ def get_current_tenant_membership(
         )
     )
 
-    if membership is None:
+    if membership is None or not membership.is_active:
         raise HTTPException(
             status_code=403,
             detail="User is not a member of this tenant",
