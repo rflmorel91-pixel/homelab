@@ -383,7 +383,7 @@
         <p>
           Revise, apruebe o rechace las solicitudes recibidas.
           Una solicitud aprobada puede convertirse en prestatario,
-          préstamo vehicular y calendario de cuotas.
+          préstamo personal o vehicular y calendario de cuotas.
         </p>
 
         <div id="applicationList" class="card-list"></div>
@@ -413,6 +413,58 @@
           </div>
 
           <div id="prospectList" class="card-list"></div>
+          <section id="prospectApplicationPanel" class="panel" hidden aria-labelledby="prospectApplicationTitle">
+            <div class="section-heading">
+              <h3 id="prospectApplicationTitle">Preparar solicitud</h3>
+              <button id="prospectApplicationCancel" type="button" class="secondary">Cerrar</button>
+            </div>
+            <p id="prospectApplicationContact"></p>
+            <p>Seleccione el tipo de préstamo y confirme los términos con el prospecto. Guardar una solicitud no crea un prestatario ni un préstamo; requiere revisión y aprobación.</p>
+            <div id="prospectApplicationError" class="notice" role="alert" hidden></div>
+            <form id="prospectApplicationForm" class="form-grid">
+              <label>Tipo de préstamo
+                <select name="loan_type" required>
+                  <option value="">Seleccione una ruta</option>
+                  <option value="vehicle">Vehículo</option>
+                  <option value="personal">Personal</option>
+                </select>
+              </label>
+              <fieldset id="prospectApplicationVehicle" hidden>
+                <legend>Vehículo financiado</legend>
+                <div class="form-grid">
+                  <label>Marca<input name="vehicle_make" maxlength="100"></label>
+                  <label>Modelo<input name="vehicle_model" maxlength="100"></label>
+                  <label>Año<input name="vehicle_year" type="number" min="1886" max="2100" step="1"></label>
+                  <label>Precio del vehículo (DOP)<input name="vehicle_cash_price" type="number" min="0.01" max="999999999999.99" step="0.01" inputmode="decimal"></label>
+                  <label>Inicial (DOP)<input name="vehicle_down_payment" type="number" min="0" max="999999999999.99" step="0.01" inputmode="decimal"></label>
+                  <label>Color (opcional)<input name="vehicle_color" maxlength="50"></label>
+                  <label>VIN/chasis (opcional)<input name="vehicle_vin" maxlength="50"></label>
+                  <label>Placa (opcional)<input name="vehicle_license_plate" maxlength="30"></label>
+                  <label>Vendedor (opcional)<input name="vehicle_seller" maxlength="200"></label>
+                </div>
+              </fieldset>
+              <label>Monto financiado (DOP)<input name="principal_amount" type="number" min="0.01" max="999999999999.99" step="0.01" inputmode="decimal" required></label>
+              <label>Interés total fijo (%)<input name="flat_interest_rate_percent" type="number" min="0" max="1000" step="0.0001" inputmode="decimal" required></label>
+              <label>Número de cuotas<input name="installment_count" type="number" min="1" max="3660" step="1" required></label>
+              <label>Frecuencia
+                <select name="payment_frequency" required>
+                  <option value="monthly">Mensual</option>
+                  <option value="biweekly">Quincenal</option>
+                  <option value="weekly">Semanal</option>
+                </select>
+              </label>
+              <label>Fecha del préstamo<input name="start_date" type="date" required></label>
+              <label>Primera cuota<input name="first_payment_date" type="date" required></label>
+              <label>Notas (opcional)<textarea name="notes" maxlength="2000" rows="3"></textarea></label>
+              <p class="notice">Interés fijo total del préstamo; no representa una tasa APR. Revise el calendario antes de guardar.</p>
+              <div id="prospectApplicationQuote" hidden aria-live="polite"></div>
+              <div class="item-actions">
+                <button id="prospectApplicationCalculate" type="button">Calcular y revisar cuotas</button>
+                <button id="prospectApplicationSave" type="submit" disabled>Guardar solicitud para revisión</button>
+              </div>
+            </form>
+          </section>
+
         </section>
 
       <section class="panel">
@@ -622,8 +674,9 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-6dd2358bbef6.js" defer></script>
+  <script src="/assets/prestamodesk-app-8ac560ee8de5.js" defer></script>
   <script src="/assets/prestamodesk-administration-83ed00220b14.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
+  <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
 </body>
 </html>
