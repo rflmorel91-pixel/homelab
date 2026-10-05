@@ -11,6 +11,7 @@ from app.products.prestamodesk.authorization import (
 from app.products.prestamodesk.models import (
     Borrower,
     Prospect,
+    LoanApplication,
 )
 from app.products.prestamodesk.schemas import (
     ProspectConversionRead,
@@ -18,6 +19,9 @@ from app.products.prestamodesk.schemas import (
     PublicProspectPageRead,
     ProspectUpdate,
 )
+from app.products.prestamodesk.application_schemas import InternalApplicationTerms, ApplicationRead
+from app.products.prestamodesk.applications_api import quote_terms
+from sqlalchemy.exc import IntegrityError
 from app.tenant_context import (
     get_current_tenant,
 )
@@ -59,6 +63,42 @@ def get_tenant_prospect(
         )
 
     return prospect
+
+
+def linked_application(db: Session, tenant_id: int, prospect_id: int):
+    return db.scalar(select(LoanApplication).where(
+        LoanApplication.source_prospect_id == prospect_id,
+        LoanApplication.tenant_id == tenant_id,
+    ))
+
+
+@router.post("/{prospect_id}/application", response_model=ApplicationRead, status_code=201)
+def create_prospect_application(
+    prospect_id: int, payload: InternalApplicationTerms,
+    db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant),
+):
+    prospect = get_tenant_prospect(db, tenant.id, prospect_id, lock=True)
+    if prospect.status != "qualified" or prospect.converted_borrower_id is not None:
+        raise HTTPException(status_code=409, detail="Prospect must be qualified and unconverted")
+    if linked_application(db, tenant.id, prospect.id) is not None:
+        raise HTTPException(status_code=409, detail="Prospect already has a loan application")
+    quote = quote_terms(payload)
+    application = LoanApplication(
+        **payload.model_dump(), tenant_id=tenant.id, source_prospect_id=prospect.id,
+        full_name=prospect.full_name, document_type="cedula", phone=prospect.phone,
+        email=prospect.email, municipality=prospect.municipality, province=prospect.province,
+        total_interest=quote.total_interest, total_due=quote.total_due,
+        currency="DOP", status="new", consented_at=prospect.consented_at,
+        consent_notice_version=prospect.consent_notice_version,
+    )
+    try:
+        db.add(application)
+        db.commit()
+        db.refresh(application)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Prospect already has a loan application")
+    return application
 
 
 @router.get(
@@ -140,6 +180,9 @@ def update_prospect(
             detail="Converted prospect cannot be changed",
         )
 
+    if linked_application(db, tenant.id, prospect.id) is not None:
+        raise HTTPException(status_code=409, detail="Manage this prospect through its loan application")
+
     prospect.status = payload.status
     db.commit()
     db.refresh(prospect)
@@ -181,6 +224,9 @@ def convert_prospect(
                 "before conversion"
             ),
         )
+
+    if linked_application(db, tenant.id, prospect.id) is not None:
+        raise HTTPException(status_code=409, detail="Convert the approved loan application instead")
 
     borrower = Borrower(
         tenant_id=tenant.id,

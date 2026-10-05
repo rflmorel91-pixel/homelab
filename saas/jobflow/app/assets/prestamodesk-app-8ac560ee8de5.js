@@ -515,19 +515,13 @@ function renderApplications() {
                 ? `<span>${escapeHtml(contact)}</span>`
                 : ""
             }
-            <span>
-              Vehículo: ${escapeHtml(vehicle)}
-            </span>
-            <span>
-              Precio: ${formatMoney(
-                application.vehicle_cash_price
-              )}
-            </span>
-            <span>
-              Inicial: ${formatMoney(
-                application.vehicle_down_payment
-              )}
-            </span>
+            <span>Tipo: ${application.loan_type === "vehicle" ? "Vehículo" : "Personal"}</span>
+            ${application.source_prospect_id ? `<span>Prospecto #${application.source_prospect_id}</span>` : ""}
+            ${application.loan_type === "vehicle" ? `
+            <span>Vehículo: ${escapeHtml(vehicle)}</span>
+            <span>Precio: ${formatMoney(application.vehicle_cash_price)}</span>
+            <span>Inicial: ${formatMoney(application.vehicle_down_payment)}</span>
+            ` : ""}
             <span>
               Financiado: ${formatMoney(
                 application.principal_amount
@@ -636,10 +630,11 @@ function renderProspects() {
   prospectList.innerHTML = prospects
     .map(item => {
       const actions = [];
+      const linked = applications.find(application => application.source_prospect_id === item.id);
 
       if (
-        item.status === "new"
-        || item.status === "contacted"
+        !linked && (item.status === "new"
+        || item.status === "contacted")
       ) {
         actions.push(`
           <button
@@ -653,7 +648,7 @@ function renderProspects() {
         `);
       }
 
-      if (item.status === "new") {
+      if (!linked && item.status === "new") {
         actions.push(`
           <button
             type="button"
@@ -667,7 +662,7 @@ function renderProspects() {
       }
 
       if (
-        item.status !== "rejected"
+        !linked && item.status !== "rejected"
         && item.status !== "converted"
       ) {
         actions.push(`
@@ -682,17 +677,20 @@ function renderProspects() {
         `);
       }
 
-      if (item.status === "qualified") {
+      if (!linked && item.status === "qualified") {
         actions.push(`
           <button
             type="button"
-            data-convert-prospect="${item.id}"
+            data-start-prospect-application="${item.id}"
           >
-            Convertir en prestatario
+            Seleccionar tipo y preparar solicitud
           </button>
         `);
       }
 
+      if (linked) {
+        actions.push(`<span class="notice">Solicitud #${linked.id} · ${linked.loan_type === "vehicle" ? "Vehículo" : "Personal"} · ${escapeHtml(formatStatus(linked.status))}. Continúe en Solicitudes de préstamo.</span>`);
+      }
       return `
         <article class="item-card">
           <h3>${escapeHtml(item.full_name)}</h3>
@@ -701,7 +699,7 @@ function renderProspects() {
               ${escapeHtml(formatStatus(item.status))}
             </span>
             <span>
-              Monto de interés:
+              Monto solicitado:
               ${formatMoney(item.requested_amount)}
             </span>
             <span>
@@ -1534,6 +1532,9 @@ prospectList.addEventListener(
 
         await loadDashboard();
         showSuccess("Prospecto actualizado.");
+        if (statusButton.dataset.prospectStatus === "qualified") {
+          openProspectApplication(Number(statusButton.dataset.prospectId));
+        }
         return;
       }
 

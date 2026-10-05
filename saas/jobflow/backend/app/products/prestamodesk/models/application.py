@@ -26,6 +26,10 @@ class LoanApplication(Base):
         index=True,
     )
 
+    source_prospect_id: Mapped[int | None] = mapped_column(
+        ForeignKey("prestamodesk_prospects.id"), nullable=True, unique=True,
+    )
+
     converted_borrower_id: Mapped[int | None] = mapped_column(
         ForeignKey("prestamodesk_borrowers.id"),
         nullable=True,
@@ -85,29 +89,29 @@ class LoanApplication(Base):
         default="vehicle",
     )
 
-    vehicle_cash_price: Mapped[Decimal] = mapped_column(
+    vehicle_cash_price: Mapped[Decimal | None] = mapped_column(
         Numeric(14, 2),
-        nullable=False,
+        nullable=True,
     )
 
-    vehicle_down_payment: Mapped[Decimal] = mapped_column(
+    vehicle_down_payment: Mapped[Decimal | None] = mapped_column(
         Numeric(14, 2),
-        nullable=False,
+        nullable=True,
     )
 
-    vehicle_make: Mapped[str] = mapped_column(
+    vehicle_make: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
     )
 
-    vehicle_model: Mapped[str] = mapped_column(
+    vehicle_model: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
     )
 
-    vehicle_year: Mapped[int] = mapped_column(
+    vehicle_year: Mapped[int | None] = mapped_column(
         Integer,
-        nullable=False,
+        nullable=True,
     )
 
     vehicle_color: Mapped[str | None] = mapped_column(

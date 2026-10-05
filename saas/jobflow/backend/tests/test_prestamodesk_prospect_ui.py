@@ -131,8 +131,8 @@ def test_workspace_exposes_prospect_pipeline():
         "renderProspects",
         "/prospects/public-page",
         "data-prospect-status",
-        "data-convert-prospect",
-        "/convert",
-        "Convertir en prestatario",
+        "data-start-prospect-application",
+        "Seleccionar tipo y preparar solicitud",
+        "openProspectApplication",
     ):
         assert expected in script

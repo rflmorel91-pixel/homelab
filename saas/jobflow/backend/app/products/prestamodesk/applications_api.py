@@ -14,6 +14,9 @@ from app.products.prestamodesk.amortization import (
     build_fixed_schedule,
 )
 from app.products.prestamodesk.application_schemas import (
+    ApplicationQuoteRead,
+    QuoteInstallmentRead,
+    InternalApplicationTerms,
     ApplicationConversionRead,
     ApplicationRead,
     ApplicationUpdate,
@@ -22,6 +25,7 @@ from app.products.prestamodesk.models import (
     Borrower,
     Installment,
     Loan,
+    Prospect,
     LoanApplication,
 )
 from app.tenant_context import (
@@ -65,6 +69,34 @@ def get_tenant_application(
         )
 
     return application
+
+
+def quote_terms(payload: InternalApplicationTerms) -> ApplicationQuoteRead:
+    calculation = build_fixed_schedule(
+        principal_amount=payload.principal_amount,
+        flat_interest_rate_percent=payload.flat_interest_rate_percent,
+        installment_count=payload.installment_count,
+        payment_frequency=payload.payment_frequency,
+        first_payment_date=payload.first_payment_date,
+    )
+    return ApplicationQuoteRead(
+        principal_amount=calculation.principal_amount,
+        flat_interest_rate_percent=calculation.flat_interest_rate_percent,
+        total_interest=calculation.total_interest,
+        total_due=calculation.total_due,
+        installment_count=payload.installment_count,
+        payment_frequency=payload.payment_frequency,
+        installments=[QuoteInstallmentRead(
+            sequence_number=item.sequence_number, due_date=item.due_date,
+            principal_due=item.principal_due, interest_due=item.interest_due,
+            total_due=item.total_due,
+        ) for item in calculation.installments],
+    )
+
+
+@router.post("/quote", response_model=ApplicationQuoteRead)
+def quote_internal_application(payload: InternalApplicationTerms):
+    return quote_terms(payload)
 
 
 @router.get(
@@ -200,6 +232,15 @@ def convert_application(
             ),
         )
 
+    prospect = None
+    if application.source_prospect_id is not None:
+        prospect = db.scalar(select(Prospect).where(
+            Prospect.id == application.source_prospect_id,
+            Prospect.tenant_id == tenant.id,
+        ).with_for_update())
+        if prospect is None or prospect.status != "qualified" or prospect.converted_borrower_id is not None:
+            raise HTTPException(status_code=409, detail="Source prospect cannot be converted")
+
     calculation = build_fixed_schedule(
         principal_amount=application.principal_amount,
         flat_interest_rate_percent=(
@@ -284,6 +325,9 @@ def convert_application(
             ]
         )
 
+        if prospect is not None:
+            prospect.converted_borrower_id = borrower.id
+            prospect.status = "converted"
         application.converted_borrower_id = borrower.id
         application.converted_loan_id = loan.id
         application.status = "converted"
