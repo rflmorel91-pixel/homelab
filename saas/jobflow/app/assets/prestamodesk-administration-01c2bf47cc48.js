@@ -39,9 +39,9 @@
     const container = document.getElementById("administrationMembers"); container.replaceChildren();
     document.getElementById("teamCount").textContent = String(team.members.length);
     for (const member of team.members) {
-      const row = element("tr");
-      const name = element("td"); name.append(element("strong", member.display_name), element("span", member.email));
-      const role = element("td", labels[member.role] || member.role);
+      const row = element("tr"); row.dataset.membershipId = String(member.membership_id); row.dataset.selected = String(memberDetail?.membership_id === member.membership_id);
+      const name = element("td"); name.dataset.initials = member.display_name.trim().split(/\s+/u).filter(Boolean).slice(0,2).map(part => Array.from(part)[0]).join("").toLocaleUpperCase("es-DO"); name.append(element("strong", member.display_name), element("span", member.email));
+      const role = element("td"), roleBadge = element("span", labels[member.role] || member.role); roleBadge.className = "role-pill"; role.append(roleBadge);
       const status = element("td"); const badge = element("span", member.is_active ? "Activo" : "Suspendido"); badge.className = "status " + (member.is_active ? "active" : "inactive"); status.append(badge);
       if (!member.account_active) status.append(element("small", "Cuenta desactivada"));
       const action = element("td"), detail = element("button", "Ver detalle"); detail.type = "button"; detail.className = "secondary"; detail.setAttribute("aria-label", "Ver detalle de " + member.display_name);
@@ -87,6 +87,7 @@
   }
   function clearMemberDetail() {
     detailGeneration += 1; memberDetail = null; detailPanel.hidden = true; profileForm.reset();
+    document.querySelectorAll("#administrationMembers tr[data-membership-id]").forEach(row => {row.dataset.selected = "false";});
     for (const id of ["memberAccountInfo", "memberAccountActions", "memberPermissions", "memberAssignments", "memberHistory"]) document.getElementById(id).replaceChildren();
     document.getElementById("administrationMemberMessage").hidden = true;
   }
@@ -119,6 +120,7 @@
   }
   function renderMemberDetail() {
     const detail = memberDetail;
+    document.querySelectorAll("#administrationMembers tr[data-membership-id]").forEach(row => {row.dataset.selected = String(row.dataset.membershipId === String(detail.membership_id));});
     document.getElementById("administrationMemberTitle").textContent = "Integrante · " + detail.display_name;
     const account = document.getElementById("memberAccountInfo"); account.replaceChildren();
     for (const text of ["Nombre de cuenta: " + detail.display_name, "Correo de acceso: " + detail.login_email,
