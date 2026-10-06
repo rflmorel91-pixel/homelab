@@ -17,7 +17,7 @@
     const data = await response.json();
     if (!client || client.tenant_id !== selectedTenant) throw new Error("El cliente cambió. Abra nuevamente el detalle.");
     if (!response.ok) {
-      if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true;}
+      if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true;}
       const translations = {"Release collector assignments before changing or suspending this membership": "Libere las carteras asignadas antes de cambiar el rol o suspender este integrante.", "Client must retain at least one owner": "El cliente debe conservar al menos un propietario.", "You cannot suspend your own membership": "No puede suspender su propio acceso.", "Only the owner may manage owners and administrators": "Solo el propietario puede administrar estos roles."};
       throw new Error(translations[data.detail] || (typeof data.detail === "string" ? data.detail : "Revise los datos e intente nuevamente."));
     }
@@ -34,38 +34,30 @@
     node.addEventListener("click", async () => {node.disabled = true; try {await action(); await refresh(); if (memberDetail) await loadMemberDetail(memberDetail.membership_id, false); notify("Cambio guardado.");} catch (error) {notify(error.message, true);} finally {node.disabled = false;}});
     return node;
   }
+  let selectedMemberButton = null;
   function renderMembers() {
     const container = document.getElementById("administrationMembers"); container.replaceChildren();
+    document.getElementById("teamCount").textContent = String(team.members.length);
     for (const member of team.members) {
-      const row = element("div"); row.className = "panel";
-      row.append(element("h4", member.display_name), element("p", member.email + " · " + (member.is_active ? "Activo" : "Suspendido")));
-      const detail = element("button", "Ver detalle"); detail.type = "button"; detail.className = "secondary";
+      const row = element("tr");
+      const name = element("td"); name.append(element("strong", member.display_name), element("span", member.email));
+      const role = element("td", labels[member.role] || member.role);
+      const status = element("td"); const badge = element("span", member.is_active ? "Activo" : "Suspendido"); badge.className = "status " + (member.is_active ? "active" : "inactive"); status.append(badge);
+      if (!member.account_active) status.append(element("small", "Cuenta desactivada"));
+      const action = element("td"), detail = element("button", "Ver detalle"); detail.type = "button"; detail.className = "secondary"; detail.setAttribute("aria-label", "Ver detalle de " + member.display_name);
       detail.addEventListener("click", async () => {
         if (detailBusy) return;
-        clearMemberDetail(); detail.disabled = true;
+        clearMemberDetail(); selectedMemberButton = detail; detail.disabled = true;
         try {await loadMemberDetail(member.membership_id);} catch (error) {notify(error.message, true);} finally {detail.disabled = false;}
       });
-      row.append(detail);
-      const editable = client.role === "owner" || !["owner", "administrator"].includes(member.role);
-      if (editable) {
-        const select = roleSelect(team.assignable_roles, member.role); select.setAttribute("aria-label", "Rol de " + member.display_name); row.append(select);
-        row.append(button("Guardar rol", async () => {
-          if (select.value !== member.role && confirm("¿Cambiar el rol de " + member.display_name + "?")) await request("/memberships/" + member.membership_id + "/role", "PUT", {role: select.value});
-        }));
-        if (member.membership_id !== team.current_membership_id) row.append(button(member.membership_active ? "Suspender acceso" : "Reactivar acceso", async () => {
-          if (confirm("¿Cambiar el acceso de " + member.display_name + " a este cliente?")) await request("/memberships/" + member.membership_id + "/status", "PUT", {is_active: !member.membership_active});
-        }));
-      } else row.append(element("p", labels[member.role]));
-      if (!member.account_active) row.append(element("p", "La cuenta está desactivada en la plataforma; reactivar esta membresía no reactiva la cuenta."));
-      container.append(row);
+      action.append(detail); row.append(name,role,status,action); container.append(row);
     }
+    if (!team.members.length) {const row = element("tr"), cell = element("td", "Sin integrantes."); cell.colSpan = 4; row.append(cell); container.append(row);}
   }
   async function refresh() {
     const [newTeam, invitations, audit] = await Promise.all([request("/team"), request("/invitations"), request("/audit")]);
     team = newTeam; renderMembers();
     const inviteRole = document.getElementById("administrationInviteRole"); inviteRole.replaceChildren(...roleSelect(team.assignable_roles, "collector").children);
-    const matrix = document.getElementById("administrationPermissions"); matrix.replaceChildren();
-    for (const role of team.roles) matrix.append(element("p", role.label + ": " + role.permissions.map(permission => permissions[permission]).join("; ") + "."));
     const list = document.getElementById("administrationInvitations"); list.replaceChildren();
     for (const invitation of invitations.invitations) {
       const row = element("p", invitation.display_name + " · " + invitation.email + " · " + labels[invitation.role] + " · " + invitation.status);
@@ -74,7 +66,7 @@
     }
     if (!invitations.invitations.length) list.append(element("p", "Sin invitaciones."));
     const history = document.getElementById("administrationAudit"); history.replaceChildren();
-    for (const event of audit) history.append(element("p", new Date(event.created_at + (event.created_at.endsWith("Z") ? "" : "Z")).toLocaleString("es-DO") + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · Registro #" + event.target_id + " · " + JSON.stringify(event.after || event.before || {})));
+    for (const event of audit) history.append(element("p", new Date(event.created_at + (event.created_at.endsWith("Z") ? "" : "Z")).toLocaleString("es-DO") + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · Registro #" + event.target_id));
     if (!audit.length) history.append(element("p", "Sin cambios registrados."));
   }
   let memberDetail = null;
@@ -158,10 +150,11 @@
     if (!detail.assignments.length) assigned.append(element("p", "Sin préstamos asignados directamente."));
     if (detail.more_assignments) assigned.append(element("p", "Se muestran las 100 asignaciones más recientes. Consulte Asignar carteras para continuar."));
     const history = document.getElementById("memberHistory"); history.replaceChildren();
-    for (const event of detail.history) history.append(element("p", dateLabel(event.created_at) + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · " + JSON.stringify(event.after || event.before || {})));
+    for (const event of detail.history) history.append(element("p", dateLabel(event.created_at) + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id));
     if (!detail.history.length) history.append(element("p", "Sin cambios registrados para este integrante."));
     if (detail.more_history) history.append(element("p", "Se muestran los 50 eventos más recientes."));
     detailPanel.hidden = false;
+    if (window.matchMedia?.("(max-width: 1050px)").matches) detailPanel.scrollIntoView?.({behavior: "smooth", block: "start"});
     setDetailBusy(detailBusy);
   }
   async function loadMemberDetail(id, resetTab = true) {
@@ -171,7 +164,8 @@
     memberDetail = detail; renderMemberDetail();
     if (resetTab) {selectMemberTab("memberAccountPanel"); document.getElementById("memberAccountTab").focus();}
   }
-  document.getElementById("administrationMemberClose").addEventListener("click", clearMemberDetail);
+  document.getElementById("administrationMemberClose").addEventListener("click", () => {clearMemberDetail(); if (selectedMemberButton?.isConnected) selectedMemberButton.focus(); else document.getElementById("teamTab").focus();});
+  document.addEventListener("keydown", event => {if (event.key === "Escape" && !detailPanel.hidden && !detailBusy) document.getElementById("administrationMemberClose").click();});
   document.getElementById("administrationMemberTabs").addEventListener("click", event => {
     const tab = event.target.closest("[data-member-tab]"); if (tab) selectMemberTab(tab.dataset.memberTab);
   });
@@ -196,6 +190,20 @@
     finally {setDetailBusy(false);}
   });
 
+  function selectSection(id) {
+    for (const tab of document.querySelectorAll("[data-admin-tab]")) {
+      const active = tab.dataset.adminTab === id; tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.dataset.adminTab).hidden = !active;
+    }
+  }
+  document.getElementById("administrationSections").addEventListener("click", event => {const tab = event.target.closest("[data-admin-tab]"); if (tab) selectSection(tab.dataset.adminTab);});
+  document.getElementById("administrationSections").addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = [...document.querySelectorAll("[data-admin-tab]")], index = tabs.indexOf(document.activeElement); if (index < 0) return;
+    event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    selectSection(tabs[next].dataset.adminTab); tabs[next].focus();
+  });
+  document.getElementById("inviteMemberButton").addEventListener("click", () => {selectSection("invitationsSection"); document.querySelector("#administrationInvite input").focus();});
   const handleAccess = async event => {
     clearMemberDetail();
     client = event.detail; panel.hidden = !["owner", "administrator"].includes(client.role);
@@ -210,7 +218,7 @@
     try {
       const response = await fetch(base + "/export.zip", {method: "POST", credentials: "same-origin", headers: {"X-Tenant-ID": String(selected)}});
       if (!response.ok) {
-        if ([401, 403].includes(response.status)) panel.hidden = true;
+        if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true;}
         throw new Error(response.status === 413 ? "El archivo supera el límite. Solicite una exportación asistida." : "No se pudo exportar. Revise su acceso e intente nuevamente.");
       }
       const blob = await response.blob();
