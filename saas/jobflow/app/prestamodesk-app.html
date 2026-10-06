@@ -119,6 +119,46 @@
       <button id="administrationRefresh" type="button" class="secondary">Actualizar equipo</button>
       <h3>Equipo y responsabilidades</h3>
       <div id="administrationMembers"></div>
+      <section id="administrationMemberDetail" class="panel" hidden aria-labelledby="administrationMemberTitle">
+        <div class="section-heading">
+          <h3 id="administrationMemberTitle">Detalle del integrante</h3>
+          <button id="administrationMemberClose" type="button" class="secondary">Cerrar detalle</button>
+        </div>
+        <div id="administrationMemberMessage" role="status" hidden></div>
+        <div id="administrationMemberTabs" role="tablist" aria-label="Información del integrante">
+          <button id="memberAccountTab" type="button" role="tab" aria-controls="memberAccountPanel" aria-selected="true" data-member-tab="memberAccountPanel">Cuenta y acceso</button>
+          <button id="memberProfileTab" type="button" role="tab" aria-controls="memberProfilePanel" aria-selected="false" tabindex="-1" data-member-tab="memberProfilePanel">Perfil y contacto</button>
+          <button id="memberResponsibilitiesTab" type="button" role="tab" aria-controls="memberResponsibilitiesPanel" aria-selected="false" tabindex="-1" data-member-tab="memberResponsibilitiesPanel">Responsabilidades</button>
+          <button id="memberHistoryTab" type="button" role="tab" aria-controls="memberHistoryPanel" aria-selected="false" tabindex="-1" data-member-tab="memberHistoryPanel">Historial</button>
+        </div>
+        <section id="memberAccountPanel" role="tabpanel" aria-labelledby="memberAccountTab">
+          <div id="memberAccountInfo"></div>
+          <div id="memberAccountActions" class="item-actions"></div>
+          <p>El nombre y correo de acceso pertenecen a la cuenta compartida entre clientes. La recuperación se envía al correo de acceso; cambiar la contraseña afecta todos los accesos de esa cuenta.</p>
+        </section>
+        <section id="memberProfilePanel" role="tabpanel" aria-labelledby="memberProfileTab" hidden>
+          <p>Estos datos se usan como referencia de contacto en este cliente. No cambian el correo de acceso, el destinatario de recuperación ni configuran envíos automáticos.</p>
+          <form id="memberProfileForm" class="form-grid">
+            <label>Nombre de contacto en este cliente<input name="contact_name" maxlength="200"></label>
+            <label>Teléfono<input name="phone" type="tel" maxlength="40"></label>
+            <label>Correo de correspondencia<input name="correspondence_email" type="email" maxlength="320"></label>
+            <label>Contacto preferido<select name="preferred_contact"><option value="email">Correo electrónico</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>
+            <label>Notas internas<textarea name="notes" maxlength="2000" rows="3"></textarea></label>
+            <button type="submit">Guardar perfil de este cliente</button>
+          </form>
+          <p id="memberProfileRestriction" hidden>Solo el propietario puede modificar el perfil de propietarios y administradores.</p>
+        </section>
+        <section id="memberResponsibilitiesPanel" role="tabpanel" aria-labelledby="memberResponsibilitiesTab" hidden>
+          <h4>Permisos por rol</h4><div id="memberPermissions"></div>
+          <h4>Préstamos asignados</h4><div id="memberAssignments"></div>
+          <p>Las asignaciones determinan la cartera del cobrador. El supervisor supervisa la cartera completa por su rol; no se asigna aquí un supervisor individual.</p>
+          <a href="/prestamodesk/cobros">Administrar asignaciones</a> · <a href="/prestamodesk/cobros/supervision">Supervisión</a>
+        </section>
+        <section id="memberHistoryPanel" role="tabpanel" aria-labelledby="memberHistoryTab" hidden>
+          <p>Últimos 50 cambios de acceso, perfil, recuperación y asignaciones relacionados con este integrante en este cliente.</p>
+          <div id="memberHistory"></div>
+        </section>
+      </section>
       <h3>Invitar integrante</h3>
       <form id="administrationInvite" class="form-grid">
         <label>Nombre <input name="display_name" maxlength="200" required></label>
@@ -675,7 +715,7 @@
   </footer>
 
   <script src="/assets/prestamodesk-app-8ac560ee8de5.js" defer></script>
-  <script src="/assets/prestamodesk-administration-83ed00220b14.js" defer></script>
+  <script src="/assets/prestamodesk-administration-208a05cbdc12.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
 </body>
