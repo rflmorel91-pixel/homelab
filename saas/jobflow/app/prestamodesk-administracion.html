@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>PréstamoDesk | Administración</title><link rel="stylesheet" href="/assets/prestamodesk-app-b4c00c256964.css"><link rel="stylesheet" href="/assets/prestamodesk-administration-1f20748a196e.css"></head><body>
+<header class="app-header"><div><span class="eyebrow">FieldLookers</span><h1>PréstamoDesk</h1><p>Equipo y acceso</p></div><div class="header-actions"><a href="/prestamodesk/app">Volver a préstamos</a><span id="clientContext" class="badge" hidden></span><span id="healthStatus">Comprobando API…</span><button id="logoutButton" class="secondary" hidden>Cerrar sesión</button><a id="administrationLink" href="/prestamodesk-administracion.html" hidden aria-label="Administración actual" aria-current="page">Administración</a></div></header>
+<main><div id="pageMessage" class="message" role="status" hidden></div><section id="authPanel" class="panel auth-panel" hidden><h2>Iniciar sesión</h2><form id="loginForm" class="form-grid"><label>Correo electrónico<input id="loginEmail" type="email" autocomplete="username" required></label><label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit">Iniciar sesión</button></form><a href="/prestamodesk/app">Recuperar contraseña</a></section>
+<section id="administrationPanel" hidden><div class="admin-top"><div><h2>Administración</h2><p>Personas, permisos y acceso a su negocio.</p></div><div class="toolbar"><button id="inviteMemberButton" type="button">Invitar integrante</button><button id="administrationRefresh" type="button" class="secondary">Actualizar</button><details><summary>Más opciones</summary><div class="export-menu"><button id="customerExport" type="button" class="secondary">Descargar datos del cliente</button><p>ZIP con CSV y JSON. Incluye información personal y financiera.</p></div></details></div></div>
+<div id="administrationMessage" class="message" role="status" hidden></div><div id="administrationSections" class="admin-tabs" role="tablist" aria-label="Administración"><button id="teamTab" type="button" role="tab" aria-selected="true" aria-controls="teamSection" data-admin-tab="teamSection">Equipo</button><button id="invitationsTab" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="invitationsSection" data-admin-tab="invitationsSection">Invitaciones</button><button id="activityTab" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="activitySection" data-admin-tab="activitySection">Actividad</button></div>
+<div class="admin-grid"><div><section id="teamSection" class="admin-card" role="tabpanel" aria-labelledby="teamTab"><h3>Integrantes <span id="teamCount" class="team-count">0</span></h3><div class="table-wrap"><table><caption class="visually-hidden">Equipo de este cliente</caption><thead><tr><th scope="col">Integrante</th><th scope="col">Rol</th><th scope="col">Acceso</th><th scope="col">Detalle</th></tr></thead><tbody id="administrationMembers"></tbody></table></div><p class="context-note">Solo el propietario administra propietarios y administradores.</p><a href="/prestamodesk/cobros">Asignar carteras</a> · <a href="/prestamodesk/cobros/supervision">Supervisión</a></section>
+<section id="invitationsSection" class="admin-card" role="tabpanel" aria-labelledby="invitationsTab" hidden><h3>Invitar integrante</h3>      <form id="administrationInvite" class="form-grid">
+        <label>Nombre <input name="display_name" maxlength="200" required></label>
+        <label>Correo electrónico <input name="email" type="email" maxlength="320" required></label>
+        <label>Rol <select name="role" id="administrationInviteRole"></select></label>
+        <button type="submit">Crear invitación</button>
+      </form>
+      <p id="administrationActivation" hidden></p>
+      <h3>Invitaciones</h3>
+      <div id="administrationInvitations"></div>
+</section>
+<section id="activitySection" class="admin-card activity" role="tabpanel" aria-labelledby="activityTab" hidden><h3>Actividad reciente</h3><div id="administrationAudit"></div><p class="context-note">Los detalles completos de auditoría están incluidos en la exportación del cliente.</p></section></div>      <section id="administrationMemberDetail" class="panel" hidden aria-labelledby="administrationMemberTitle">
+        <div class="section-heading">
+          <h3 id="administrationMemberTitle">Detalle del integrante</h3>
+          <button id="administrationMemberClose" type="button" class="secondary">Cerrar detalle</button>
+        </div>
+        <div id="administrationMemberMessage" role="status" hidden></div>
+        <div id="administrationMemberTabs" role="tablist" aria-label="Información del integrante">
+          <button id="memberAccountTab" type="button" role="tab" aria-controls="memberAccountPanel" aria-selected="true" data-member-tab="memberAccountPanel">Cuenta y acceso</button>
+          <button id="memberProfileTab" type="button" role="tab" aria-controls="memberProfilePanel" aria-selected="false" tabindex="-1" data-member-tab="memberProfilePanel">Perfil y contacto</button>
+          <button id="memberResponsibilitiesTab" type="button" role="tab" aria-controls="memberResponsibilitiesPanel" aria-selected="false" tabindex="-1" data-member-tab="memberResponsibilitiesPanel">Responsabilidades</button>
+          <button id="memberHistoryTab" type="button" role="tab" aria-controls="memberHistoryPanel" aria-selected="false" tabindex="-1" data-member-tab="memberHistoryPanel">Historial</button>
+        </div>
+        <section id="memberAccountPanel" role="tabpanel" aria-labelledby="memberAccountTab">
+          <div id="memberAccountInfo"></div>
+          <div id="memberAccountActions" class="item-actions"></div>
+          <p>El nombre y correo de acceso pertenecen a la cuenta compartida entre clientes. La recuperación se envía al correo de acceso; cambiar la contraseña afecta todos los accesos de esa cuenta.</p>
+        </section>
+        <section id="memberProfilePanel" role="tabpanel" aria-labelledby="memberProfileTab" hidden>
+          <p>Estos datos se usan como referencia de contacto en este cliente. No cambian el correo de acceso, el destinatario de recuperación ni configuran envíos automáticos.</p>
+          <form id="memberProfileForm" class="form-grid">
+            <label>Nombre de contacto en este cliente<input name="contact_name" maxlength="200"></label>
+            <label>Teléfono<input name="phone" type="tel" maxlength="40"></label>
+            <label>Correo de correspondencia<input name="correspondence_email" type="email" maxlength="320"></label>
+            <label>Contacto preferido<select name="preferred_contact"><option value="email">Correo electrónico</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>
+            <label>Notas internas<textarea name="notes" maxlength="2000" rows="3"></textarea></label>
+            <button type="submit">Guardar perfil de este cliente</button>
+          </form>
+          <p id="memberProfileRestriction" hidden>Solo el propietario puede modificar el perfil de propietarios y administradores.</p>
+        </section>
+        <section id="memberResponsibilitiesPanel" role="tabpanel" aria-labelledby="memberResponsibilitiesTab" hidden>
+          <h4>Permisos por rol</h4><div id="memberPermissions"></div>
+          <h4>Préstamos asignados</h4><div id="memberAssignments"></div>
+          <p>Las asignaciones determinan la cartera del cobrador. El supervisor supervisa la cartera completa por su rol; no se asigna aquí un supervisor individual.</p>
+          <a href="/prestamodesk/cobros">Administrar asignaciones</a> · <a href="/prestamodesk/cobros/supervision">Supervisión</a>
+        </section>
+        <section id="memberHistoryPanel" role="tabpanel" aria-labelledby="memberHistoryTab" hidden>
+          <p>Últimos 50 cambios de acceso, perfil, recuperación y asignaciones relacionados con este integrante en este cliente.</p>
+          <div id="memberHistory"></div>
+        </section>
+      </section>
+</div></section></main><footer>PréstamoDesk · FieldLookers</footer><script src="/assets/prestamodesk-administration-auth-7594d82de519.js" defer></script><script src="/assets/prestamodesk-administration-a294a0e85444.js" defer></script></body></html>

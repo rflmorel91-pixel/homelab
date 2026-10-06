@@ -1,3 +1,4 @@
+from app.products.prestamodesk.models.member_profile import MemberProfile
 from app.products.prestamodesk.models.collector_assignment import (
     LoanCollectorAssignment,
 )
@@ -15,6 +16,7 @@ from app.products.prestamodesk.models.payment import Payment
 from app.products.prestamodesk.models.prospect import Prospect
 
 __all__ = [
+    "MemberProfile",
     "LoanCollectorAssignment",
     "Borrower",
     "PromisePaymentAllocation",

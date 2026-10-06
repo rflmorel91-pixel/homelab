@@ -22,7 +22,7 @@
 
     <div class="header-actions">
       <span id="clientContext" class="badge" hidden></span>
-      <a id="administrationLink" href="#administrationPanel" hidden>Administración</a>
+      <a id="administrationLink" href="/prestamodesk-administracion.html" hidden>Administración</a>
       <span id="healthStatus">Comprobando API…</span>
       <button id="logoutButton" class="secondary" hidden>
         Cerrar sesión
@@ -107,33 +107,6 @@
     </section>
 
     <div id="workspace" hidden>
-    <section id="administrationPanel" class="panel" hidden>
-      <h2>Administración</h2>
-      <p>Controle el equipo, sus permisos y responsabilidades en este cliente.</p>
-      <p><a href="/prestamodesk/cobros">Asignar carteras</a> ·
-         <a href="/prestamodesk/cobros/supervision">Supervisión de cobros</a></p>
-      <p>Solo el propietario administra propietarios y administradores. Libere las carteras antes de suspender un cobrador.</p>
-      <div id="administrationMessage" class="message" role="status" hidden></div>
-      <p>Descargue los registros de este cliente en ZIP con CSV y JSON. Incluye pagos anulados e historial operativo. Contiene datos personales; guárdelo en un lugar seguro.</p>
-      <button id="customerExport" type="button" class="secondary">Descargar datos del cliente</button>
-      <button id="administrationRefresh" type="button" class="secondary">Actualizar equipo</button>
-      <h3>Equipo y responsabilidades</h3>
-      <div id="administrationMembers"></div>
-      <h3>Invitar integrante</h3>
-      <form id="administrationInvite" class="form-grid">
-        <label>Nombre <input name="display_name" maxlength="200" required></label>
-        <label>Correo electrónico <input name="email" type="email" maxlength="320" required></label>
-        <label>Rol <select name="role" id="administrationInviteRole"></select></label>
-        <button type="submit">Crear invitación</button>
-      </form>
-      <p id="administrationActivation" hidden></p>
-      <h3>Invitaciones</h3>
-      <div id="administrationInvitations"></div>
-      <h3>Permisos por rol</h3>
-      <div id="administrationPermissions"></div>
-      <h3>Historial reciente</h3>
-      <div id="administrationAudit"></div>
-    </section>
       <section class="summary-grid">
         <article class="summary-card">
           <span>Solicitudes abiertas</span>
@@ -675,7 +648,7 @@
   </footer>
 
   <script src="/assets/prestamodesk-app-8ac560ee8de5.js" defer></script>
-  <script src="/assets/prestamodesk-administration-83ed00220b14.js" defer></script>
+  <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
 </body>

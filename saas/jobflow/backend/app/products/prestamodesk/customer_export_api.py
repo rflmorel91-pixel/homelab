@@ -21,7 +21,7 @@ router = APIRouter(prefix="/administration", tags=["PréstamoDesk Export"])
 MAX_ROWS = 50000
 MAX_BYTES = 32 * 1024 * 1024
 AUDIT_ACTIONS = (
-    "client_team.role_changed", "client_team.member_removed", "client_team.status_changed",
+    "client_team.role_changed", "client_team.member_removed", "client_team.status_changed", "client_team.profile_changed", "client_team.password_reset_requested",
     "client_user.invitation_created", "client_user.invitation_revoked", "client_user.invitation_accepted",
     "collections.assignment_created", "collections.assignment_released", "payments.voided", "customer_data.exported",
 )

@@ -174,12 +174,14 @@ docker run \
 printf '\n===== BUILD API SCAN IMAGE =====\n'
 docker build \
   --pull \
+  --no-cache \
   --tag "$API_IMAGE" \
   "$JOBFLOW_ROOT/backend"
 
 printf '\n===== BUILD WEB SCAN IMAGE =====\n'
 docker build \
   --pull \
+  --no-cache \
   --tag "$WEB_IMAGE" \
   "$JOBFLOW_ROOT/nginx"
 
