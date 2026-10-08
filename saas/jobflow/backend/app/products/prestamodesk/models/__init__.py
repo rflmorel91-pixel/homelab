@@ -1,3 +1,4 @@
+from app.products.prestamodesk.models.portfolio_import import PortfolioImport, ImportedLoan
 from app.products.prestamodesk.models.member_profile import MemberProfile
 from app.products.prestamodesk.models.collector_assignment import (
     LoanCollectorAssignment,
