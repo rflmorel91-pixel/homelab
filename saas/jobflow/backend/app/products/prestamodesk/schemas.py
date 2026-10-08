@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Literal
+from uuid import UUID
 from decimal import Decimal
 
 from pydantic import (
@@ -286,6 +287,7 @@ PaymentMethod = Literal[
 
 
 class PaymentCreate(BaseModel):
+    idempotency_key: UUID | None = None
     installment_id: int = Field(gt=0)
     amount: Decimal = Field(
         gt=0,
