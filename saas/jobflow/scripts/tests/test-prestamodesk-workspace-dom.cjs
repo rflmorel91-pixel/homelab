@@ -27,6 +27,8 @@ async function setup(role='owner',multi=false){
 }
 (async()=>{
  const a=await setup();assert.equal(a.w.document.getElementById('pdWorkspace').hidden,false);assert.equal(a.w.location.hash,'#summary');
+ const mountHost=a.w.document.getElementById("pdHost"), originalAppend=mountHost.append.bind(mountHost);
+ mountHost.append=(section)=>{assert.equal(section.querySelector("#authPanel").hidden,true,"login must be hidden before mounting");originalAppend(section);};
  for(const view of ['loans','cashier','collections','supervision','administration','summary']){
   await a.click(view);assert.equal(a.w.location.hash,'#'+view);assert.equal(a.button(view).getAttribute('aria-current'),'page');
   const ids=[...a.w.document.querySelectorAll('[id]')].map(x=>x.id);assert.equal(new Set(ids).size,ids.length,'duplicate IDs in '+view);

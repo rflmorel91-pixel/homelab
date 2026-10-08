@@ -102,7 +102,7 @@
       teardown();current=view;const epoch=generation;
       localStorage.setItem('prestamodesk_tenant_id',String(selected.tenant_id));
       const definition=definitions[view],screen=window.PrestamoDeskScreens[definition.screen],root=document.createElement('div');root.className='pd-module';root.dataset.mode=view;
-      root.innerHTML=screen.html;$("pdHost").append(root);
+      root.innerHTML=screen.html;const sectionAuth=root.querySelector("#authPanel");if(sectionAuth)sectionAuth.hidden=true;$("pdHost").append(root);
       const context=moduleContext(root,{...selected},epoch);mounted={dispose:context.dispose,guard:null};
       mounted.guard=screen.start(context.document,context.window,context.fetch,context.storage,context.location,context.delay,clearTimeout);
       root.addEventListener('input',()=>{dirty=true;});root.addEventListener('change',()=>{dirty=true;});
