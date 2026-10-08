@@ -105,7 +105,9 @@
       root.innerHTML=screen.html;const sectionAuth=root.querySelector("#authPanel");if(sectionAuth)sectionAuth.hidden=true;$("pdHost").append(root);
       const context=moduleContext(root,{...selected},epoch);mounted={dispose:context.dispose,guard:null};
       mounted.guard=screen.start(context.document,context.window,context.fetch,context.storage,context.location,context.delay,clearTimeout);
-      root.addEventListener('input',()=>{dirty=true;});root.addEventListener('change',()=>{dirty=true;});
+      const editableForms=new Set(['borrowerForm','loanForm','prospectApplicationForm','lateFeePolicyForm','loanLateFeeForm','paymentForm','cashClosingForm','activityForm','promiseForm','collectorAssignmentForm','administrationInvite','memberProfileForm']);
+      const trackEdit=event=>{const form=event.target.closest('form');if(form&&editableForms.has(form.id))dirty=true;};
+      root.addEventListener('input',trackEdit);root.addEventListener('change',trackEdit);
 
       root.addEventListener('click',event=>{const link=event.target.closest('a[href]');if(!link)return;const target=new URL(link.href,location.origin);if(target.origin===location.origin&&paths[target.pathname]){event.preventDefault();navigate(paths[target.pathname]);}});
       for(const button of document.querySelectorAll('[data-pd-view]')){const active=button.dataset.pdView===view;button.setAttribute('aria-current',active?'page':'false');}
