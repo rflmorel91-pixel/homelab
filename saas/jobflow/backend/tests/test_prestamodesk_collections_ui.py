@@ -139,7 +139,7 @@ def test_nginx_serves_collections_with_enforced_csp():
         )
 
     assert (
-        r"prestamodesk(?:-(?:app|caja|cobros|cobros-supervision)"
+        r"prestamodesk(?:-(?:app|workspace|caja|cobros|cobros-supervision)"
         in production
     )
     assert (

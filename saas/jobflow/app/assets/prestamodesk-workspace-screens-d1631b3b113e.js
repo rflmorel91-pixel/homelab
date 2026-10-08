@@ -1,0 +1,5358 @@
+/* Generated from existing screens; regenerate using scripts/build-prestamodesk-workspace.py. */
+window.PrestamoDeskScreens = {
+"loans": {html:"\n  <header class=\"app-header\">\n    <div>\n      <span class=\"eyebrow\">FieldLookers</span>\n      <h1>PréstamoDesk</h1>\n      <p>Administración de préstamos en DOP</p>\n    </div>\n\n    <div class=\"header-actions\"><a href=\"/prestamodesk/workspace\">Mi espacio · Todas las secciones</a>\n      <span id=\"clientContext\" class=\"badge\" hidden></span>\n      <a id=\"administrationLink\" href=\"/prestamodesk-administracion.html\" hidden>Administración</a>\n      <span id=\"healthStatus\">Comprobando API…</span>\n      <button id=\"logoutButton\" class=\"secondary\" hidden>\n        Cerrar sesión\n      </button>\n    </div>\n  </header>\n\n  <main>\n    <div id=\"errorMessage\" class=\"message error\" hidden></div>\n    <div id=\"successMessage\" class=\"message success\" hidden></div>\n\n    <section id=\"authPanel\" class=\"panel auth-panel\">\n      <h2>Iniciar sesión</h2>\n\n      <form id=\"loginForm\" class=\"form-grid\">\n        <label>\n          Correo electrónico\n          <input\n            id=\"loginEmail\"\n            type=\"email\"\n            autocomplete=\"username\"\n            required\n          >\n        </label>\n\n        <label>\n          Contraseña\n          <input\n            id=\"loginPassword\"\n            type=\"password\"\n            autocomplete=\"current-password\"\n            required\n          >\n        </label>\n\n        <button type=\"submit\">Iniciar sesión</button>\n\n        <button\n          id=\"forgotPasswordButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          ¿Olvidó su contraseña?\n        </button>\n      </form>\n\n      <form\n        id=\"passwordResetRequestForm\"\n        class=\"form-grid\"\n        hidden\n      >\n        <p>\n          Ingrese el correo de su cuenta. Si la cuenta es\n          elegible, enviaremos un enlace seguro.\n        </p>\n\n        <label>\n          Correo electrónico\n          <input\n            id=\"passwordResetEmail\"\n            type=\"email\"\n            autocomplete=\"email\"\n            required\n          >\n        </label>\n\n        <button\n          id=\"passwordResetRequestButton\"\n          type=\"submit\"\n        >\n          Enviar enlace\n        </button>\n\n        <button\n          id=\"backToSignInButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          Volver a iniciar sesión\n        </button>\n      </form>\n    </section>\n\n    <div id=\"workspace\" hidden>\n      <section class=\"summary-grid\">\n        <article class=\"summary-card\">\n          <span>Solicitudes abiertas</span>\n          <strong id=\"openApplicationCount\">0</strong>\n        </article>\n\n        <article class=\"summary-card\">\n          <span>Prestatarios</span>\n          <strong id=\"borrowerCount\">0</strong>\n        </article>\n\n        <article class=\"summary-card\">\n          <span>Préstamos activos</span>\n          <strong id=\"activeLoanCount\">0</strong>\n        </article>\n\n        <article class=\"summary-card\">\n          <span>Saldo pendiente</span>\n          <strong id=\"outstandingBalance\">RD$0.00</strong>\n        </article>\n\n        <article class=\"summary-card\">\n          <span>Cuotas vencidas</span>\n          <strong id=\"overdueCount\">0</strong>\n        </article>\n      </section>\n\n      <div class=\"workspace-grid\">\n        <section class=\"panel\">\n          <h2>Nuevo prestatario</h2>\n\n          <form id=\"borrowerForm\" class=\"form-grid\">\n            <label>\n              Nombre completo\n              <input id=\"borrowerName\" maxlength=\"200\" required>\n            </label>\n\n            <label>\n              Tipo de documento\n              <select id=\"borrowerDocumentType\">\n                <option value=\"cedula\">Cédula</option>\n                <option value=\"passport\">Pasaporte</option>\n                <option value=\"other\">Otro</option>\n              </select>\n            </label>\n\n            <label>\n              Número de documento\n              <input id=\"borrowerDocumentNumber\" maxlength=\"50\">\n            </label>\n\n            <label>\n              Teléfono\n              <input id=\"borrowerPhone\" maxlength=\"40\">\n            </label>\n\n            <label>\n              Municipio\n              <input id=\"borrowerMunicipality\" maxlength=\"120\">\n            </label>\n\n            <label>\n              Provincia\n              <input id=\"borrowerProvince\" maxlength=\"120\">\n            </label>\n\n            <button type=\"submit\">Guardar prestatario</button>\n          </form>\n        </section>\n\n        <section class=\"panel\">\n          <h2>Nuevo préstamo</h2>\n\n          <form id=\"loanForm\" class=\"form-grid\">\n            <label>\n              Prestatario\n              <select id=\"loanBorrower\" required></select>\n            </label>\n\n            <label>\n              Tipo de préstamo\n              <select id=\"loanType\">\n                <option value=\"personal\">Personal</option>\n                <option value=\"vehicle\">Vehículo</option>\n              </select>\n            </label>\n\n            <fieldset\n              id=\"vehicleLoanFields\"\n              class=\"vehicle-fields\"\n              hidden\n            >\n              <legend>Información del vehículo</legend>\n\n              <label>\n                Precio de contado (DOP)\n                <input\n                  id=\"vehicleCashPrice\"\n                  type=\"number\"\n                  min=\"0.01\"\n                  step=\"0.01\"\n                >\n              </label>\n\n              <label>\n                Inicial (DOP)\n                <input\n                  id=\"vehicleDownPayment\"\n                  type=\"number\"\n                  min=\"0\"\n                  step=\"0.01\"\n                  value=\"0.00\"\n                >\n              </label>\n\n              <label>\n                Marca\n                <input id=\"vehicleMake\" maxlength=\"100\">\n              </label>\n\n              <label>\n                Modelo\n                <input id=\"vehicleModel\" maxlength=\"100\">\n              </label>\n\n              <label>\n                Año\n                <input\n                  id=\"vehicleYear\"\n                  type=\"number\"\n                  min=\"1886\"\n                  max=\"2100\"\n                >\n              </label>\n\n              <label>\n                Color\n                <input id=\"vehicleColor\" maxlength=\"50\">\n              </label>\n\n              <label>\n                VIN o chasis\n                <input id=\"vehicleVin\" maxlength=\"50\">\n              </label>\n\n              <label>\n                Placa\n                <input\n                  id=\"vehicleLicensePlate\"\n                  maxlength=\"30\"\n                >\n              </label>\n\n              <label>\n                Vendedor o concesionario\n                <input id=\"vehicleSeller\" maxlength=\"200\">\n              </label>\n\n              <label>\n                Notas del vehículo\n                <input id=\"vehicleNotes\">\n              </label>\n            </fieldset>\n\n            <label>\n              Monto financiado (DOP)\n              <input\n                id=\"loanPrincipal\"\n                type=\"number\"\n                min=\"0.01\"\n                step=\"0.01\"\n                required\n              >\n            </label>\n\n            <label>\n              Interés total fijo (%)\n              <input\n                id=\"loanRate\"\n                type=\"number\"\n                min=\"0\"\n                max=\"1000\"\n                step=\"0.0001\"\n                required\n              >\n            </label>\n\n            <label>\n              Cantidad de cuotas\n              <input\n                id=\"loanInstallments\"\n                type=\"number\"\n                min=\"1\"\n                max=\"3660\"\n                required\n              >\n            </label>\n\n            <label>\n              Frecuencia\n              <select id=\"loanFrequency\">\n                <option value=\"daily\">Diaria</option>\n                <option value=\"weekly\">Semanal</option>\n                <option value=\"biweekly\">Quincenal</option>\n                <option value=\"monthly\">Mensual</option>\n              </select>\n            </label>\n\n            <label>\n              Fecha del préstamo\n              <input id=\"loanStartDate\" type=\"date\" required>\n            </label>\n\n            <label>\n              Primera cuota\n              <input\n                id=\"loanFirstPaymentDate\"\n                type=\"date\"\n                required\n              >\n            </label>\n\n            <label>\n              <input\n                id=\"loanLateFeeEnabled\"\n                type=\"checkbox\"\n              >\n              Cobrar mora en este préstamo\n            </label>\n\n            <button type=\"submit\">Crear préstamo</button>\n          </form>\n\n          <p class=\"notice\">\n            El porcentaje indicado es interés fijo total del\n            préstamo; no representa una tasa APR.\n          </p>\n        </section>\n      </div>\n\n      <section class=\"panel\">\n        <div class=\"section-heading\">\n          <h2>Solicitudes de préstamo</h2>\n          <span id=\"applicationResultCount\" class=\"badge\">0</span>\n        </div>\n\n        <p>\n          Revise, apruebe o rechace las solicitudes recibidas.\n          Una solicitud aprobada puede convertirse en prestatario,\n          préstamo personal o vehicular y calendario de cuotas.\n        </p>\n\n        <div id=\"applicationList\" class=\"card-list\"></div>\n      </section>\n\n        <section class=\"panel\">\n          <div class=\"section-heading\">\n            <h2>Prospectos</h2>\n            <span id=\"prospectResultCount\" class=\"badge\">0</span>\n          </div>\n\n          <p>\n            Comparta su página pública para recibir solicitudes\n            preliminares de posibles prestatarios.\n          </p>\n\n          <div class=\"item-actions\">\n            <a\n              id=\"publicProspectPageLink\"\n              class=\"button-link\"\n              href=\"#\"\n              target=\"_blank\"\n              rel=\"noopener\"\n            >\n              Abrir página pública\n            </a>\n          </div>\n\n          <div id=\"prospectList\" class=\"card-list\"></div>\n          <section id=\"prospectApplicationPanel\" class=\"panel\" hidden aria-labelledby=\"prospectApplicationTitle\">\n            <div class=\"section-heading\">\n              <h3 id=\"prospectApplicationTitle\">Preparar solicitud</h3>\n              <button id=\"prospectApplicationCancel\" type=\"button\" class=\"secondary\">Cerrar</button>\n            </div>\n            <p id=\"prospectApplicationContact\"></p>\n            <p>Seleccione el tipo de préstamo y confirme los términos con el prospecto. Guardar una solicitud no crea un prestatario ni un préstamo; requiere revisión y aprobación.</p>\n            <div id=\"prospectApplicationError\" class=\"notice\" role=\"alert\" hidden></div>\n            <form id=\"prospectApplicationForm\" class=\"form-grid\">\n              <label>Tipo de préstamo\n                <select name=\"loan_type\" required>\n                  <option value=\"\">Seleccione una ruta</option>\n                  <option value=\"vehicle\">Vehículo</option>\n                  <option value=\"personal\">Personal</option>\n                </select>\n              </label>\n              <fieldset id=\"prospectApplicationVehicle\" hidden>\n                <legend>Vehículo financiado</legend>\n                <div class=\"form-grid\">\n                  <label>Marca<input name=\"vehicle_make\" maxlength=\"100\"></label>\n                  <label>Modelo<input name=\"vehicle_model\" maxlength=\"100\"></label>\n                  <label>Año<input name=\"vehicle_year\" type=\"number\" min=\"1886\" max=\"2100\" step=\"1\"></label>\n                  <label>Precio del vehículo (DOP)<input name=\"vehicle_cash_price\" type=\"number\" min=\"0.01\" max=\"999999999999.99\" step=\"0.01\" inputmode=\"decimal\"></label>\n                  <label>Inicial (DOP)<input name=\"vehicle_down_payment\" type=\"number\" min=\"0\" max=\"999999999999.99\" step=\"0.01\" inputmode=\"decimal\"></label>\n                  <label>Color (opcional)<input name=\"vehicle_color\" maxlength=\"50\"></label>\n                  <label>VIN/chasis (opcional)<input name=\"vehicle_vin\" maxlength=\"50\"></label>\n                  <label>Placa (opcional)<input name=\"vehicle_license_plate\" maxlength=\"30\"></label>\n                  <label>Vendedor (opcional)<input name=\"vehicle_seller\" maxlength=\"200\"></label>\n                </div>\n              </fieldset>\n              <label>Monto financiado (DOP)<input name=\"principal_amount\" type=\"number\" min=\"0.01\" max=\"999999999999.99\" step=\"0.01\" inputmode=\"decimal\" required></label>\n              <label>Interés total fijo (%)<input name=\"flat_interest_rate_percent\" type=\"number\" min=\"0\" max=\"1000\" step=\"0.0001\" inputmode=\"decimal\" required></label>\n              <label>Número de cuotas<input name=\"installment_count\" type=\"number\" min=\"1\" max=\"3660\" step=\"1\" required></label>\n              <label>Frecuencia\n                <select name=\"payment_frequency\" required>\n                  <option value=\"monthly\">Mensual</option>\n                  <option value=\"biweekly\">Quincenal</option>\n                  <option value=\"weekly\">Semanal</option>\n                </select>\n              </label>\n              <label>Fecha del préstamo<input name=\"start_date\" type=\"date\" required></label>\n              <label>Primera cuota<input name=\"first_payment_date\" type=\"date\" required></label>\n              <label>Notas (opcional)<textarea name=\"notes\" maxlength=\"2000\" rows=\"3\"></textarea></label>\n              <p class=\"notice\">Interés fijo total del préstamo; no representa una tasa APR. Revise el calendario antes de guardar.</p>\n              <div id=\"prospectApplicationQuote\" hidden aria-live=\"polite\"></div>\n              <div class=\"item-actions\">\n                <button id=\"prospectApplicationCalculate\" type=\"button\">Calcular y revisar cuotas</button>\n                <button id=\"prospectApplicationSave\" type=\"submit\" disabled>Guardar solicitud para revisión</button>\n              </div>\n            </form>\n          </section>\n\n        </section>\n\n      <section class=\"panel\">\n        <div class=\"section-heading\">\n          <h2>Prestatarios</h2>\n          <span id=\"borrowerResultCount\" class=\"badge\">0</span>\n        </div>\n        <div id=\"borrowerList\" class=\"card-list\"></div>\n      </section>\n\n      <section class=\"panel\">\n        <div class=\"section-heading\">\n          <h2>Préstamos</h2>\n          <span id=\"loanResultCount\" class=\"badge\">0</span>\n        </div>\n        <div id=\"loanList\" class=\"card-list\"></div>\n      </section>\n\n      <section class=\"panel\">\n        <h2>Política de mora</h2>\n        <p>\n          Configure los valores predeterminados de mora del\n          cliente. La mora solo se aplica a los préstamos donde\n          se marque expresamente la opción correspondiente. Los\n          pagos se aplican primero a mora, luego a interés y\n          finalmente a principal.\n        </p>\n\n        <form id=\"lateFeePolicyForm\" class=\"form-grid\">\n          <label>\n            <input\n              id=\"lateFeeEnabled\"\n              type=\"checkbox\"\n            >\n            Cobrar mora en cuotas vencidas\n          </label>\n\n          <label>\n            Tasa diaria (%)\n            <input\n              id=\"lateFeeDailyRate\"\n              type=\"number\"\n              min=\"0\"\n              max=\"100\"\n              step=\"0.0001\"\n              value=\"0.1000\"\n              required\n            >\n          </label>\n\n          <label>\n            Días completos de gracia\n            <input\n              id=\"lateFeeGraceDays\"\n              type=\"number\"\n              min=\"0\"\n              max=\"365\"\n              step=\"1\"\n              value=\"5\"\n              required\n            >\n          </label>\n\n          <label>\n            Tope sobre la cuota original (%)\n            <input\n              id=\"lateFeeCapPercent\"\n              type=\"number\"\n              min=\"0\"\n              max=\"1000\"\n              step=\"0.0001\"\n              value=\"25.0000\"\n              required\n            >\n          </label>\n\n          <label>\n            Fecha efectiva\n            <input\n              id=\"lateFeeEffectiveDate\"\n              type=\"date\"\n              required\n            >\n          </label>\n\n          <button type=\"submit\">\n            Guardar política de mora\n          </button>\n        </form>\n\n        <p id=\"lateFeePolicyStatus\" class=\"notice\">\n          Política aún no consultada.\n        </p>\n      </section>\n\n      <section id=\"loanDetailPanel\" class=\"panel\" hidden>\n        <div class=\"section-heading\">\n          <h2 id=\"loanDetailTitle\">Detalle del préstamo</h2>\n          <button\n            id=\"closeLoanDetail\"\n            class=\"secondary\"\n            type=\"button\"\n          >\n            Cerrar\n          </button>\n        </div>\n\n        <div id=\"loanDetailSummary\"></div>\n        <section id=\"paymentCorrectionPanel\" hidden aria-labelledby=\"paymentCorrectionTitle\">\n          <h3 id=\"paymentCorrectionTitle\">Pagos y correcciones</h3>\n          <p>Solo el propietario o administrador puede anular el último pago registrado antes de su cierre de caja. El recibo se conserva con el motivo de anulación. Los pagos anteriores a esta función requieren conciliación.</p>\n          <div id=\"paymentCorrectionMessage\" class=\"message\" role=\"status\" hidden></div>\n          <div id=\"paymentCorrectionList\"></div>\n        </section>\n\n\n        <form id=\"loanLateFeeForm\" class=\"form-grid\">\n          <label>\n            <input\n              id=\"loanLateFeeSelected\"\n              type=\"checkbox\"\n            >\n            Cobrar mora en este préstamo\n          </label>\n\n          <button type=\"submit\">\n            Guardar selección de mora\n          </button>\n        </form>\n\n        <p class=\"notice\">\n          Cuando está activada, usa la tasa, los días de gracia,\n          el tope y la fecha efectiva de la política del cliente.\n        </p>\n\n        <h3>Calendario de cuotas</h3>\n        <div id=\"installmentList\" class=\"table-wrap\"></div>\n      </section>\n\n      <section id=\"paymentPanel\" class=\"panel\" hidden>\n        <h2>Registrar pago</h2>\n\n        <form id=\"paymentForm\" class=\"form-grid\">\n          <label>\n            Cuota\n            <select id=\"paymentInstallment\" required></select>\n          </label>\n\n          <label>\n            Monto (DOP)\n            <input\n              id=\"paymentAmount\"\n              type=\"number\"\n              min=\"0.01\"\n              step=\"0.01\"\n              required\n            >\n          </label>\n\n          <label>\n            Fecha del pago\n            <input\n              id=\"paymentDate\"\n              type=\"date\"\n              required\n            >\n          </label>\n\n          <label>\n            Método\n            <select id=\"paymentMethod\">\n              <option value=\"cash\">Efectivo</option>\n              <option value=\"bank_transfer\">\n                Transferencia bancaria\n              </option>\n              <option value=\"card\">Tarjeta</option>\n              <option value=\"other\">Otro</option>\n            </select>\n          </label>\n\n          <label>\n            Referencia\n            <input id=\"paymentReference\" maxlength=\"200\">\n          </label>\n\n          <button type=\"submit\">Registrar pago</button>\n        </form>\n\n        <article id=\"receiptPanel\" class=\"receipt\" hidden>\n          <h3>Recibo de pago</h3>\n          <div id=\"receiptContent\"></div>\n          <button\n            id=\"printReceiptButton\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Imprimir\n          </button>\n        </article>\n      </section>\n    </div>\n\n\n  </main>\n\n  <footer>\n    PréstamoDesk · FieldLookers\n  </footer>\n\n  \n  \n  \n  \n", start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {
+const API_BASE = "/api/v1";
+const PRODUCT_BASE = "/products/prestamodesk";
+
+let tenantId =
+  localStorage.getItem("prestamodesk_tenant_id");
+
+let selectedLoanId = null;
+let borrowers = [];
+let loans = [];
+let loanDetails = [];
+let prospects = [];
+let applications = [];
+let prospectPage = null;
+let lateFeePolicy = null;
+
+const authPanel = document.getElementById("authPanel");
+const workspace = document.getElementById("workspace");
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const forgotPasswordButton =
+  document.getElementById("forgotPasswordButton");
+const passwordResetRequestForm =
+  document.getElementById("passwordResetRequestForm");
+const passwordResetEmail =
+  document.getElementById("passwordResetEmail");
+const passwordResetRequestButton =
+  document.getElementById("passwordResetRequestButton");
+const backToSignInButton =
+  document.getElementById("backToSignInButton");
+const logoutButton = document.getElementById("logoutButton");
+const clientContext = document.getElementById("clientContext");
+const healthStatus = document.getElementById("healthStatus");
+const errorMessage = document.getElementById("errorMessage");
+const successMessage = document.getElementById("successMessage");
+const borrowerForm = document.getElementById("borrowerForm");
+const loanForm = document.getElementById("loanForm");
+const loanLateFeeEnabled =
+  document.getElementById("loanLateFeeEnabled");
+const loanType = document.getElementById("loanType");
+const loanPrincipal =
+  document.getElementById("loanPrincipal");
+const vehicleLoanFields =
+  document.getElementById("vehicleLoanFields");
+const vehicleCashPrice =
+  document.getElementById("vehicleCashPrice");
+const vehicleDownPayment =
+  document.getElementById("vehicleDownPayment");
+const paymentForm = document.getElementById("paymentForm");
+const borrowerList = document.getElementById("borrowerList");
+const loanList = document.getElementById("loanList");
+const applicationList =
+  document.getElementById("applicationList");
+const prospectList =
+  document.getElementById("prospectList");
+const publicProspectPageLink =
+  document.getElementById("publicProspectPageLink");
+const loanBorrower = document.getElementById("loanBorrower");
+const loanDetailPanel =
+  document.getElementById("loanDetailPanel");
+const loanDetailTitle =
+  document.getElementById("loanDetailTitle");
+const loanDetailSummary =
+  document.getElementById("loanDetailSummary");
+const loanLateFeeForm =
+  document.getElementById("loanLateFeeForm");
+const loanLateFeeSelected =
+  document.getElementById("loanLateFeeSelected");
+const installmentList =
+  document.getElementById("installmentList");
+const paymentPanel =
+  document.getElementById("paymentPanel");
+const paymentInstallment =
+  document.getElementById("paymentInstallment");
+const receiptPanel =
+  document.getElementById("receiptPanel");
+const receiptContent =
+  document.getElementById("receiptContent");
+const lateFeePolicyForm =
+  document.getElementById("lateFeePolicyForm");
+const lateFeeEnabled =
+  document.getElementById("lateFeeEnabled");
+const lateFeeDailyRate =
+  document.getElementById("lateFeeDailyRate");
+const lateFeeGraceDays =
+  document.getElementById("lateFeeGraceDays");
+const lateFeeCapPercent =
+  document.getElementById("lateFeeCapPercent");
+const lateFeeEffectiveDate =
+  document.getElementById("lateFeeEffectiveDate");
+const lateFeePolicyStatus =
+  document.getElementById("lateFeePolicyStatus");
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      style: "currency",
+      currency: "DOP"
+    }
+  ).format(Number(value || 0));
+}
+
+
+function formatStatus(value) {
+  const labels = {
+    active: "Activo",
+    inactive: "Inactivo",
+    paid: "Pagado",
+    cancelled: "Cancelado",
+    pending: "Pendiente",
+    partial: "Parcial",
+    overdue: "Vencida",
+    new: "Nueva",
+    reviewing: "En revisión",
+    approved: "Aprobada",
+    contacted: "Contactado",
+    qualified: "Calificado",
+    rejected: "Rechazado",
+    converted: "Convertido"
+  };
+
+  return labels[value] || value;
+}
+
+
+function setAuthenticatedUI(authenticated) {
+  authPanel.hidden = authenticated;
+  workspace.hidden = !authenticated;
+  logoutButton.hidden = !authenticated;
+  clientContext.hidden = !authenticated;
+}
+
+
+function optionalInputValue(elementId) {
+  return (
+    document.getElementById(elementId).value.trim()
+    || null
+  );
+}
+
+
+function updateVehicleFinancedAmount() {
+  if (loanType.value !== "vehicle") {
+    return;
+  }
+
+  const cashPrice = Number(vehicleCashPrice.value);
+  const downPayment = Number(
+    vehicleDownPayment.value || 0
+  );
+
+  if (
+    !Number.isFinite(cashPrice)
+    || cashPrice <= 0
+    || !Number.isFinite(downPayment)
+    || downPayment < 0
+    || downPayment > cashPrice
+  ) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  loanPrincipal.value = (
+    cashPrice - downPayment
+  ).toFixed(2);
+}
+
+
+function updateVehicleLoanFields() {
+  const isVehicle = loanType.value === "vehicle";
+
+  vehicleLoanFields.hidden = !isVehicle;
+  loanPrincipal.readOnly = isVehicle;
+
+  for (const element of vehicleLoanFields.querySelectorAll(
+    "input"
+  )) {
+    element.required = false;
+  }
+
+  if (!isVehicle) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  for (const elementId of (
+    "vehicleCashPrice",
+    "vehicleDownPayment",
+    "vehicleMake",
+    "vehicleModel",
+    "vehicleYear"
+  )) {
+    document.getElementById(elementId).required = true;
+  }
+
+  updateVehicleFinancedAmount();
+}
+
+
+function buildLoanPayload() {
+  const payload = {
+    borrower_id: Number(loanBorrower.value),
+    loan_type: loanType.value,
+    principal_amount: loanPrincipal.value,
+    flat_interest_rate_percent:
+      document.getElementById("loanRate").value,
+    installment_count: Number(
+      document.getElementById(
+        "loanInstallments"
+      ).value
+    ),
+    payment_frequency:
+      document.getElementById("loanFrequency").value,
+    start_date:
+      document.getElementById("loanStartDate").value,
+    first_payment_date:
+      document.getElementById(
+        "loanFirstPaymentDate"
+      ).value,
+    late_fee_enabled: loanLateFeeEnabled.checked
+  };
+
+  if (loanType.value === "vehicle") {
+    Object.assign(
+      payload,
+      {
+        vehicle_cash_price: vehicleCashPrice.value,
+        vehicle_down_payment:
+          vehicleDownPayment.value,
+        vehicle_make:
+          optionalInputValue("vehicleMake"),
+        vehicle_model:
+          optionalInputValue("vehicleModel"),
+        vehicle_year: Number(
+          document.getElementById(
+            "vehicleYear"
+          ).value
+        ),
+        vehicle_color:
+          optionalInputValue("vehicleColor"),
+        vehicle_vin:
+          optionalInputValue("vehicleVin"),
+        vehicle_license_plate:
+          optionalInputValue("vehicleLicensePlate"),
+        vehicle_seller:
+          optionalInputValue("vehicleSeller"),
+        vehicle_notes:
+          optionalInputValue("vehicleNotes")
+      }
+    );
+  }
+
+  return payload;
+}
+
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+  successMessage.hidden = true;
+}
+
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  successMessage.hidden = false;
+  errorMessage.hidden = true;
+
+  window.setTimeout(() => {
+    successMessage.hidden = true;
+  }, 3500);
+}
+
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? {"X-Tenant-ID": tenantId}
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    }
+  );
+
+  if (!response.ok) {
+    let detail = `Solicitud fallida (${response.status})`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // Preserve the safe default.
+    }
+
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+}
+
+
+async function checkHealth() {
+  try {
+    const health = await apiRequest("/health");
+    healthStatus.textContent = `API: ${health.status}`;
+  } catch {
+    healthStatus.textContent = "API no disponible";
+  }
+}
+
+
+async function discoverAccess() {
+  const access = await apiRequest(
+    "/auth/products/prestamodesk/access"
+  );
+
+  if (access.clients.length === 0) {
+    throw new Error(
+      "Su cuenta no tiene acceso activo a PréstamoDesk."
+    );
+  }
+
+  if (access.clients.length > 1) {
+    throw new Error(
+      "Su cuenta tiene varios clientes. "
+      + "La selección de cliente aún no está disponible."
+    );
+  }
+
+  const client = access.clients[0];
+
+  if (client.role === "collector") {
+    window.location.replace(
+      "/prestamodesk/cobros"
+    );
+    return;
+  }
+  if (client.role === "supervisor") {
+    window.location.replace("/prestamodesk/cobros/supervision");
+    return;
+  }
+  if (client.role === "cashier") {
+    window.location.replace("/prestamodesk/caja");
+    return;
+  }
+  tenantId = String(client.tenant_id);
+  window.prestamodeskAccess = client;
+  window.dispatchEvent(new CustomEvent("prestamodesk-access", {detail: client}));
+
+  localStorage.setItem(
+    "prestamodesk_tenant_id",
+    tenantId
+  );
+
+  clientContext.textContent =
+    `Cliente #${client.client_number} · `
+    + `${client.name} · ${client.role}`;
+}
+
+
+function renderBorrowerOptions() {
+  if (borrowers.length === 0) {
+    loanBorrower.innerHTML =
+      '<option value="">Cree un prestatario primero</option>';
+    loanBorrower.disabled = true;
+    return;
+  }
+
+  loanBorrower.disabled = false;
+  loanBorrower.innerHTML =
+    '<option value="">Seleccione…</option>'
+    + borrowers
+      .filter(item => item.status === "active")
+      .map(item => `
+        <option value="${item.id}">
+          ${escapeHtml(item.full_name)}
+        </option>
+      `)
+      .join("");
+}
+
+
+function renderApplications() {
+  document.getElementById(
+    "applicationResultCount"
+  ).textContent = String(applications.length);
+
+  if (applications.length === 0) {
+    applicationList.innerHTML = `
+      <p class="notice">
+        No hay solicitudes de préstamo.
+      </p>
+    `;
+    return;
+  }
+
+  applicationList.innerHTML = applications
+    .map(application => {
+      let actions = "";
+
+      if (application.status === "new") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="reviewing"
+            data-application-id="${application.id}"
+          >
+            Iniciar revisión
+          </button>
+        `;
+      } else if (application.status === "reviewing") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="approved"
+            data-application-id="${application.id}"
+          >
+            Aprobar
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            data-application-status="rejected"
+            data-application-id="${application.id}"
+          >
+            Rechazar
+          </button>
+        `;
+      } else if (application.status === "approved") {
+        actions = `
+          <button
+            type="button"
+            data-convert-application="${application.id}"
+          >
+            Convertir en préstamo
+          </button>
+        `;
+      } else if (
+        application.status === "converted"
+        && application.converted_loan_id
+      ) {
+        actions = `
+          <button
+            type="button"
+            data-application-loan="${
+              application.converted_loan_id
+            }"
+          >
+            Ver préstamo
+          </button>
+        `;
+      }
+
+      const contact = [
+        application.phone,
+        application.email
+      ].filter(Boolean).join(" · ");
+
+      const vehicle = [
+        application.vehicle_make,
+        application.vehicle_model,
+        application.vehicle_year
+      ].filter(Boolean).join(" ");
+
+      return `
+        <article class="item-card">
+          <div class="section-heading">
+            <h3>
+              Solicitud #${application.id}
+              · ${escapeHtml(application.full_name)}
+            </h3>
+            <span class="badge">
+              ${escapeHtml(
+                formatStatus(application.status)
+              )}
+            </span>
+          </div>
+
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(
+                application.document_type
+              )}:
+              ${escapeHtml(
+                application.document_number || "No indicado"
+              )}
+            </span>
+            ${
+              contact
+                ? `<span>${escapeHtml(contact)}</span>`
+                : ""
+            }
+            <span>Tipo: ${application.loan_type === "vehicle" ? "Vehículo" : "Personal"}</span>
+            ${application.source_prospect_id ? `<span>Prospecto #${application.source_prospect_id}</span>` : ""}
+            ${application.loan_type === "vehicle" ? `
+            <span>Vehículo: ${escapeHtml(vehicle)}</span>
+            <span>Precio: ${formatMoney(application.vehicle_cash_price)}</span>
+            <span>Inicial: ${formatMoney(application.vehicle_down_payment)}</span>
+            ` : ""}
+            <span>
+              Financiado: ${formatMoney(
+                application.principal_amount
+              )}
+            </span>
+            <span>
+              Interés: ${formatMoney(
+                application.total_interest
+              )}
+            </span>
+            <span>
+              Total: ${formatMoney(
+                application.total_due
+              )}
+            </span>
+            <span>
+              Cuotas: ${application.installment_count}
+            </span>
+          </div>
+
+          <div class="item-actions">
+            ${actions}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function renderBorrowers() {
+  document.getElementById(
+    "borrowerCount"
+  ).textContent = String(borrowers.length);
+
+  document.getElementById(
+    "borrowerResultCount"
+  ).textContent = String(borrowers.length);
+
+  if (borrowers.length === 0) {
+    borrowerList.innerHTML =
+      '<p>No hay prestatarios registrados.</p>';
+    renderBorrowerOptions();
+    return;
+  }
+
+  borrowerList.innerHTML = borrowers
+    .map(item => `
+      <article class="item-card">
+        <h3>${escapeHtml(item.full_name)}</h3>
+        <div class="item-meta">
+          <span>${escapeHtml(
+            formatStatus(item.status)
+          )}</span>
+          ${
+            item.document_number
+              ? `<span>Documento: ${
+                  escapeHtml(item.document_number)
+                }</span>`
+              : ""
+          }
+          ${
+            item.phone
+              ? `<span>Teléfono: ${
+                  escapeHtml(item.phone)
+                }</span>`
+              : ""
+          }
+          ${
+            item.province
+              ? `<span>Provincia: ${
+                  escapeHtml(item.province)
+                }</span>`
+              : ""
+          }
+        </div>
+      </article>
+    `)
+    .join("");
+
+  renderBorrowerOptions();
+}
+
+
+function renderProspects() {
+  document.getElementById(
+    "prospectResultCount"
+  ).textContent = String(prospects.length);
+
+  if (prospectPage) {
+    publicProspectPageLink.href =
+      `/prestamodesk/solicitar/${
+        encodeURIComponent(prospectPage.tenant_slug)
+      }`;
+    publicProspectPageLink.hidden = false;
+  } else {
+    publicProspectPageLink.hidden = true;
+  }
+
+  if (prospects.length === 0) {
+    prospectList.innerHTML =
+      "<p>No hay prospectos registrados.</p>";
+    return;
+  }
+
+  prospectList.innerHTML = prospects
+    .map(item => {
+      const actions = [];
+      const linked = applications.find(application => application.source_prospect_id === item.id);
+
+      if (
+        !linked && (item.status === "new"
+        || item.status === "contacted")
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="qualified"
+          >
+            Calificar
+          </button>
+        `);
+      }
+
+      if (!linked && item.status === "new") {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="contacted"
+          >
+            Marcar contactado
+          </button>
+        `);
+      }
+
+      if (
+        !linked && item.status !== "rejected"
+        && item.status !== "converted"
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="rejected"
+          >
+            Rechazar
+          </button>
+        `);
+      }
+
+      if (!linked && item.status === "qualified") {
+        actions.push(`
+          <button
+            type="button"
+            data-start-prospect-application="${item.id}"
+          >
+            Seleccionar tipo y preparar solicitud
+          </button>
+        `);
+      }
+
+      if (linked) {
+        actions.push(`<span class="notice">Solicitud #${linked.id} · ${linked.loan_type === "vehicle" ? "Vehículo" : "Personal"} · ${escapeHtml(formatStatus(linked.status))}. Continúe en Solicitudes de préstamo.</span>`);
+      }
+      return `
+        <article class="item-card">
+          <h3>${escapeHtml(item.full_name)}</h3>
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(formatStatus(item.status))}
+            </span>
+            <span>
+              Monto solicitado:
+              ${formatMoney(item.requested_amount)}
+            </span>
+            <span>
+              Teléfono: ${escapeHtml(item.phone)}
+            </span>
+            ${
+              item.email
+                ? `<span>Correo: ${
+                    escapeHtml(item.email)
+                  }</span>`
+                : ""
+            }
+            ${
+              item.province
+                ? `<span>Provincia: ${
+                    escapeHtml(item.province)
+                  }</span>`
+                : ""
+            }
+            <span>
+              Contacto preferido:
+              ${escapeHtml(item.preferred_contact)}
+            </span>
+          </div>
+          ${
+            item.message
+              ? `<p>${escapeHtml(item.message)}</p>`
+              : ""
+          }
+          <div class="item-actions">
+            ${actions.join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function renderLoans() {
+  document.getElementById(
+    "loanResultCount"
+  ).textContent = String(loans.length);
+
+  const activeLoans = loans.filter(
+    loan => loan.status === "active"
+  );
+
+  document.getElementById(
+    "activeLoanCount"
+  ).textContent = String(activeLoans.length);
+
+  if (loans.length === 0) {
+    loanList.innerHTML =
+      '<p>No hay préstamos registrados.</p>';
+    return;
+  }
+
+  loanList.innerHTML = loans
+    .map(loan => {
+      const borrower = borrowers.find(
+        item => item.id === loan.borrower_id
+      );
+
+      const vehicleDescription = (
+        loan.loan_type === "vehicle"
+          ? `
+            <span>
+              Vehículo:
+              ${escapeHtml(loan.vehicle_make)}
+              ${escapeHtml(loan.vehicle_model)}
+              ${escapeHtml(loan.vehicle_year)}
+            </span>
+          `
+          : ""
+      );
+
+      return `
+        <article class="item-card">
+          <h3>
+            Préstamo #${loan.id}
+            · ${escapeHtml(
+              borrower?.full_name || "Prestatario"
+            )}
+          </h3>
+          <div class="item-meta">
+            <span>
+              Tipo: ${
+                loan.loan_type === "vehicle"
+                  ? "Vehículo"
+                  : "Personal"
+              }
+            </span>
+            ${vehicleDescription}
+            <span>
+              Financiado: ${formatMoney(
+                loan.principal_amount
+              )}
+            </span>
+            <span>
+              Total: ${formatMoney(loan.total_due)}
+            </span>
+            <span>
+              ${loan.installment_count} cuotas
+            </span>
+            <span>
+              ${escapeHtml(
+                formatStatus(loan.status)
+              )}
+            </span>
+            <span>
+              Mora: ${
+                loan.late_fee_enabled
+                  ? "Activada"
+                  : "No activada"
+              }
+            </span>
+          </div>
+          <div class="item-actions">
+            <button
+              type="button"
+              data-view-loan="${loan.id}"
+            >
+              Ver préstamo
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function updatePortfolioSummary() {
+  const today = new Date().toISOString().slice(0, 10);
+
+  document.getElementById(
+    "openApplicationCount"
+  ).textContent = String(
+    applications.filter(
+      item => !["rejected", "converted"].includes(
+        item.status
+      )
+    ).length
+  );
+
+  let outstanding = 0;
+  let overdue = 0;
+
+  for (const detail of loanDetails) {
+    for (const item of detail.installments) {
+      const balance =
+        Number(item.total_due)
+        - Number(item.paid_amount);
+
+      outstanding += balance;
+
+      if (
+        balance > 0
+        && item.due_date < today
+      ) {
+        overdue += 1;
+      }
+    }
+  }
+
+  document.getElementById(
+    "outstandingBalance"
+  ).textContent = formatMoney(outstanding);
+
+  document.getElementById(
+    "overdueCount"
+  ).textContent = String(overdue);
+}
+
+
+function setDefaultLateFeePolicy() {
+  lateFeePolicy = null;
+  lateFeeEnabled.checked = false;
+  lateFeeDailyRate.value = "0.1000";
+  lateFeeGraceDays.value = "5";
+  lateFeeCapPercent.value = "25.0000";
+
+  if (!lateFeeEffectiveDate.value) {
+    lateFeeEffectiveDate.value =
+      new Date().toISOString().slice(0, 10);
+  }
+
+  lateFeePolicyStatus.textContent =
+    "No configurada. Guarde para crear la política.";
+}
+
+
+function renderLateFeePolicy(policy) {
+  lateFeePolicy = policy;
+  lateFeeEnabled.checked = policy.enabled;
+  lateFeeDailyRate.value = policy.daily_rate_percent;
+  lateFeeGraceDays.value = policy.grace_days;
+  lateFeeCapPercent.value = policy.cap_percent;
+  lateFeeEffectiveDate.value = policy.effective_date;
+
+  lateFeePolicyStatus.textContent = policy.enabled
+    ? (
+      "Mora activa desde "
+      + policy.effective_date
+      + "."
+    )
+    : "Política guardada, pero la mora está desactivada.";
+}
+
+
+async function loadLateFeePolicy() {
+  try {
+    const policy = await apiRequest(
+      `${PRODUCT_BASE}/late-fee-policy`
+    );
+    renderLateFeePolicy(policy);
+  } catch (error) {
+    if (error.status === 404) {
+      setDefaultLateFeePolicy();
+      return;
+    }
+
+    throw error;
+  }
+}
+
+
+async function loadDashboard() {
+  [
+    borrowers,
+    loans,
+    prospects,
+    applications,
+    prospectPage
+  ] = await Promise.all([
+    apiRequest(`${PRODUCT_BASE}/borrowers`),
+    apiRequest(`${PRODUCT_BASE}/loans`),
+    apiRequest(`${PRODUCT_BASE}/prospects`),
+    apiRequest(`${PRODUCT_BASE}/applications`),
+    apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
+  ]);
+
+  loanDetails = await Promise.all(
+    loans.map(
+      loan => apiRequest(
+        `${PRODUCT_BASE}/loans/${loan.id}`
+      )
+    )
+  );
+
+  await loadLateFeePolicy();
+
+  renderApplications();
+  renderProspects();
+  renderBorrowers();
+  renderLoans();
+  updatePortfolioSummary();
+}
+
+
+function renderLoanDetail(detail) {
+  const borrower = borrowers.find(
+    item => item.id === detail.borrower_id
+  );
+
+  loanDetailTitle.textContent =
+    `Préstamo #${detail.id} · `
+    + (borrower?.full_name || "Prestatario");
+
+  const outstanding = detail.installments.reduce(
+    (total, item) => (
+      total
+      + Number(item.total_due)
+      - Number(item.paid_amount)
+    ),
+    0
+  );
+
+  const vehicleSummary = (
+    detail.loan_type === "vehicle"
+      ? `
+        <h3>Vehículo financiado</h3>
+        <div class="item-meta">
+          <span>
+            ${escapeHtml(detail.vehicle_make)}
+            ${escapeHtml(detail.vehicle_model)}
+            ${escapeHtml(detail.vehicle_year)}
+          </span>
+          <span>
+            Precio: ${formatMoney(
+              detail.vehicle_cash_price
+            )}
+          </span>
+          <span>
+            Inicial: ${formatMoney(
+              detail.vehicle_down_payment
+            )}
+          </span>
+          ${
+            detail.vehicle_color
+              ? `<span>Color: ${
+                  escapeHtml(detail.vehicle_color)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_vin
+              ? `<span>VIN/chasis: ${
+                  escapeHtml(detail.vehicle_vin)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_license_plate
+              ? `<span>Placa: ${
+                  escapeHtml(
+                    detail.vehicle_license_plate
+                  )
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_seller
+              ? `<span>Vendedor: ${
+                  escapeHtml(detail.vehicle_seller)
+                }</span>`
+              : ""
+          }
+        </div>
+        ${
+          detail.vehicle_notes
+            ? `<p>${escapeHtml(
+                detail.vehicle_notes
+              )}</p>`
+            : ""
+        }
+      `
+      : ""
+  );
+
+  loanDetailSummary.innerHTML = `
+    <div class="item-meta">
+      <span>
+        Tipo: ${
+          detail.loan_type === "vehicle"
+            ? "Vehículo"
+            : "Personal"
+        }
+      </span>
+      <span>
+        Financiado: ${formatMoney(
+          detail.principal_amount
+        )}
+      </span>
+      <span>
+        Interés: ${formatMoney(detail.total_interest)}
+      </span>
+      <span>
+        Total: ${formatMoney(detail.total_due)}
+      </span>
+      <span>
+        Saldo: ${formatMoney(outstanding)}
+      </span>
+      <span>
+        Estado: ${escapeHtml(
+          formatStatus(detail.status)
+        )}
+      </span>
+      <span>
+        Mora: ${
+          detail.late_fee_enabled
+            ? "Activada"
+            : "No activada"
+        }
+      </span>
+    </div>
+    ${vehicleSummary}
+  `;
+
+  loanLateFeeSelected.checked = (
+    detail.late_fee_enabled
+  );
+
+  installmentList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cuota</th>
+          <th>Vence</th>
+          <th>Total</th>
+          <th>Pagado</th>
+          <th>Saldo</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${detail.installments.map(item => `
+          <tr>
+            <td>${item.sequence_number}</td>
+            <td>${escapeHtml(item.due_date)}</td>
+            <td>${formatMoney(item.total_due)}</td>
+            <td>${formatMoney(item.paid_amount)}</td>
+            <td>${formatMoney(
+              Number(item.total_due)
+              - Number(item.paid_amount)
+            )}</td>
+            <td>${escapeHtml(
+              formatStatus(item.status)
+            )}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+
+  const payable = detail.installments.filter(
+    item => (
+      Number(item.total_due)
+      > Number(item.paid_amount)
+    )
+  );
+
+  paymentInstallment.innerHTML = payable
+    .map(item => `
+      <option
+        value="${item.id}"
+        data-balance="${
+          Number(item.total_due)
+          - Number(item.paid_amount)
+        }"
+      >
+        Cuota ${item.sequence_number}
+        · vence ${escapeHtml(item.due_date)}
+        · ${formatMoney(
+          Number(item.total_due)
+          - Number(item.paid_amount)
+        )}
+      </option>
+    `)
+    .join("");
+
+  loanDetailPanel.hidden = false;
+  paymentPanel.hidden = (
+    detail.status !== "active"
+    || payable.length === 0
+  );
+  receiptPanel.hidden = true;
+}
+
+
+async function openLoan(loanId) {
+  const detail = await apiRequest(
+    `${PRODUCT_BASE}/loans/${loanId}`
+  );
+
+  selectedLoanId = loanId;
+  renderLoanDetail(detail);
+  await window.prestamodeskPaymentHistory?.load(loanId, window.prestamodeskAccess?.role);
+  loanDetailPanel.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+
+loanLateFeeForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (!selectedLoanId) {
+      showError("Seleccione un préstamo.");
+      return;
+    }
+
+    const loanId = selectedLoanId;
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/loans/${loanId}/late-fee`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            late_fee_enabled:
+              loanLateFeeSelected.checked
+          })
+        }
+      );
+
+      await loadDashboard();
+      await openLoan(loanId);
+      showSuccess(
+        "Selección de mora del préstamo guardada."
+      );
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+lateFeePolicyForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      const policy = await apiRequest(
+        `${PRODUCT_BASE}/late-fee-policy`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            enabled: lateFeeEnabled.checked,
+            daily_rate_percent:
+              lateFeeDailyRate.value,
+            grace_days: Number(
+              lateFeeGraceDays.value
+            ),
+            cap_percent:
+              lateFeeCapPercent.value,
+            effective_date:
+              lateFeeEffectiveDate.value
+          })
+        }
+      );
+
+      renderLateFeePolicy(policy);
+      showSuccess("Política de mora guardada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+borrowerForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/borrowers`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            full_name:
+              document.getElementById(
+                "borrowerName"
+              ).value.trim(),
+            document_type:
+              document.getElementById(
+                "borrowerDocumentType"
+              ).value,
+            document_number:
+              document.getElementById(
+                "borrowerDocumentNumber"
+              ).value.trim() || null,
+            phone:
+              document.getElementById(
+                "borrowerPhone"
+              ).value.trim() || null,
+            municipality:
+              document.getElementById(
+                "borrowerMunicipality"
+              ).value.trim() || null,
+            province:
+              document.getElementById(
+                "borrowerProvince"
+              ).value.trim() || null
+          })
+        }
+      );
+
+      borrowerForm.reset();
+      await loadDashboard();
+      showSuccess("Prestatario guardado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loanForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      const detail = await apiRequest(
+        `${PRODUCT_BASE}/loans`,
+        {
+          method: "POST",
+          body: JSON.stringify(
+            buildLoanPayload()
+          )
+        }
+      );
+
+      loanForm.reset();
+      updateVehicleLoanFields();
+      await loadDashboard();
+      showSuccess("Préstamo creado.");
+      await openLoan(detail.id);
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loanType.addEventListener(
+  "change",
+  updateVehicleLoanFields
+);
+
+vehicleCashPrice.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
+);
+
+vehicleDownPayment.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
+);
+
+
+const paymentDate = document.getElementById(
+  "paymentDate"
+);
+
+function setDefaultPaymentDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
+  paymentDate.value = `${year}-${month}-${day}`;
+}
+
+setDefaultPaymentDate();
+
+
+paymentForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      const receipt = await apiRequest(
+        `${PRODUCT_BASE}/payments`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            installment_id: Number(
+              paymentInstallment.value
+            ),
+            amount:
+              document.getElementById(
+                "paymentAmount"
+              ).value,
+            payment_method:
+              document.getElementById(
+                "paymentMethod"
+              ).value,
+            reference:
+              document.getElementById(
+                "paymentReference"
+              ).value.trim() || null,
+            paid_at: paymentDate.value
+              ? `${paymentDate.value}T12:00:00Z`
+              : null
+          })
+        }
+      );
+
+      receiptContent.innerHTML = `
+        <p>
+          <strong>${escapeHtml(
+            receipt.receipt_number
+          )}</strong>
+        </p>
+        <p>Monto: ${formatMoney(receipt.amount)}</p>
+        <p>
+          Saldo de cuota:
+          ${formatMoney(receipt.installment_balance)}
+        </p>
+        <p>
+          Saldo del préstamo:
+          ${formatMoney(receipt.loan_balance)}
+        </p>
+        <p>
+          Registrado por usuario #${
+            receipt.recorded_by_user_id
+          }
+        </p>
+      `;
+
+      paymentForm.reset();
+      setDefaultPaymentDate();
+      receiptPanel.hidden = false;
+      await loadDashboard();
+
+      if (selectedLoanId) {
+        await openLoan(selectedLoanId);
+        receiptPanel.hidden = false;
+      }
+
+      showSuccess("Pago registrado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+applicationList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-application-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-application]"
+    );
+    const loanButton = event.target.closest(
+      "button[data-application-loan]"
+    );
+
+    try {
+      if (statusButton) {
+        const nextStatus =
+          statusButton.dataset.applicationStatus;
+
+        await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            statusButton.dataset.applicationId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status: nextStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          nextStatus === "reviewing"
+            ? "Solicitud puesta en revisión."
+            : nextStatus === "approved"
+              ? "Solicitud aprobada."
+              : "Solicitud rechazada."
+        );
+        return;
+      }
+
+      if (convertButton) {
+        const confirmed = window.confirm(
+          "Esta acción creará el prestatario, "
+          + "el préstamo activo y todas sus cuotas. "
+          + "¿Desea continuar?"
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        const result = await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            convertButton.dataset.convertApplication
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Solicitud convertida en préstamo."
+        );
+        await openLoan(result.loan_id);
+        return;
+      }
+
+      if (loanButton) {
+        await openLoan(
+          Number(loanButton.dataset.applicationLoan)
+        );
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+prospectList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-prospect-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-prospect]"
+    );
+
+    try {
+      if (statusButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            statusButton.dataset.prospectId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status:
+                statusButton.dataset.prospectStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess("Prospecto actualizado.");
+        if (statusButton.dataset.prospectStatus === "qualified") {
+          openProspectApplication(Number(statusButton.dataset.prospectId));
+        }
+        return;
+      }
+
+      if (convertButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            convertButton.dataset.convertProspect
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Prospecto convertido en prestatario."
+        );
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loanList.addEventListener(
+  "click",
+  async event => {
+    const button = event.target.closest(
+      "button[data-view-loan]"
+    );
+
+    if (!button) {
+      return;
+    }
+
+    await openLoan(
+      Number(button.dataset.viewLoan)
+    );
+  }
+);
+
+
+document.getElementById(
+  "closeLoanDetail"
+).addEventListener(
+  "click",
+  () => {
+    selectedLoanId = null;
+    loanDetailPanel.hidden = true;
+    paymentPanel.hidden = true;
+  }
+);
+
+
+document.getElementById(
+  "printReceiptButton"
+).addEventListener(
+  "click",
+  () => window.print()
+);
+
+
+forgotPasswordButton.addEventListener(
+  "click",
+  () => {
+    passwordResetEmail.value = loginEmail.value;
+    loginForm.hidden = true;
+    passwordResetRequestForm.hidden = false;
+    passwordResetEmail.focus();
+  }
+);
+
+
+backToSignInButton.addEventListener(
+  "click",
+  () => {
+    passwordResetRequestForm.hidden = true;
+    loginForm.hidden = false;
+    loginEmail.focus();
+  }
+);
+
+
+passwordResetRequestForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    passwordResetRequestButton.disabled = true;
+    passwordResetRequestButton.textContent =
+      "Enviando…";
+
+    try {
+      const result = await apiRequest(
+        "/auth/password-reset/request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: passwordResetEmail.value,
+            product_slug: "prestamodesk"
+          })
+        }
+      );
+
+      passwordResetRequestForm.reset();
+      passwordResetRequestForm.hidden = true;
+      loginForm.hidden = false;
+
+      showSuccess(result.message);
+      loginEmail.focus();
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      passwordResetRequestButton.disabled = false;
+      passwordResetRequestButton.textContent =
+        "Enviar enlace";
+    }
+  }
+);
+
+
+loginForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email:
+              document.getElementById(
+                "loginEmail"
+              ).value,
+            password:
+              document.getElementById(
+                "loginPassword"
+              ).value
+          })
+        }
+      );
+
+      await discoverAccess();
+      await loadDashboard();
+      loginForm.reset();
+      setAuthenticatedUI(true);
+      showSuccess("Sesión iniciada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await apiRequest(
+        "/auth/logout",
+        {method: "POST"}
+      );
+    } catch {
+      // Continue local sign-out.
+    }
+
+    tenantId = null;
+    localStorage.removeItem(
+      "prestamodesk_tenant_id"
+    );
+    location.reload();
+  }
+);
+
+
+async function initialize() {
+  await checkHealth();
+
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById(
+    "loanStartDate"
+  ).value = today;
+  lateFeeEffectiveDate.value = today;
+
+  updateVehicleLoanFields();
+
+  if (!tenantId) {
+    setAuthenticatedUI(false);
+    return;
+  }
+
+  try {
+    await discoverAccess();
+    await loadDashboard();
+    setAuthenticatedUI(true);
+  } catch {
+    tenantId = null;
+    localStorage.removeItem(
+      "prestamodesk_tenant_id"
+    );
+    setAuthenticatedUI(false);
+  }
+}
+
+
+initialize();
+
+(() => {"use strict"; const link = document.getElementById("administrationLink");
+ const show = client => {link.hidden = !client || !["owner", "administrator"].includes(client.role);};
+ window.addEventListener("prestamodesk-access", event => show(event.detail));
+ document.getElementById("logoutButton").addEventListener("click", () => show(null));
+ show(window.prestamodeskAccess);
+})();
+
+(() => {
+  "use strict";
+  const panel = document.getElementById("paymentCorrectionPanel");
+  const list = document.getElementById("paymentCorrectionList");
+  const message = document.getElementById("paymentCorrectionMessage");
+  let generation = 0;
+  let busy = false;
+  const currency = new Intl.NumberFormat("es-DO", {style: "currency", currency: "DOP"});
+  const text = (tag, contents) => { const node = document.createElement(tag); node.textContent = contents; return node; };
+  const errors = {
+    "Only the latest recorded payment on the loan may be voided": "Solo puede anular el último pago registrado del préstamo.",
+    "Payment belongs to a cash closing; a reconciled adjustment is required": "Este pago pertenece a un cierre de caja y requiere conciliación.",
+    "Payment predates correction snapshots; a reconciled adjustment is required": "Este pago es anterior a la función de corrección y requiere conciliación.",
+    "Installment changed after payment; reconciliation is required": "La cuota cambió después del pago y requiere conciliación.",
+    "Payment operation access required": "Su cuenta ya no tiene permiso para corregir pagos."
+  };
+  function notify(contents, failed = false) {
+    message.textContent = contents;
+    message.className = "message " + (failed ? "error" : "success");
+    message.hidden = false;
+  }
+  function clear() { generation++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
+  async function load(loanId, role) {
+    const request = ++generation;
+    list.replaceChildren();
+    message.hidden = true;
+    panel.hidden = !["owner", "administrator"].includes(role);
+    if (panel.hidden) return;
+    try {
+      const payments = await apiRequest(`${PRODUCT_BASE}/payments/loan/${loanId}`);
+      if (request !== generation) return;
+      const latest = Math.max(0, ...payments.filter(p => !p.voided_at).map(p => p.id));
+      if (!payments.length) { list.append(text("p", "No hay pagos registrados.")); return; }
+      for (const payment of [...payments].sort((a, b) => b.id - a.id)) {
+        const row = document.createElement("article");
+        row.append(text("h4", `PM-${String(payment.id).padStart(8, "0")} · ${currency.format(Number(payment.amount))}`));
+        row.append(text("p", `Registrado por usuario #${payment.recorded_by_user_id} · ${payment.paid_at}`));
+        if (payment.voided_at) {
+          row.append(text("p", `Anulado · ${payment.void_reason} · Usuario #${payment.voided_by_user_id}`));
+        } else if (payment.cash_closing_id) {
+          row.append(text("p", "Incluido en un cierre de caja. Requiere conciliación para ajustar."));
+        } else if (!payment.correction_supported) {
+          row.append(text("p", "Pago anterior a la función de corrección. Requiere conciliación para ajustar."));
+        } else if (payment.id !== latest) {
+          row.append(text("p", "Hay un pago posterior en este préstamo."));
+        } else {
+          const button = text("button", "Anular pago por error");
+          button.type = "button";
+          button.className = "secondary";
+          button.addEventListener("click", async () => {
+            if (busy) return;
+            const entered = window.prompt("Explique el error de este pago (mínimo 5 caracteres):");
+            if (entered === null) return;
+            const reason = entered.trim();
+            if (reason.length < 5 || reason.length > 1000) { notify("Indique un motivo de entre 5 y 1000 caracteres.", true); return; }
+            if (!window.confirm(`¿Anular PM-${String(payment.id).padStart(8, "0")} por ${currency.format(Number(payment.amount))}? El recibo original se conservará como anulado. Motivo: ${reason}`)) return;
+            busy = true;
+            button.disabled = true;
+            let corrected = false;
+            try {
+              await apiRequest(`${PRODUCT_BASE}/payments/${payment.id}/void`, {method: "POST", body: JSON.stringify({reason})});
+              corrected = true;
+              if (request !== generation) return;
+              await openLoan(loanId);
+              // Refresh the relevant summary after the loan balances are refreshed.
+              if (typeof loadDashboard === "function") await loadDashboard();
+              if (typeof searchLoans === "function") await searchLoans();
+              notify("Pago anulado. El registro original se conserva. Registre el pago correcto si corresponde.");
+            } catch (cause) {
+              if (request === generation || corrected) {
+                notify(corrected ? "El pago fue anulado, pero no se pudo actualizar la pantalla. Actualice la página antes de continuar." : (errors[cause.message] || cause.message), true);
+              }
+            } finally { busy = false; button.disabled = false; }
+          });
+          row.append(button);
+        }
+        list.append(row);
+      }
+    } catch (cause) {
+      if (request !== generation) return;
+      if ([401, 403].includes(cause.status)) panel.hidden = true;
+      notify(errors[cause.message] || cause.message, true);
+    }
+  }
+  window.prestamodeskPaymentHistory = {load, clear};
+  document.getElementById("logoutButton").addEventListener("click", clear);
+  document.getElementById("closeLoanDetail").addEventListener("click", clear);
+})();
+
+"use strict";
+
+const prospectApplicationPanel = document.getElementById("prospectApplicationPanel");
+const prospectApplicationForm = document.getElementById("prospectApplicationForm");
+const prospectApplicationQuote = document.getElementById("prospectApplicationQuote");
+const prospectApplicationError = document.getElementById("prospectApplicationError");
+const prospectApplicationSave = document.getElementById("prospectApplicationSave");
+const prospectApplicationVehicle = document.getElementById("prospectApplicationVehicle");
+let routedProspectId = null;
+let routedTenantId = null;
+let routedQuote = null;
+let routingBusy = false;
+let routingGeneration = 0;
+const routeField = name => prospectApplicationForm.elements.namedItem(name);
+const routeValue = name => routeField(name).value.trim();
+
+function clearRouteQuote() {
+  routedQuote = null;
+  prospectApplicationQuote.hidden = true;
+  prospectApplicationSave.disabled = true;
+}
+
+function updateProspectRoute() {
+  const vehicle = routeValue("loan_type") === "vehicle";
+  prospectApplicationVehicle.hidden = !vehicle;
+  prospectApplicationVehicle.querySelectorAll("input").forEach(input => {
+    input.disabled = !vehicle || routingBusy;
+    input.required = vehicle && ["vehicle_make", "vehicle_model", "vehicle_year", "vehicle_cash_price", "vehicle_down_payment"].includes(input.name);
+  });
+  routeField("principal_amount").readOnly = vehicle;
+  if (vehicle) {
+    try {
+      const financed = routeCents("vehicle_cash_price") - routeCents("vehicle_down_payment");
+      routeField("principal_amount").value = financed > 0 ? (financed / 100).toFixed(2) : "";
+    } catch {
+      routeField("principal_amount").value = "";
+    }
+  }
+}
+
+function setRoutingBusy(active) {
+  routingBusy = active;
+  prospectApplicationForm.setAttribute("aria-busy", String(active));
+  prospectApplicationForm.querySelectorAll("input, select, textarea, button").forEach(control => { control.disabled = active; });
+  updateProspectRoute();
+  prospectApplicationSave.disabled = active || !routedQuote;
+}
+
+function closeProspectApplication() {
+  routingGeneration += 1;
+  routedProspectId = null;
+  routedTenantId = null;
+  clearRouteQuote();
+  prospectApplicationForm.reset();
+  prospectApplicationError.hidden = true;
+  prospectApplicationPanel.hidden = true;
+}
+
+function openProspectApplication(prospectId) {
+  if (routingBusy) return;
+  const prospect = prospects.find(item => item.id === prospectId);
+  if (!prospect || prospect.status !== "qualified") {
+    showError("Califique el prospecto antes de preparar una solicitud.");
+    return;
+  }
+  if (applications.some(item => item.source_prospect_id === prospectId)) {
+    showError("Este prospecto ya tiene una solicitud. Revísela en Solicitudes de préstamo.");
+    return;
+  }
+  closeProspectApplication();
+  routedProspectId = prospectId;
+  routedTenantId = String(tenantId);
+  document.getElementById("prospectApplicationTitle").textContent = `Preparar solicitud · ${prospect.full_name}`;
+  document.getElementById("prospectApplicationContact").textContent = [prospect.phone, prospect.email].filter(Boolean).join(" · ");
+  routeField("principal_amount").value = prospect.requested_amount;
+  routeField("vehicle_down_payment").value = "0";
+  routeField("notes").value = prospect.message || "";
+  updateProspectRoute();
+  prospectApplicationPanel.hidden = false;
+  routeField("loan_type").focus();
+}
+
+function routeCents(name) {
+  const raw = routeValue(name);
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) throw new Error("Ingrese montos con hasta dos decimales.");
+  const [whole, fraction = ""] = raw.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  if (!Number.isSafeInteger(cents)) throw new Error("Monto fuera de rango.");
+  return cents;
+}
+
+function prospectRouteTerms() {
+  if (!routedProspectId || String(tenantId) !== routedTenantId) throw new Error("El cliente cambió. Abra nuevamente el prospecto.");
+  const payload = {
+    loan_type: routeValue("loan_type"),
+    principal_amount: (routeCents("principal_amount") / 100).toFixed(2),
+    flat_interest_rate_percent: routeValue("flat_interest_rate_percent"),
+    installment_count: Number(routeValue("installment_count")),
+    payment_frequency: routeValue("payment_frequency"),
+    start_date: routeValue("start_date"),
+    first_payment_date: routeValue("first_payment_date"),
+    notes: routeValue("notes") || null
+  };
+  if (payload.first_payment_date < payload.start_date) throw new Error("La primera cuota no puede ser anterior al préstamo.");
+  if (payload.loan_type === "vehicle") {
+    const price = routeCents("vehicle_cash_price");
+    const down = routeCents("vehicle_down_payment");
+    if (down >= price) throw new Error("La inicial debe ser menor que el precio del vehículo.");
+    payload.vehicle_cash_price = (price / 100).toFixed(2);
+    payload.vehicle_down_payment = (down / 100).toFixed(2);
+    payload.principal_amount = ((price - down) / 100).toFixed(2);
+    payload.vehicle_make = routeValue("vehicle_make");
+    payload.vehicle_model = routeValue("vehicle_model");
+    payload.vehicle_year = Number(routeValue("vehicle_year"));
+    for (const name of ["vehicle_color", "vehicle_vin", "vehicle_license_plate", "vehicle_seller"]) payload[name] = routeValue(name) || null;
+  }
+  return payload;
+}
+
+function routeError(message) {
+  prospectApplicationError.textContent = message;
+  prospectApplicationError.hidden = false;
+}
+
+prospectApplicationForm.addEventListener("input", () => { clearRouteQuote(); updateProspectRoute(); });
+prospectApplicationForm.addEventListener("change", () => { clearRouteQuote(); updateProspectRoute(); });
+document.getElementById("prospectApplicationCancel").addEventListener("click", closeProspectApplication);
+logoutButton.addEventListener("click", closeProspectApplication);
+prospectList.addEventListener("click", event => {
+  const button = event.target.closest("button[data-start-prospect-application]");
+  if (button) openProspectApplication(Number(button.dataset.startProspectApplication));
+});
+
+document.getElementById("prospectApplicationCalculate").addEventListener("click", async () => {
+  if (routingBusy || !prospectApplicationForm.reportValidity()) return;
+  prospectApplicationError.hidden = true;
+  clearRouteQuote();
+  let payload;
+  try { payload = prospectRouteTerms(); } catch (error) { routeError(error.message); return; }
+  const generation = routingGeneration;
+  setRoutingBusy(true);
+  try {
+    const quote = await apiRequest(`${PRODUCT_BASE}/applications/quote`, { method: "POST", body: JSON.stringify(payload) });
+    if (generation !== routingGeneration || String(tenantId) !== routedTenantId) return;
+    if (quote.currency !== "DOP" || !Array.isArray(quote.installments) || quote.installments.length !== payload.installment_count) throw new Error("Cotización incompleta. Vuelva a calcular.");
+    prospectApplicationQuote.replaceChildren();
+    for (const [label, amount] of [["Monto financiado", quote.principal_amount], ["Interés total", quote.total_interest], ["Total a pagar", quote.total_due]]) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = `${label}: ${formatMoney(amount)}`;
+      prospectApplicationQuote.append(paragraph);
+    }
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = `Calendario de ${quote.installments.length} cuotas`;
+    details.append(summary);
+    const list = document.createElement("ol");
+    for (const item of quote.installments) {
+      const row = document.createElement("li");
+      row.textContent = `Cuota ${item.sequence_number} · ${item.due_date} · ${formatMoney(item.total_due)}`;
+      list.append(row);
+    }
+    details.append(list);
+    prospectApplicationQuote.append(details);
+    routedQuote = JSON.stringify(payload);
+    prospectApplicationQuote.hidden = false;
+  } catch (error) { if (generation === routingGeneration) routeError(error.message); }
+  finally { setRoutingBusy(false); }
+});
+
+prospectApplicationForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (routingBusy || !prospectApplicationForm.reportValidity()) return;
+  let payload;
+  try { payload = prospectRouteTerms(); } catch (error) { routeError(error.message); return; }
+  if (!routedQuote || routedQuote !== JSON.stringify(payload)) { routeError("Calcule y revise las cuotas antes de guardar."); return; }
+  prospectApplicationError.hidden = true;
+  const generation = routingGeneration;
+  setRoutingBusy(true);
+  let saved = false;
+  try {
+    const application = await apiRequest(`${PRODUCT_BASE}/prospects/${routedProspectId}/application`, { method: "POST", body: JSON.stringify(payload) });
+    if (generation !== routingGeneration || String(tenantId) !== routedTenantId) return;
+    saved = true;
+    closeProspectApplication();
+    showSuccess(`Solicitud #${application.id} guardada. Continúe con revisión, aprobación y conversión.`);
+    await loadDashboard();
+  } catch (error) {
+    if (saved) showError("La solicitud se guardó, pero no se pudo actualizar la pantalla. Recargue antes de continuar.");
+    else if (generation === routingGeneration) routeError(error.message);
+  } finally { setRoutingBusy(false); }
+});
+
+return {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};
+}},
+"cashier": {html:"\n  <header class=\"app-header\">\n    <div>\n      <span class=\"eyebrow\">FieldLookers</span>\n      <h1>PréstamoDesk · Caja</h1>\n      <p>Cobros y recibos de préstamos en DOP</p>\n    </div>\n\n    <div class=\"header-actions\"><a href=\"/prestamodesk/workspace\">Mi espacio · Todas las secciones</a>\n      <span id=\"clientContext\" class=\"badge\" hidden></span>\n      <span id=\"healthStatus\">Comprobando API…</span>\n      <button id=\"logoutButton\" class=\"secondary\" hidden>\n        Cerrar sesión\n      </button>\n    </div>\n  </header>\n\n  <main>\n    <div id=\"errorMessage\" class=\"message error\" hidden></div>\n    <div id=\"successMessage\" class=\"message success\" hidden></div>\n\n    <section id=\"authPanel\" class=\"panel auth-panel\">\n      <h2>Iniciar sesión en caja</h2>\n\n      <form id=\"loginForm\" class=\"form-grid\">\n        <label>\n          Correo electrónico\n          <input\n            id=\"loginEmail\"\n            type=\"email\"\n            autocomplete=\"username\"\n            required\n          >\n        </label>\n\n        <label>\n          Contraseña\n          <input\n            id=\"loginPassword\"\n            type=\"password\"\n            autocomplete=\"current-password\"\n            required\n          >\n        </label>\n\n        <button type=\"submit\">Iniciar sesión</button>\n\n        <button\n          id=\"forgotPasswordButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          ¿Olvidó su contraseña?\n        </button>\n      </form>\n\n      <form\n        id=\"passwordResetRequestForm\"\n        class=\"form-grid\"\n        hidden\n      >\n        <p>\n          Ingrese el correo de su cuenta para solicitar un\n          enlace seguro.\n        </p>\n\n        <label>\n          Correo electrónico\n          <input\n            id=\"passwordResetEmail\"\n            type=\"email\"\n            autocomplete=\"email\"\n            required\n          >\n        </label>\n\n        <button\n          id=\"passwordResetRequestButton\"\n          type=\"submit\"\n        >\n          Enviar enlace\n        </button>\n\n        <button\n          id=\"backToSignInButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          Volver a iniciar sesión\n        </button>\n      </form>\n    </section>\n\n    <div id=\"cashierWorkspace\" hidden>\n      <section class=\"panel\">\n        <h2>Buscar préstamo</h2>\n        <p class=\"notice\">\n          Busque por número de préstamo, nombre o documento\n          del cliente.\n        </p>\n\n        <form id=\"loanSearchForm\" class=\"form-grid\">\n          <label>\n            Búsqueda\n            <input\n              id=\"loanSearchQuery\"\n              type=\"search\"\n              maxlength=\"200\"\n              placeholder=\"Ej.: 4, Ana Pérez o 001-...\"\n            >\n          </label>\n\n          <button type=\"submit\">Buscar</button>\n          <button\n            id=\"showAllLoansButton\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Mostrar préstamos\n          </button>\n        </form>\n\n        <p>\n          Resultados:\n          <strong id=\"loanResultCount\">0</strong>\n        </p>\n\n        <div id=\"cashierLoanList\" class=\"table-wrap\"></div>\n      </section>\n\n      <section id=\"loanDetailPanel\" class=\"panel\" hidden>\n        <div class=\"header-actions\">\n          <h2 id=\"loanDetailTitle\">Préstamo</h2>\n          <button\n            id=\"closeLoanDetail\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Cerrar\n          </button>\n        </div>\n\n        <div id=\"loanDetailSummary\"></div>\n        <section id=\"paymentCorrectionPanel\" hidden aria-labelledby=\"paymentCorrectionTitle\">\n          <h3 id=\"paymentCorrectionTitle\">Pagos y correcciones</h3>\n          <p>Solo el propietario o administrador puede anular el último pago registrado antes de su cierre de caja. El recibo se conserva con el motivo de anulación. Los pagos anteriores a esta función requieren conciliación.</p>\n          <div id=\"paymentCorrectionMessage\" class=\"message\" role=\"status\" hidden></div>\n          <div id=\"paymentCorrectionList\"></div>\n        </section>\n\n\n        <h3>Calendario de cuotas</h3>\n        <div id=\"installmentList\" class=\"table-wrap\"></div>\n      </section>\n\n      <section id=\"paymentPanel\" class=\"panel\" hidden>\n        <h2>Registrar pago</h2>\n\n        <form id=\"paymentForm\" class=\"form-grid\">\n          <label>\n            Cuota\n            <select id=\"paymentInstallment\" required></select>\n          </label>\n\n          <label>\n            Monto (DOP)\n            <input\n              id=\"paymentAmount\"\n              type=\"number\"\n              min=\"0.01\"\n              step=\"0.01\"\n              required\n            >\n          </label>\n\n          <label>\n            Fecha del pago\n            <input\n              id=\"paymentDate\"\n              type=\"date\"\n              required\n            >\n          </label>\n\n          <label>\n            Método\n            <select id=\"paymentMethod\">\n              <option value=\"cash\">Efectivo</option>\n              <option value=\"bank_transfer\">\n                Transferencia bancaria\n              </option>\n              <option value=\"card\">Tarjeta</option>\n              <option value=\"other\">Otro</option>\n            </select>\n          </label>\n\n          <label>\n            Referencia\n            <input id=\"paymentReference\" maxlength=\"200\">\n          </label>\n\n          <button type=\"submit\">Registrar pago</button>\n        </form>\n      </section>\n\n      <article id=\"receiptPanel\" class=\"panel receipt\" hidden>\n        <h2>Recibo de pago</h2>\n        <div id=\"receiptContent\"></div>\n\n        <button\n          id=\"printReceiptButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          Imprimir recibo\n        </button>\n      </article>\n\n      <section id=\"cashClosingPanel\" class=\"panel\" hidden>\n        <h2>Cierre de caja</h2>\n        <p class=\"notice\">\n          El cierre incluye solamente pagos de préstamos\n          registrados por este cajero y que todavía no pertenecen\n          a otro cierre.\n        </p>\n\n        <div id=\"cashClosingPreview\"></div>\n\n        <form id=\"cashClosingForm\" class=\"form-grid\">\n          <label>\n            Efectivo contado (DOP)\n            <input\n              id=\"cashCounted\"\n              type=\"number\"\n              min=\"0\"\n              step=\"0.01\"\n              required\n            >\n          </label>\n\n          <label>\n            Observaciones\n            <textarea\n              id=\"cashClosingNotes\"\n              maxlength=\"1000\"\n              rows=\"3\"\n            ></textarea>\n          </label>\n\n          <button type=\"submit\">Cerrar mi caja</button>\n        </form>\n      </section>\n\n      <article\n        id=\"cashClosingReceipt\"\n        class=\"panel receipt\"\n        hidden\n      >\n        <h2>Comprobante de cierre</h2>\n        <div id=\"cashClosingReceiptContent\"></div>\n        <button\n          id=\"printCashClosingButton\"\n          type=\"button\"\n          class=\"secondary\"\n        >\n          Imprimir cierre\n        </button>\n      </article>\n\n      <section id=\"cashClosingHistoryPanel\" class=\"panel\" hidden>\n        <h2>Mis cierres anteriores</h2>\n        <div id=\"cashClosingHistory\" class=\"table-wrap\"></div>\n      </section>\n    </div>\n  </main>\n\n  \n  \n", start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {
+const API_BASE = "/api/v1";
+const PRODUCT_BASE = "/products/prestamodesk";
+const TENANT_STORAGE_KEY =
+  "prestamodesk_cashier_tenant_id";
+
+let tenantId = localStorage.getItem(
+  TENANT_STORAGE_KEY
+);
+let selectedLoanId = null;
+let selectedLoan = null;
+let currentRole = null;
+let paymentSubmitting = false;
+let paymentNeedsReview = false;
+
+const authPanel = document.getElementById("authPanel");
+const cashierWorkspace =
+  document.getElementById("cashierWorkspace");
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const forgotPasswordButton =
+  document.getElementById("forgotPasswordButton");
+const passwordResetRequestForm =
+  document.getElementById("passwordResetRequestForm");
+const passwordResetEmail =
+  document.getElementById("passwordResetEmail");
+const passwordResetRequestButton =
+  document.getElementById("passwordResetRequestButton");
+const backToSignInButton =
+  document.getElementById("backToSignInButton");
+const logoutButton =
+  document.getElementById("logoutButton");
+const clientContext =
+  document.getElementById("clientContext");
+const healthStatus =
+  document.getElementById("healthStatus");
+const errorMessage =
+  document.getElementById("errorMessage");
+const successMessage =
+  document.getElementById("successMessage");
+const loanSearchForm =
+  document.getElementById("loanSearchForm");
+const loanSearchQuery =
+  document.getElementById("loanSearchQuery");
+const cashierLoanList =
+  document.getElementById("cashierLoanList");
+const loanResultCount =
+  document.getElementById("loanResultCount");
+const loanDetailPanel =
+  document.getElementById("loanDetailPanel");
+const loanDetailTitle =
+  document.getElementById("loanDetailTitle");
+const loanDetailSummary =
+  document.getElementById("loanDetailSummary");
+const installmentList =
+  document.getElementById("installmentList");
+const paymentPanel =
+  document.getElementById("paymentPanel");
+const paymentForm =
+  document.getElementById("paymentForm");
+const paymentInstallment =
+  document.getElementById("paymentInstallment");
+const paymentAmount =
+  document.getElementById("paymentAmount");
+const paymentDate =
+  document.getElementById("paymentDate");
+const receiptPanel =
+  document.getElementById("receiptPanel");
+const receiptContent =
+  document.getElementById("receiptContent");
+const cashClosingPanel =
+  document.getElementById("cashClosingPanel");
+const cashClosingPreview =
+  document.getElementById("cashClosingPreview");
+const cashClosingForm =
+  document.getElementById("cashClosingForm");
+const cashCounted =
+  document.getElementById("cashCounted");
+const cashClosingNotes =
+  document.getElementById("cashClosingNotes");
+const cashClosingReceipt =
+  document.getElementById("cashClosingReceipt");
+const cashClosingReceiptContent =
+  document.getElementById(
+    "cashClosingReceiptContent"
+  );
+const cashClosingHistoryPanel =
+  document.getElementById(
+    "cashClosingHistoryPanel"
+  );
+const cashClosingHistory =
+  document.getElementById("cashClosingHistory");
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      style: "currency",
+      currency: "DOP"
+    }
+  ).format(Number(value || 0));
+}
+
+
+function formatStatus(value) {
+  const labels = {
+    active: "Activo",
+    paid: "Pagado",
+    cancelled: "Cancelado",
+    pending: "Pendiente",
+    partial: "Parcial",
+    overdue: "Vencida"
+  };
+
+  return labels[value] || value;
+}
+
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat(
+    "es-DO",
+    {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }
+  ).format(new Date(value));
+}
+
+
+function formatPaymentMethod(value) {
+  const labels = {
+    cash: "Efectivo",
+    bank_transfer: "Transferencia bancaria",
+    card: "Tarjeta",
+    other: "Otro"
+  };
+
+  return labels[value] || value;
+}
+
+
+function installmentBalance(installment) {
+  if (installment.total_balance !== undefined) {
+    return Number(installment.total_balance);
+  }
+
+  return (
+    Number(installment.total_due)
+    - Number(installment.paid_amount)
+  );
+}
+
+
+function setAuthenticatedUI(authenticated) {
+  authPanel.hidden = authenticated;
+  cashierWorkspace.hidden = !authenticated;
+  logoutButton.hidden = !authenticated;
+  clientContext.hidden = !authenticated;
+}
+
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+  successMessage.hidden = true;
+}
+
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  successMessage.hidden = false;
+  errorMessage.hidden = true;
+
+  window.setTimeout(() => {
+    successMessage.hidden = true;
+  }, 3500);
+}
+
+
+function clearMessages() {
+  errorMessage.hidden = true;
+  successMessage.hidden = true;
+}
+
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? {"X-Tenant-ID": tenantId}
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    }
+  );
+
+  if (!response.ok) {
+    let detail =
+      `Solicitud fallida (${response.status})`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // Preserve the safe default.
+    }
+
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+}
+
+
+async function checkHealth() {
+  try {
+    const health = await apiRequest("/health");
+    healthStatus.textContent = `API: ${health.status}`;
+  } catch {
+    healthStatus.textContent = "API no disponible";
+  }
+}
+
+
+async function discoverAccess() {
+  const access = await apiRequest(
+    "/auth/products/prestamodesk/access"
+  );
+
+  if (access.clients.length === 0) {
+    throw new Error(
+      "Su cuenta no tiene acceso activo a PréstamoDesk."
+    );
+  }
+
+  if (access.clients.length > 1) {
+    throw new Error(
+      "Su cuenta tiene varios clientes. "
+      + "La selección de cliente aún no está disponible."
+    );
+  }
+
+  const client = access.clients[0];
+
+  if (client.role === "collector") {
+    window.location.replace(
+      "/prestamodesk/cobros"
+    );
+    return;
+  }
+
+  if (client.role === "supervisor") {
+    window.location.replace("/prestamodesk/cobros/supervision");
+    return;
+  }
+  tenantId = String(client.tenant_id);
+  localStorage.setItem(
+    TENANT_STORAGE_KEY,
+    tenantId
+  );
+
+  const roleLabel = (
+    ["owner", "administrator"].includes(client.role)
+      ? "Administrador"
+      : "Cajero"
+  );
+
+  currentRole = client.role;
+  cashClosingPanel.hidden = !["member", "cashier"].includes(currentRole);
+  cashClosingHistoryPanel.hidden =
+    !["member", "cashier"].includes(currentRole);
+
+  clientContext.textContent =
+    `Cliente #${client.client_number} · `
+    + `${client.name} · ${roleLabel}`;
+}
+
+
+function renderClosingPreview(preview) {
+  cashClosingPreview.innerHTML = `
+    <div class="summary-grid">
+      <p>
+        Pagos pendientes de cierre:
+        <strong>${preview.payment_count}</strong>
+      </p>
+      <p>
+        Total cobrado:
+        <strong>${
+          formatMoney(preview.total_collected)
+        }</strong>
+      </p>
+      <p>
+        Efectivo esperado:
+        <strong>${
+          formatMoney(preview.cash_expected)
+        }</strong>
+      </p>
+      <p>
+        Transferencias:
+        ${formatMoney(preview.bank_transfer_total)}
+      </p>
+      <p>Tarjetas: ${formatMoney(preview.card_total)}</p>
+      <p>Otros: ${formatMoney(preview.other_total)}</p>
+      <p>
+        Período iniciado:
+        ${escapeHtml(formatDateTime(preview.opened_at))}
+      </p>
+    </div>
+  `;
+
+  cashCounted.value = Number(
+    preview.cash_expected
+  ).toFixed(2);
+}
+
+
+function renderClosingHistory(closings) {
+  if (closings.length === 0) {
+    cashClosingHistory.innerHTML = `
+      <p class="notice">No hay cierres registrados.</p>
+    `;
+    return;
+  }
+
+  cashClosingHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cierre</th>
+          <th>Fecha</th>
+          <th>Pagos</th>
+          <th>Total</th>
+          <th>Efectivo esperado</th>
+          <th>Efectivo contado</th>
+          <th>Diferencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${closings.map(closing => `
+          <tr>
+            <td>#${closing.id}</td>
+            <td>${escapeHtml(
+              formatDateTime(closing.closed_at)
+            )}</td>
+            <td>${closing.payment_count}</td>
+            <td>${formatMoney(
+              closing.total_collected
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_expected
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_counted
+            )}</td>
+            <td>${formatMoney(
+              closing.cash_difference
+            )}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+async function loadCashClosing() {
+  if (!["member", "cashier"].includes(currentRole)) {
+    return;
+  }
+
+  const [preview, history] = await Promise.all([
+    apiRequest(
+      `${PRODUCT_BASE}/cashier/closing-preview`
+    ),
+    apiRequest(
+      `${PRODUCT_BASE}/cashier/closings`
+    )
+  ]);
+
+  renderClosingPreview(preview);
+  renderClosingHistory(history);
+}
+
+
+function renderLoans(loans) {
+  loanResultCount.textContent = String(loans.length);
+
+  if (loans.length === 0) {
+    cashierLoanList.innerHTML = `
+      <p class="notice">
+        No se encontraron préstamos.
+      </p>
+    `;
+    return;
+  }
+
+  cashierLoanList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Préstamo</th>
+          <th>Cliente</th>
+          <th>Documento</th>
+          <th>Vehículo</th>
+          <th>Saldo ordinario</th>
+          <th>Mora</th>
+          <th>Total exigible</th>
+          <th>Estado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${loans.map(loan => `
+          <tr>
+            <td>#${loan.id}</td>
+            <td>${escapeHtml(loan.borrower_full_name)}</td>
+            <td>
+              ${escapeHtml(
+                loan.borrower_document_number || "—"
+              )}
+            </td>
+            <td>
+              ${escapeHtml(
+                [
+                  loan.vehicle_make,
+                  loan.vehicle_model,
+                  loan.vehicle_year
+                ].filter(Boolean).join(" ") || "—"
+              )}
+            </td>
+            <td>
+              ${formatMoney(loan.ordinary_balance_due)}
+            </td>
+            <td>
+              ${formatMoney(loan.late_fee_balance_due)}
+            </td>
+            <td>${formatMoney(loan.balance_due)}</td>
+            <td>${formatStatus(loan.status)}</td>
+            <td>
+              <button
+                type="button"
+                data-open-loan="${loan.id}"
+              >
+                Cobrar
+              </button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+async function searchLoans(query = "") {
+  clearMessages();
+
+  const normalized = query.trim();
+  const params = new URLSearchParams();
+
+  if (normalized) {
+    params.set("query", normalized);
+  }
+
+  if (paymentDate.value) {
+    params.set("as_of", paymentDate.value);
+  }
+
+  const suffix = params.toString()
+    ? `?${params.toString()}`
+    : "";
+
+  const loans = await apiRequest(
+    `${PRODUCT_BASE}/cashier/loans${suffix}`
+  );
+
+  renderLoans(loans);
+}
+
+
+function renderInstallments(installments) {
+  installmentList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cuota</th>
+          <th>Vence</th>
+          <th>Total de cuota</th>
+          <th>Pagado</th>
+          <th>Saldo ordinario</th>
+          <th>Mora</th>
+          <th>Total exigible</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${installments.map(item => `
+          <tr>
+            <td>${item.sequence_number}</td>
+            <td>${escapeHtml(item.due_date)}</td>
+            <td>${formatMoney(item.total_due)}</td>
+            <td>${formatMoney(item.paid_amount)}</td>
+            <td>${formatMoney(item.ordinary_balance)}</td>
+            <td>${formatMoney(item.late_fee_balance)}</td>
+            <td>${formatMoney(item.total_balance)}</td>
+            <td>${formatStatus(item.status)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+function renderPaymentOptions(installments) {
+  const payable = installments.filter(
+    item => (
+      item.status !== "paid"
+      && installmentBalance(item) > 0
+    )
+  );
+
+  if (payable.length === 0) {
+    paymentInstallment.innerHTML =
+      '<option value="">No hay cuotas pendientes</option>';
+    paymentInstallment.disabled = true;
+    paymentAmount.disabled = true;
+    paymentForm.querySelector(
+      'button[type="submit"]'
+    ).disabled = true;
+    return;
+  }
+
+  paymentInstallment.disabled = false;
+  paymentAmount.disabled = false;
+  paymentForm.querySelector(
+    'button[type="submit"]'
+  ).disabled = paymentSubmitting || paymentNeedsReview;
+
+  paymentInstallment.innerHTML = payable
+    .map(item => `
+      <option
+        value="${item.id}"
+        data-balance="${installmentBalance(item)}"
+      >
+        Cuota ${item.sequence_number}
+        · vence ${escapeHtml(item.due_date)}
+        · ${formatMoney(installmentBalance(item))}
+      </option>
+    `)
+    .join("");
+
+  updatePaymentLimit();
+}
+
+
+function updatePaymentLimit() {
+  const option =
+    paymentInstallment.selectedOptions[0];
+
+  if (!option || !option.dataset.balance) {
+    paymentAmount.value = "";
+    paymentAmount.removeAttribute("max");
+    return;
+  }
+
+  const balance = Number(option.dataset.balance);
+  paymentAmount.max = balance.toFixed(2);
+  paymentAmount.value = balance.toFixed(2);
+}
+
+
+async function openLoan(loanId) {
+  const params = new URLSearchParams();
+
+  if (paymentDate.value) {
+    params.set("as_of", paymentDate.value);
+  }
+
+  const suffix = params.toString()
+    ? `?${params.toString()}`
+    : "";
+
+  const loan = await apiRequest(
+    `${PRODUCT_BASE}/cashier/loans/${loanId}${suffix}`
+  );
+
+  selectedLoanId = loan.id;
+  selectedLoan = loan;
+
+  loanDetailTitle.textContent =
+    `Préstamo #${loan.id} · `
+    + loan.borrower_full_name;
+
+  loanDetailSummary.innerHTML = `
+    <p>
+      <strong>Documento:</strong>
+      ${escapeHtml(
+        loan.borrower_document_number || "No registrado"
+      )}
+    </p>
+    <p>
+      <strong>Vehículo:</strong>
+      ${escapeHtml(
+        [
+          loan.vehicle_make,
+          loan.vehicle_model,
+          loan.vehicle_year
+        ].filter(Boolean).join(" ") || "No registrado"
+      )}
+    </p>
+    <p>
+      <strong>Total contractual:</strong>
+      ${formatMoney(loan.total_due)}
+      · <strong>Pagado:</strong>
+      ${formatMoney(loan.paid_amount)}
+    </p>
+    <p>
+      <strong>Saldo ordinario:</strong>
+      ${formatMoney(loan.ordinary_balance_due)}
+      · <strong>Mora:</strong>
+      ${formatMoney(loan.late_fee_balance_due)}
+      · <strong>Total exigible:</strong>
+      ${formatMoney(loan.balance_due)}
+    </p>
+    <p>
+      <strong>Calculado al:</strong>
+      ${escapeHtml(loan.projected_through)}
+      · <strong>Estado:</strong>
+      ${formatStatus(loan.status)}
+    </p>
+  `;
+
+
+  renderInstallments(loan.installments);
+  renderPaymentOptions(loan.installments);
+
+  loanDetailPanel.hidden = false;
+  paymentPanel.hidden = (
+    loan.status !== "active"
+  );
+  receiptPanel.hidden = true;
+  await window.prestamodeskPaymentHistory?.load(loan.id, currentRole);
+}
+
+
+function setDefaultPaymentDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
+  paymentDate.value = `${year}-${month}-${day}`;
+}
+
+
+loanSearchForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await searchLoans(loanSearchQuery.value);
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "showAllLoansButton"
+).addEventListener(
+  "click",
+  async () => {
+    loanSearchQuery.value = "";
+
+    try {
+      await searchLoans();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+cashierLoanList.addEventListener(
+  "click",
+  async event => {
+    const button = event.target.closest(
+      "button[data-open-loan]"
+    );
+
+    if (!button) {
+      return;
+    }
+
+    try {
+      await openLoan(
+        Number(button.dataset.openLoan)
+      );
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "closeLoanDetail"
+).addEventListener(
+  "click",
+  () => {
+    selectedLoanId = null;
+    selectedLoan = null;
+    loanDetailPanel.hidden = true;
+    paymentPanel.hidden = true;
+    receiptPanel.hidden = true;
+  }
+);
+
+
+paymentInstallment.addEventListener(
+  "change",
+  updatePaymentLimit
+);
+
+
+paymentDate.addEventListener(
+  "change",
+  async () => {
+    clearMessages();
+
+    try {
+      await searchLoans(loanSearchQuery.value);
+
+      if (selectedLoanId) {
+        await openLoan(selectedLoanId);
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+paymentForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    if (paymentSubmitting || paymentNeedsReview || !selectedLoanId || !selectedLoan) return;
+    paymentSubmitting = true;
+    clearMessages();
+    const loanId = selectedLoanId;
+    const borrowerName = selectedLoan.borrower_full_name;
+    const paidDate = paymentDate.value;
+    const submitButton = paymentForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton.textContent;
+    const controls = Array.from(cashierWorkspace.querySelectorAll("button, input, select, textarea"));
+    const disabledBefore = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    submitButton.textContent = "Registrando…";
+    let paymentSaved = false;
+    let requestStorageKey = null;
+
+    try {
+      const paymentMethod =
+        document.getElementById(
+          "paymentMethod"
+        ).value;
+      const reference =
+        document.getElementById(
+          "paymentReference"
+        ).value.trim() || null;
+
+      const paymentPayload = {
+        installment_id: Number(paymentInstallment.value),
+        amount: Number(paymentAmount.value).toFixed(2),
+        payment_method: paymentMethod,
+        reference,
+        paid_at: paidDate ? `${paidDate}T12:00:00Z` : null
+      };
+      requestStorageKey = "prestamodesk-payment-request:" + tenantId
+        + ":" + JSON.stringify(paymentPayload);
+      const requestKey = sessionStorage.getItem(requestStorageKey)
+        || crypto.randomUUID();
+      sessionStorage.setItem(requestStorageKey, requestKey);
+      const receipt = await apiRequest(
+        `${PRODUCT_BASE}/payments`,
+        {
+          method: "POST",
+          body: JSON.stringify({...paymentPayload, idempotency_key: requestKey})
+        }
+      );
+
+      paymentSaved = true;
+      sessionStorage.removeItem(requestStorageKey);
+      receiptContent.innerHTML = `
+        <p>
+          <strong>${escapeHtml(
+            receipt.receipt_number
+          )}</strong>
+        </p>
+        <p>
+          Préstamo:
+          <strong>#${loanId}</strong>
+        </p>
+        <p>
+          Cliente:
+          <strong>${escapeHtml(
+            borrowerName
+          )}</strong>
+        </p>
+        <p>
+          Fecha:
+          ${escapeHtml(paidDate)}
+        </p>
+        <p>
+          Método:
+          ${escapeHtml(
+            formatPaymentMethod(paymentMethod)
+          )}
+        </p>
+        <p>
+          Referencia:
+          ${escapeHtml(reference || "—")}
+        </p>
+        <p>
+          Monto:
+          <strong>${formatMoney(receipt.amount)}</strong>
+        </p>
+        <p>
+          Aplicado a mora:
+          ${formatMoney(receipt.late_fee_amount)}
+        </p>
+        <p>
+          Aplicado a interés:
+          ${formatMoney(receipt.interest_amount)}
+        </p>
+        <p>
+          Aplicado a principal:
+          ${formatMoney(receipt.principal_amount)}
+        </p>
+        <p>
+          Saldo ordinario de cuota:
+          ${formatMoney(
+            receipt.installment_ordinary_balance
+          )}
+        </p>
+        <p>
+          Mora pendiente:
+          ${formatMoney(
+            receipt.installment_late_fee_balance
+          )}
+        </p>
+        <p>
+          Total pendiente de cuota:
+          ${formatMoney(receipt.installment_balance)}
+        </p>
+        <p>
+          Saldo total del préstamo:
+          ${formatMoney(receipt.loan_balance)}
+        </p>
+        <p>
+          Registrado por usuario #${
+            receipt.recorded_by_user_id
+          }
+        </p>
+      `;
+
+      receiptPanel.hidden = false;
+      paymentForm.reset();
+      setDefaultPaymentDate();
+
+      try {
+        await openLoan(loanId);
+        await searchLoans(loanSearchQuery.value);
+        await loadCashClosing();
+        showSuccess("Pago registrado.");
+      } catch {
+        paymentNeedsReview = true;
+        showError("Pago registrado. No se pudo actualizar la pantalla. Conserve el recibo y recargue para consultar el saldo antes de registrar otro pago.");
+      } finally {
+        receiptPanel.hidden = false;
+      }
+    } catch (error) {
+      if (paymentSaved || !error.status || error.status >= 500) {
+        paymentNeedsReview = true;
+        showError("No se pudo confirmar el resultado del pago. No lo repita: recargue y revise Pagos y correcciones antes de continuar.");
+      } else {
+        // Keep keys for conflicts: changing operator or a voided payment
+        // must not turn a retry into a new payment.
+        if (requestStorageKey && error.status !== 409) {
+          sessionStorage.removeItem(requestStorageKey);
+        }
+        showError(error.message);
+      }
+    } finally {
+      paymentSubmitting = false;
+      controls.forEach((control, index) => { control.disabled = disabledBefore[index]; });
+      submitButton.textContent = originalLabel;
+      submitButton.disabled = paymentNeedsReview
+        || !paymentInstallment.value
+        || Number(paymentInstallment.selectedOptions[0]?.dataset.balance || 0) <= 0;
+    }
+  }
+);
+
+
+document.getElementById(
+  "printReceiptButton"
+).addEventListener(
+  "click",
+  () => window.print()
+);
+
+
+cashClosingForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      const closing = await apiRequest(
+        `${PRODUCT_BASE}/cashier/closings`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            cash_counted: cashCounted.value,
+            notes:
+              cashClosingNotes.value.trim()
+              || null
+          })
+        }
+      );
+
+      cashClosingReceiptContent.innerHTML = `
+        <p>
+          <strong>Cierre #${closing.id}</strong>
+        </p>
+        <p>
+          Cerrado:
+          ${escapeHtml(
+            formatDateTime(closing.closed_at)
+          )}
+        </p>
+        <p>Pagos: ${closing.payment_count}</p>
+        <p>
+          Total cobrado:
+          <strong>${
+            formatMoney(closing.total_collected)
+          }</strong>
+        </p>
+        <p>
+          Efectivo esperado:
+          ${formatMoney(closing.cash_expected)}
+        </p>
+        <p>
+          Efectivo contado:
+          ${formatMoney(closing.cash_counted)}
+        </p>
+        <p>
+          Diferencia:
+          <strong>${
+            formatMoney(closing.cash_difference)
+          }</strong>
+        </p>
+        <p>
+          Transferencias:
+          ${formatMoney(
+            closing.bank_transfer_total
+          )}
+        </p>
+        <p>
+          Tarjetas:
+          ${formatMoney(closing.card_total)}
+        </p>
+        <p>
+          Otros:
+          ${formatMoney(closing.other_total)}
+        </p>
+        <p>
+          Observaciones:
+          ${escapeHtml(closing.notes || "—")}
+        </p>
+      `;
+
+      cashClosingReceipt.hidden = false;
+      cashClosingForm.reset();
+      await loadCashClosing();
+      showSuccess("Caja cerrada correctamente.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "printCashClosingButton"
+).addEventListener(
+  "click",
+  () => window.print()
+);
+
+
+forgotPasswordButton.addEventListener(
+  "click",
+  () => {
+    passwordResetEmail.value = loginEmail.value;
+    loginForm.hidden = true;
+    passwordResetRequestForm.hidden = false;
+    passwordResetEmail.focus();
+  }
+);
+
+
+backToSignInButton.addEventListener(
+  "click",
+  () => {
+    passwordResetRequestForm.hidden = true;
+    loginForm.hidden = false;
+    loginEmail.focus();
+  }
+);
+
+
+passwordResetRequestForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    passwordResetRequestButton.disabled = true;
+    passwordResetRequestButton.textContent =
+      "Enviando…";
+
+    try {
+      const result = await apiRequest(
+        "/auth/password-reset/request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: passwordResetEmail.value,
+            product_slug: "prestamodesk"
+          })
+        }
+      );
+
+      passwordResetRequestForm.reset();
+      passwordResetRequestForm.hidden = true;
+      loginForm.hidden = false;
+      showSuccess(result.message);
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      passwordResetRequestButton.disabled = false;
+      passwordResetRequestButton.textContent =
+        "Enviar enlace";
+    }
+  }
+);
+
+
+loginForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: loginEmail.value,
+            password:
+              document.getElementById(
+                "loginPassword"
+              ).value
+          })
+        }
+      );
+
+      await discoverAccess();
+      await searchLoans();
+      await loadCashClosing();
+      loginForm.reset();
+      setAuthenticatedUI(true);
+      showSuccess("Sesión de caja iniciada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await apiRequest(
+        "/auth/logout",
+        {method: "POST"}
+      );
+    } catch {
+      // Continue local sign-out.
+    }
+
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    location.reload();
+  }
+);
+
+
+async function initialize() {
+  await checkHealth();
+  setDefaultPaymentDate();
+
+  if (!tenantId) {
+    setAuthenticatedUI(false);
+    return;
+  }
+
+  try {
+    await discoverAccess();
+    await searchLoans();
+    await loadCashClosing();
+    setAuthenticatedUI(true);
+  } catch {
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    setAuthenticatedUI(false);
+  }
+}
+
+
+initialize();
+
+(() => {
+  "use strict";
+  const panel = document.getElementById("paymentCorrectionPanel");
+  const list = document.getElementById("paymentCorrectionList");
+  const message = document.getElementById("paymentCorrectionMessage");
+  let generation = 0;
+  let busy = false;
+  const currency = new Intl.NumberFormat("es-DO", {style: "currency", currency: "DOP"});
+  const text = (tag, contents) => { const node = document.createElement(tag); node.textContent = contents; return node; };
+  const errors = {
+    "Only the latest recorded payment on the loan may be voided": "Solo puede anular el último pago registrado del préstamo.",
+    "Payment belongs to a cash closing; a reconciled adjustment is required": "Este pago pertenece a un cierre de caja y requiere conciliación.",
+    "Payment predates correction snapshots; a reconciled adjustment is required": "Este pago es anterior a la función de corrección y requiere conciliación.",
+    "Installment changed after payment; reconciliation is required": "La cuota cambió después del pago y requiere conciliación.",
+    "Payment operation access required": "Su cuenta ya no tiene permiso para corregir pagos."
+  };
+  function notify(contents, failed = false) {
+    message.textContent = contents;
+    message.className = "message " + (failed ? "error" : "success");
+    message.hidden = false;
+  }
+  function clear() { generation++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
+  async function load(loanId, role) {
+    const request = ++generation;
+    list.replaceChildren();
+    message.hidden = true;
+    panel.hidden = !["owner", "administrator"].includes(role);
+    if (panel.hidden) return;
+    try {
+      const payments = await apiRequest(`${PRODUCT_BASE}/payments/loan/${loanId}`);
+      if (request !== generation) return;
+      const latest = Math.max(0, ...payments.filter(p => !p.voided_at).map(p => p.id));
+      if (!payments.length) { list.append(text("p", "No hay pagos registrados.")); return; }
+      for (const payment of [...payments].sort((a, b) => b.id - a.id)) {
+        const row = document.createElement("article");
+        row.append(text("h4", `PM-${String(payment.id).padStart(8, "0")} · ${currency.format(Number(payment.amount))}`));
+        row.append(text("p", `Registrado por usuario #${payment.recorded_by_user_id} · ${payment.paid_at}`));
+        if (payment.voided_at) {
+          row.append(text("p", `Anulado · ${payment.void_reason} · Usuario #${payment.voided_by_user_id}`));
+        } else if (payment.cash_closing_id) {
+          row.append(text("p", "Incluido en un cierre de caja. Requiere conciliación para ajustar."));
+        } else if (!payment.correction_supported) {
+          row.append(text("p", "Pago anterior a la función de corrección. Requiere conciliación para ajustar."));
+        } else if (payment.id !== latest) {
+          row.append(text("p", "Hay un pago posterior en este préstamo."));
+        } else {
+          const button = text("button", "Anular pago por error");
+          button.type = "button";
+          button.className = "secondary";
+          button.addEventListener("click", async () => {
+            if (busy) return;
+            const entered = window.prompt("Explique el error de este pago (mínimo 5 caracteres):");
+            if (entered === null) return;
+            const reason = entered.trim();
+            if (reason.length < 5 || reason.length > 1000) { notify("Indique un motivo de entre 5 y 1000 caracteres.", true); return; }
+            if (!window.confirm(`¿Anular PM-${String(payment.id).padStart(8, "0")} por ${currency.format(Number(payment.amount))}? El recibo original se conservará como anulado. Motivo: ${reason}`)) return;
+            busy = true;
+            button.disabled = true;
+            let corrected = false;
+            try {
+              await apiRequest(`${PRODUCT_BASE}/payments/${payment.id}/void`, {method: "POST", body: JSON.stringify({reason})});
+              corrected = true;
+              if (request !== generation) return;
+              await openLoan(loanId);
+              // Refresh the relevant summary after the loan balances are refreshed.
+              if (typeof loadDashboard === "function") await loadDashboard();
+              if (typeof searchLoans === "function") await searchLoans();
+              notify("Pago anulado. El registro original se conserva. Registre el pago correcto si corresponde.");
+            } catch (cause) {
+              if (request === generation || corrected) {
+                notify(corrected ? "El pago fue anulado, pero no se pudo actualizar la pantalla. Actualice la página antes de continuar." : (errors[cause.message] || cause.message), true);
+              }
+            } finally { busy = false; button.disabled = false; }
+          });
+          row.append(button);
+        }
+        list.append(row);
+      }
+    } catch (cause) {
+      if (request !== generation) return;
+      if ([401, 403].includes(cause.status)) panel.hidden = true;
+      notify(errors[cause.message] || cause.message, true);
+    }
+  }
+  window.prestamodeskPaymentHistory = {load, clear};
+  document.getElementById("logoutButton").addEventListener("click", clear);
+  document.getElementById("closeLoanDetail").addEventListener("click", clear);
+})();
+
+return {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};
+}},
+"collections": {html:"\n  <header class=\"app-header\">\n    <div>\n      <span class=\"eyebrow\">FieldLookers</span>\n      <h1>PréstamoDesk · Gestión de cobros</h1>\n      <p>\n        Cartera vencida, seguimiento y promesas de pago\n      </p>\n    </div>\n\n    <div class=\"header-actions\"><a href=\"/prestamodesk/workspace\">Mi espacio · Todas las secciones</a>\n      <a\n        id=\"supervisionLink\"\n        href=\"/prestamodesk/cobros/supervision\"\n        hidden\n      >\n        Supervisión\n      </a>\n      <span id=\"clientContext\" class=\"badge\" hidden></span>\n      <span id=\"healthStatus\">Comprobando API…</span>\n      <button id=\"logoutButton\" class=\"secondary\" hidden>\n        Cerrar sesión\n      </button>\n    </div>\n  </header>\n\n  <main>\n    <div id=\"errorMessage\" class=\"message error\" hidden></div>\n    <div id=\"successMessage\" class=\"message success\" hidden></div>\n\n    <section id=\"authPanel\" class=\"panel auth-panel\">\n      <h2>Iniciar sesión en gestión de cobros</h2>\n\n      <form id=\"loginForm\" class=\"form-grid\">\n        <label>\n          Correo electrónico\n          <input\n            id=\"loginEmail\"\n            type=\"email\"\n            autocomplete=\"username\"\n            required\n          >\n        </label>\n\n        <label>\n          Contraseña\n          <input\n            id=\"loginPassword\"\n            type=\"password\"\n            autocomplete=\"current-password\"\n            required\n          >\n        </label>\n\n        <button type=\"submit\">Iniciar sesión</button>\n      </form>\n    </section>\n\n    <div id=\"collectionsWorkspace\" hidden>\n      <section class=\"panel\">\n        <div class=\"panel-heading\">\n          <div>\n            <h2 id=\"portfolioTitle\">Cartera vencida</h2>\n            <p id=\"portfolioNotice\" class=\"notice\">\n              Incluye todos los préstamos con cuotas vencidas\n              y saldo pendiente del cliente seleccionado.\n            </p>\n          </div>\n\n          <button\n            id=\"refreshPortfolioButton\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Actualizar\n          </button>\n        </div>\n\n        <form id=\"portfolioFilterForm\" class=\"form-grid\">\n          <label>\n            Fecha de corte\n            <input\n              id=\"portfolioAsOf\"\n              type=\"date\"\n              required\n            >\n          </label>\n\n          <label id=\"assignmentStatusField\" hidden>\n            Asignación\n            <select id=\"assignmentStatus\">\n              <option value=\"all\">Todos</option>\n              <option value=\"assigned\">Asignados</option>\n              <option value=\"unassigned\">Sin asignar</option>\n            </select>\n          </label>\n\n          <button type=\"submit\">Consultar cartera</button>\n        </form>\n\n        <p>\n          Préstamos vencidos:\n          <strong id=\"portfolioCount\">0</strong>\n        </p>\n\n        <div id=\"portfolioList\" class=\"table-wrap\"></div>\n      </section>\n\n      <section id=\"collectionDetailPanel\" class=\"panel\" hidden>\n        <div class=\"panel-heading\">\n          <div>\n            <h2 id=\"collectionDetailTitle\">\n              Gestión del préstamo\n            </h2>\n            <div id=\"collectionDetailSummary\"></div>\n          </div>\n\n          <button\n            id=\"closeCollectionDetail\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Cerrar\n          </button>\n        </div>\n\n        <div class=\"summary-grid\">\n          <section>\n            <h3>Registrar gestión</h3>\n\n            <form id=\"activityForm\" class=\"form-grid\">\n              <label>\n                Canal\n                <select id=\"activityChannel\" required>\n                  <option value=\"phone\">Llamada</option>\n                  <option value=\"whatsapp\">WhatsApp</option>\n                  <option value=\"sms\">SMS</option>\n                  <option value=\"email\">Correo</option>\n                  <option value=\"visit\">Visita</option>\n                  <option value=\"other\">Otro</option>\n                </select>\n              </label>\n\n              <label>\n                Resultado\n                <input\n                  id=\"activityOutcome\"\n                  maxlength=\"100\"\n                  required\n                >\n              </label>\n\n              <label>\n                Fecha y hora del contacto\n                <input\n                  id=\"activityContactedAt\"\n                  type=\"datetime-local\"\n                  required\n                >\n              </label>\n\n              <label>\n                Próximo seguimiento\n                <input\n                  id=\"activityNextFollowUpAt\"\n                  type=\"datetime-local\"\n                >\n              </label>\n\n              <label>\n                Notas\n                <textarea\n                  id=\"activityNotes\"\n                  maxlength=\"2000\"\n                ></textarea>\n              </label>\n\n              <button type=\"submit\">Guardar gestión</button>\n            </form>\n          </section>\n\n          <section>\n            <h3>Registrar promesa de pago</h3>\n\n            <form id=\"promiseForm\" class=\"form-grid\">\n              <label>\n                Monto prometido\n                <input\n                  id=\"promiseAmount\"\n                  type=\"number\"\n                  min=\"0.01\"\n                  step=\"0.01\"\n                  required\n                >\n              </label>\n\n              <label>\n                Fecha prometida\n                <input\n                  id=\"promiseDueDate\"\n                  type=\"date\"\n                  required\n                >\n              </label>\n\n              <label>\n                Notas\n                <textarea\n                  id=\"promiseNotes\"\n                  maxlength=\"2000\"\n                ></textarea>\n              </label>\n\n              <button type=\"submit\">Guardar promesa</button>\n            </form>\n          </section>\n        </div>\n\n        <section id=\"collectorAssignmentPanel\" hidden>\n          <h3>Asignación de cobrador</h3>\n\n          <form id=\"collectorAssignmentForm\" class=\"form-grid\">\n            <label>\n              Cobrador\n              <select id=\"collectorAssignmentUser\" required>\n                <option value=\"\">Seleccione un cobrador</option>\n              </select>\n            </label>\n\n            <button type=\"submit\">\n              Asignar o reasignar\n            </button>\n          </form>\n\n          <button\n            id=\"releaseCollectorAssignment\"\n            type=\"button\"\n            class=\"secondary\"\n            hidden\n          >\n            Liberar asignación\n          </button>\n\n          <div\n            id=\"collectorAssignmentHistory\"\n            class=\"table-wrap\"\n          ></div>\n        </section>\n\n        <section>\n          <h3>Historial de gestiones</h3>\n          <div\n            id=\"collectionActivityHistory\"\n            class=\"table-wrap\"\n          ></div>\n        </section>\n\n        <section>\n          <h3>Promesas de pago</h3>\n          <div\n            id=\"paymentPromiseHistory\"\n            class=\"table-wrap\"\n          ></div>\n        </section>\n      </section>\n\n      <section class=\"panel\">\n        <div class=\"panel-heading\">\n          <div>\n            <h2>Promesas vencidas</h2>\n            <p class=\"notice\">\n              Promesas pendientes o parciales cuya fecha ya\n              venció.\n            </p>\n          </div>\n\n          <button\n            id=\"refreshOverduePromisesButton\"\n            type=\"button\"\n            class=\"secondary\"\n          >\n            Actualizar\n          </button>\n        </div>\n\n        <div\n          id=\"overduePromiseList\"\n          class=\"table-wrap\"\n        ></div>\n      </section>\n    </div>\n  </main>\n\n  <footer>\n    <span>PréstamoDesk · FieldLookers</span>\n  </footer>\n\n  \n", start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {
+const API_BASE = "/api/v1";
+const PRODUCT_BASE = "/products/prestamodesk";
+const TENANT_STORAGE_KEY =
+  "prestamodesk_collections_tenant_id";
+
+let tenantId = localStorage.getItem(
+  TENANT_STORAGE_KEY
+);
+let selectedPortfolioItem = null;
+let currentRole = null;
+let availableCollectors = [];
+
+const authPanel = document.getElementById("authPanel");
+const collectionsWorkspace =
+  document.getElementById("collectionsWorkspace");
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword =
+  document.getElementById("loginPassword");
+const logoutButton =
+  document.getElementById("logoutButton");
+const clientContext =
+  document.getElementById("clientContext");
+const supervisionLink =
+  document.getElementById("supervisionLink");
+const healthStatus =
+  document.getElementById("healthStatus");
+const errorMessage =
+  document.getElementById("errorMessage");
+const successMessage =
+  document.getElementById("successMessage");
+const portfolioFilterForm =
+  document.getElementById("portfolioFilterForm");
+const portfolioAsOf =
+  document.getElementById("portfolioAsOf");
+const portfolioCount =
+  document.getElementById("portfolioCount");
+const portfolioList =
+  document.getElementById("portfolioList");
+const collectionDetailPanel =
+  document.getElementById("collectionDetailPanel");
+const collectionDetailTitle =
+  document.getElementById("collectionDetailTitle");
+const collectionDetailSummary =
+  document.getElementById("collectionDetailSummary");
+const activityForm =
+  document.getElementById("activityForm");
+const activityChannel =
+  document.getElementById("activityChannel");
+const activityOutcome =
+  document.getElementById("activityOutcome");
+const activityContactedAt =
+  document.getElementById("activityContactedAt");
+const activityNextFollowUpAt =
+  document.getElementById(
+    "activityNextFollowUpAt"
+  );
+const activityNotes =
+  document.getElementById("activityNotes");
+const promiseForm =
+  document.getElementById("promiseForm");
+const promiseAmount =
+  document.getElementById("promiseAmount");
+const promiseDueDate =
+  document.getElementById("promiseDueDate");
+const promiseNotes =
+  document.getElementById("promiseNotes");
+const collectionActivityHistory =
+  document.getElementById(
+    "collectionActivityHistory"
+  );
+const paymentPromiseHistory =
+  document.getElementById(
+    "paymentPromiseHistory"
+  );
+const overduePromiseList =
+  document.getElementById("overduePromiseList");
+const portfolioTitle =
+  document.getElementById("portfolioTitle");
+const portfolioNotice =
+  document.getElementById("portfolioNotice");
+const assignmentStatusField =
+  document.getElementById("assignmentStatusField");
+const assignmentStatus =
+  document.getElementById("assignmentStatus");
+const collectorAssignmentPanel =
+  document.getElementById("collectorAssignmentPanel");
+const collectorAssignmentForm =
+  document.getElementById("collectorAssignmentForm");
+const collectorAssignmentUser =
+  document.getElementById("collectorAssignmentUser");
+const releaseCollectorAssignment =
+  document.getElementById(
+    "releaseCollectorAssignment"
+  );
+const collectorAssignmentHistory =
+  document.getElementById(
+    "collectorAssignmentHistory"
+  );
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      style: "currency",
+      currency: "DOP"
+    }
+  ).format(Number(value || 0));
+}
+
+
+function formatDate(value) {
+  if (!value) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat(
+    "es-DO",
+    {dateStyle: "medium"}
+  ).format(
+    new Date(`${value}T12:00:00`)
+  );
+}
+
+
+function formatDateTime(value) {
+  if (!value) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat(
+    "es-DO",
+    {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }
+  ).format(new Date(value));
+}
+
+
+function formatRole(value) {
+  const labels = {
+    owner: "Propietario",
+    administrator: "Administrador",
+    supervisor: "Supervisor",
+    collector: "Cobrador"
+  };
+
+  return labels[value] || value;
+}
+
+
+function formatPromiseStatus(value) {
+  const labels = {
+    pending: "Pendiente",
+    partial: "Parcial",
+    fulfilled: "Cumplida",
+    cancelled: "Cancelada"
+  };
+
+  return labels[value] || value;
+}
+
+
+function formatChannel(value) {
+  const labels = {
+    phone: "Llamada",
+    whatsapp: "WhatsApp",
+    sms: "SMS",
+    email: "Correo",
+    visit: "Visita",
+    other: "Otro"
+  };
+
+  return labels[value] || value;
+}
+
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function localDateTimeValue(date = new Date()) {
+  const hours = String(
+    date.getHours()
+  ).padStart(2, "0");
+  const minutes = String(
+    date.getMinutes()
+  ).padStart(2, "0");
+
+  return `${localDateValue(date)}T${hours}:${minutes}`;
+}
+
+
+function setDefaults() {
+  portfolioAsOf.value = localDateValue();
+  activityContactedAt.value =
+    localDateTimeValue();
+  promiseDueDate.value = localDateValue();
+}
+
+
+function setAuthenticatedUI(authenticated) {
+  authPanel.hidden = authenticated;
+  collectionsWorkspace.hidden = !authenticated;
+  logoutButton.hidden = !authenticated;
+  clientContext.hidden = !authenticated;
+}
+
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+  successMessage.hidden = true;
+}
+
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  successMessage.hidden = false;
+  errorMessage.hidden = true;
+
+  window.setTimeout(() => {
+    successMessage.hidden = true;
+  }, 3500);
+}
+
+
+function clearMessages() {
+  errorMessage.hidden = true;
+  successMessage.hidden = true;
+}
+
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? {"X-Tenant-ID": tenantId}
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    }
+  );
+
+  if (!response.ok) {
+    let detail =
+      `Solicitud fallida (${response.status})`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // Preserve the safe default.
+    }
+
+    throw new Error(detail);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+}
+
+
+async function checkHealth() {
+  try {
+    const health = await apiRequest("/health");
+    healthStatus.textContent = `API: ${health.status}`;
+  } catch {
+    healthStatus.textContent = "API no disponible";
+  }
+}
+
+
+async function discoverAccess() {
+  const access = await apiRequest(
+    "/auth/products/prestamodesk/access"
+  );
+
+  if (access.clients.length === 0) {
+    throw new Error(
+      "Su cuenta no tiene acceso activo a PréstamoDesk."
+    );
+  }
+
+  if (access.clients.length > 1) {
+    throw new Error(
+      "Su cuenta tiene varios clientes. "
+      + "La selección de cliente aún no está disponible."
+    );
+  }
+
+  const client = access.clients[0];
+
+  if (!["owner", "administrator", "supervisor", "collector"].includes(client.role)) {
+    throw new Error(
+      "Esta cuenta no tiene acceso a gestión de cobros."
+    );
+  }
+
+  currentRole = client.role;
+  tenantId = String(client.tenant_id);
+  localStorage.setItem(
+    TENANT_STORAGE_KEY,
+    tenantId
+  );
+
+  clientContext.textContent =
+    `Cliente #${client.client_number} · `
+    + `${client.name} · ${formatRole(client.role)}`;
+
+  supervisionLink.hidden =
+    !["owner", "administrator", "supervisor"].includes(client.role);
+
+  const isOwner = ["owner", "administrator", "supervisor"].includes(client.role);
+
+  assignmentStatusField.hidden = !isOwner;
+  collectorAssignmentPanel.hidden = !isOwner;
+
+  if (isOwner) {
+    portfolioTitle.textContent = "Cartera vencida";
+    portfolioNotice.textContent =
+      "Incluye todos los préstamos vencidos del cliente. "
+      + "Puede filtrar y administrar sus asignaciones.";
+  } else {
+    portfolioTitle.textContent = "Mi cartera";
+    portfolioNotice.textContent =
+      "Muestra solamente los préstamos vencidos "
+      + "asignados a su usuario.";
+  }
+}
+
+
+function renderCollectorOptions() {
+  collectorAssignmentUser.innerHTML = `
+    <option value="">Seleccione un cobrador</option>
+    ${availableCollectors.map(collector => `
+      <option value="${collector.user_id}">
+        ${escapeHtml(collector.display_name)}
+        · ${escapeHtml(collector.email)}
+      </option>
+    `).join("")}
+  `;
+}
+
+
+async function loadCollectors() {
+  if (!["owner", "administrator", "supervisor"].includes(currentRole)) {
+    availableCollectors = [];
+    return;
+  }
+
+  availableCollectors = await apiRequest(
+    `${PRODUCT_BASE}/collections/collectors`
+  );
+  renderCollectorOptions();
+}
+
+
+function renderAssignments(items) {
+  const active = items.find(item => item.is_active);
+
+  releaseCollectorAssignment.hidden = !active;
+
+  if (active) {
+    collectorAssignmentUser.value =
+      String(active.collector_user_id);
+  } else {
+    collectorAssignmentUser.value = "";
+  }
+
+  if (items.length === 0) {
+    collectorAssignmentHistory.innerHTML =
+      '<p class="empty">No hay asignaciones registradas.</p>';
+    return;
+  }
+
+  collectorAssignmentHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cobrador</th>
+          <th>Asignada</th>
+          <th>Liberada</th>
+          <th>Estado</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(
+                item.collector_display_name
+              )}</strong><br>
+              ${escapeHtml(item.collector_email)}
+            </td>
+            <td>${formatDateTime(item.assigned_at)}</td>
+            <td>${formatDateTime(item.released_at)}</td>
+            <td>
+              ${item.is_active ? "Activa" : "Finalizada"}
+            </td>
+            <td>
+              ${escapeHtml(item.release_reason || "—")}
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+function renderPortfolio(items) {
+  portfolioCount.textContent = String(items.length);
+
+  if (items.length === 0) {
+    portfolioList.innerHTML =
+      '<p class="empty">No hay cartera vencida.</p>';
+    return;
+  }
+
+  portfolioList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Préstamo</th>
+          <th>Cliente</th>
+          <th>Contacto</th>
+          <th>Vencimiento más antiguo</th>
+          <th>Días vencidos</th>
+          <th>Cuotas</th>
+          <th>Saldo vencido</th>
+          <th>Cobrador asignado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>#${item.loan_id}</td>
+            <td>
+              <strong>${escapeHtml(
+                item.borrower_full_name
+              )}</strong><br>
+              ${escapeHtml(
+                item.borrower_document_number || "—"
+              )}
+            </td>
+            <td>
+              ${escapeHtml(
+                item.borrower_phone || "—"
+              )}<br>
+              ${escapeHtml(
+                item.borrower_email || "—"
+              )}
+            </td>
+            <td>${formatDate(
+              item.oldest_due_date
+            )}</td>
+            <td>${item.days_overdue}</td>
+            <td>${item.overdue_installment_count}</td>
+            <td>
+              <strong>${formatMoney(
+                item.total_balance_due
+              )}</strong>
+            </td>
+            <td>
+              ${escapeHtml(
+                item.assigned_collector_display_name
+                || "Sin asignar"
+              )}
+            </td>
+            <td>
+              <button
+                type="button"
+                class="secondary"
+                data-manage-loan="${item.loan_id}"
+              >
+                Gestionar
+              </button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+async function loadPortfolio() {
+  clearMessages();
+
+  const params = new URLSearchParams({
+    as_of: portfolioAsOf.value
+  });
+
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
+    params.set(
+      "assignment_status",
+      assignmentStatus.value
+    );
+  }
+  const items = await apiRequest(
+    `${PRODUCT_BASE}/collections/portfolio?${params}`
+  );
+
+  renderPortfolio(items);
+  return items;
+}
+
+
+function renderActivities(items) {
+  if (items.length === 0) {
+    collectionActivityHistory.innerHTML =
+      '<p class="empty">No hay gestiones registradas.</p>';
+    return;
+  }
+
+  collectionActivityHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Contacto</th>
+          <th>Canal</th>
+          <th>Resultado</th>
+          <th>Seguimiento</th>
+          <th>Notas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>${formatDateTime(
+              item.contacted_at
+            )}</td>
+            <td>${escapeHtml(
+              formatChannel(item.channel)
+            )}</td>
+            <td>${escapeHtml(item.outcome)}</td>
+            <td>${formatDateTime(
+              item.next_follow_up_at
+            )}</td>
+            <td>${escapeHtml(item.notes || "—")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+function renderPromises(items) {
+  if (items.length === 0) {
+    paymentPromiseHistory.innerHTML =
+      '<p class="empty">No hay promesas registradas.</p>';
+    return;
+  }
+
+  paymentPromiseHistory.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha prometida</th>
+          <th>Prometido</th>
+          <th>Cumplido</th>
+          <th>Pendiente</th>
+          <th>Estado</th>
+          <th>Notas</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>${formatDate(item.due_date)}</td>
+            <td>${formatMoney(
+              item.promised_amount
+            )}</td>
+            <td>${formatMoney(
+              item.fulfilled_amount
+            )}</td>
+            <td>${formatMoney(
+              item.remaining_amount
+            )}</td>
+            <td>
+              ${escapeHtml(
+                formatPromiseStatus(item.status)
+              )}
+              ${item.is_overdue ? " · Vencida" : ""}
+            </td>
+            <td>${escapeHtml(item.notes || "—")}</td>
+            <td>
+              ${["pending", "partial"].includes(
+                item.status
+              ) ? `
+                <button
+                  type="button"
+                  class="secondary"
+                  data-cancel-promise="${item.id}"
+                >
+                  Cancelar
+                </button>
+              ` : "—"}
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+function renderOverduePromises(items) {
+  if (items.length === 0) {
+    overduePromiseList.innerHTML =
+      '<p class="empty">No hay promesas vencidas.</p>';
+    return;
+  }
+
+  overduePromiseList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Préstamo</th>
+          <th>Fecha</th>
+          <th>Prometido</th>
+          <th>Cumplido</th>
+          <th>Pendiente</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>#${item.loan_id}</td>
+            <td>${formatDate(item.due_date)}</td>
+            <td>${formatMoney(
+              item.promised_amount
+            )}</td>
+            <td>${formatMoney(
+              item.fulfilled_amount
+            )}</td>
+            <td>
+              <strong>${formatMoney(
+                item.remaining_amount
+              )}</strong>
+            </td>
+            <td>${escapeHtml(
+              formatPromiseStatus(item.status)
+            )}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+
+async function loadLoanHistory() {
+  if (!selectedPortfolioItem) {
+    return;
+  }
+
+  const loanId = selectedPortfolioItem.loan_id;
+  const requests = [
+    apiRequest(
+      `${PRODUCT_BASE}/collections/loans/`
+      + `${loanId}/activities`
+    ),
+    apiRequest(
+      `${PRODUCT_BASE}/collections/loans/`
+      + `${loanId}/promises`
+    )
+  ];
+
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
+    requests.push(
+      apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${loanId}/assignments`
+      )
+    );
+  }
+
+  const [activities, promises, assignments] =
+    await Promise.all(requests);
+
+  renderActivities(activities);
+  renderPromises(promises);
+
+  if (["owner", "administrator", "supervisor"].includes(currentRole)) {
+    renderAssignments(assignments);
+  }
+}
+
+
+async function loadOverduePromises() {
+  const params = new URLSearchParams({
+    overdue_only: "true",
+    as_of: portfolioAsOf.value
+  });
+  const promises = await apiRequest(
+    `${PRODUCT_BASE}/collections/promises?${params}`
+  );
+
+  renderOverduePromises(promises);
+}
+
+
+async function openLoan(item) {
+  selectedPortfolioItem = item;
+
+  collectionDetailTitle.textContent =
+    `Préstamo #${item.loan_id} · `
+    + item.borrower_full_name;
+
+  collectionDetailSummary.innerHTML = `
+    <p>
+      Documento:
+      <strong>${escapeHtml(
+        item.borrower_document_number || "—"
+      )}</strong>
+    </p>
+    <p>
+      Teléfono:
+      <strong>${escapeHtml(
+        item.borrower_phone || "—"
+      )}</strong>
+    </p>
+    <p>
+      Correo:
+      <strong>${escapeHtml(
+        item.borrower_email || "—"
+      )}</strong>
+    </p>
+    <p>
+      Saldo vencido:
+      <strong>${formatMoney(
+        item.total_balance_due
+      )}</strong>
+    </p>
+    <p>
+      Cobrador asignado:
+      <strong>${escapeHtml(
+        item.assigned_collector_display_name
+        || "Sin asignar"
+      )}</strong>
+    </p>
+  `;
+
+  promiseAmount.max = item.total_balance_due;
+  collectionDetailPanel.hidden = false;
+  await loadLoanHistory();
+}
+
+
+portfolioFilterForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await Promise.all([
+        loadPortfolio(),
+        loadOverduePromises()
+      ]);
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "refreshPortfolioButton"
+).addEventListener(
+  "click",
+  async () => {
+    try {
+      await Promise.all([
+        loadPortfolio(),
+        loadOverduePromises()
+      ]);
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "refreshOverduePromisesButton"
+).addEventListener(
+  "click",
+  async () => {
+    try {
+      await loadOverduePromises();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+portfolioList.addEventListener(
+  "click",
+  async event => {
+    const button = event.target.closest(
+      "[data-manage-loan]"
+    );
+
+    if (!button) {
+      return;
+    }
+
+    try {
+      const items = await loadPortfolio();
+      const item = items.find(
+        candidate =>
+          candidate.loan_id
+          === Number(button.dataset.manageLoan)
+      );
+
+      if (item) {
+        await openLoan(item);
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+document.getElementById(
+  "closeCollectionDetail"
+).addEventListener(
+  "click",
+  () => {
+    selectedPortfolioItem = null;
+    collectionDetailPanel.hidden = true;
+  }
+);
+
+
+activityForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (!selectedPortfolioItem) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}/activities`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            channel: activityChannel.value,
+            outcome: activityOutcome.value.trim(),
+            notes:
+              activityNotes.value.trim() || null,
+            contacted_at: new Date(
+              activityContactedAt.value
+            ).toISOString(),
+            next_follow_up_at:
+              activityNextFollowUpAt.value
+                ? new Date(
+                    activityNextFollowUpAt.value
+                  ).toISOString()
+                : null
+          })
+        }
+      );
+
+      activityForm.reset();
+      activityContactedAt.value =
+        localDateTimeValue();
+      await loadLoanHistory();
+      showSuccess("Gestión registrada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+collectorAssignmentForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (
+      !["owner", "administrator", "supervisor"].includes(currentRole)
+      || !selectedPortfolioItem
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}/assignment`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            collector_user_id: Number(
+              collectorAssignmentUser.value
+            )
+          })
+        }
+      );
+
+      const refreshedItems = await loadPortfolio();
+      selectedPortfolioItem = refreshedItems.find(
+        item =>
+          item.loan_id === selectedPortfolioItem.loan_id
+      ) || selectedPortfolioItem;
+
+      await loadLoanHistory();
+      showSuccess("Cobrador asignado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+releaseCollectorAssignment.addEventListener(
+  "click",
+  async () => {
+    clearMessages();
+
+    if (
+      !["owner", "administrator", "supervisor"].includes(currentRole)
+      || !selectedPortfolioItem
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "¿Desea liberar esta asignación?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}`
+        + "/assignment/release",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            reason: "Liberada desde gestión de cobros"
+          })
+        }
+      );
+
+      const refreshedItems = await loadPortfolio();
+      selectedPortfolioItem = refreshedItems.find(
+        item =>
+          item.loan_id === selectedPortfolioItem.loan_id
+      ) || {
+        ...selectedPortfolioItem,
+        assigned_collector_user_id: null,
+        assigned_collector_display_name: null
+      };
+
+      await loadLoanHistory();
+      showSuccess("Asignación liberada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+promiseForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    if (!selectedPortfolioItem) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/loans/`
+        + `${selectedPortfolioItem.loan_id}/promises`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            promised_amount: promiseAmount.value,
+            due_date: promiseDueDate.value,
+            notes:
+              promiseNotes.value.trim() || null
+          })
+        }
+      );
+
+      promiseForm.reset();
+      promiseDueDate.value = localDateValue();
+      await Promise.all([
+        loadLoanHistory(),
+        loadOverduePromises()
+      ]);
+      showSuccess("Promesa de pago registrada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+paymentPromiseHistory.addEventListener(
+  "click",
+  async event => {
+    const button = event.target.closest(
+      "[data-cancel-promise]"
+    );
+
+    if (!button) {
+      return;
+    }
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/collections/promises/`
+        + `${button.dataset.cancelPromise}/cancel`,
+        {
+          method: "POST",
+          body: JSON.stringify({notes: null})
+        }
+      );
+
+      await Promise.all([
+        loadLoanHistory(),
+        loadOverduePromises()
+      ]);
+      showSuccess("Promesa cancelada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loginForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: loginEmail.value,
+            password: loginPassword.value
+          })
+        }
+      );
+
+      await discoverAccess();
+      await loadCollectors();
+      await Promise.all([
+        loadPortfolio(),
+        loadOverduePromises()
+      ]);
+      loginForm.reset();
+      setAuthenticatedUI(true);
+      showSuccess("Sesión de cobros iniciada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await apiRequest(
+        "/auth/logout",
+        {method: "POST"}
+      );
+    } catch {
+      // Continue local sign-out.
+    }
+
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    location.reload();
+  }
+);
+
+
+async function initialize() {
+  await checkHealth();
+  setDefaults();
+
+  if (!tenantId) {
+    setAuthenticatedUI(false);
+    return;
+  }
+
+  try {
+    await discoverAccess();
+    await loadCollectors();
+    await Promise.all([
+      loadPortfolio(),
+      loadOverduePromises()
+    ]);
+    setAuthenticatedUI(true);
+  } catch {
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    setAuthenticatedUI(false);
+  }
+}
+
+
+initialize();
+
+return {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};
+}},
+"supervision": {html:"\n  <header class=\"app-header\">\n    <div>\n      <span class=\"eyebrow\">FieldLookers</span>\n      <h1>PréstamoDesk · Supervisión de cobros</h1>\n      <p>\n        Resultados generales y desempeño del equipo de cobros\n      </p>\n    </div>\n\n    <div class=\"header-actions\"><a href=\"/prestamodesk/workspace\">Mi espacio · Todas las secciones</a>\n      <a href=\"/prestamodesk/cobros\">\n        Gestión de cobros\n      </a>\n      <span id=\"clientContext\" class=\"badge\" hidden></span>\n      <span id=\"healthStatus\">Comprobando API…</span>\n      <button id=\"logoutButton\" class=\"secondary\" hidden>\n        Cerrar sesión\n      </button>\n    </div>\n  </header>\n\n  <main>\n    <div id=\"errorMessage\" class=\"message error\" hidden></div>\n\n    <section id=\"authPanel\" class=\"panel auth-panel\">\n      <h2>Iniciar sesión en supervisión de cobros</h2>\n      <p class=\"notice\">\n        Esta página está disponible únicamente para el\n        propietario del cliente.\n      </p>\n\n      <form id=\"loginForm\" class=\"form-grid\">\n        <label>\n          Correo electrónico\n          <input\n            id=\"loginEmail\"\n            type=\"email\"\n            autocomplete=\"username\"\n            required\n          >\n        </label>\n\n        <label>\n          Contraseña\n          <input\n            id=\"loginPassword\"\n            type=\"password\"\n            autocomplete=\"current-password\"\n            required\n          >\n        </label>\n\n        <button type=\"submit\">Iniciar sesión</button>\n      </form>\n    </section>\n\n    <div id=\"supervisionWorkspace\" hidden>\n      <section class=\"panel\">\n        <div class=\"panel-heading\">\n          <div>\n            <h2>Resumen general</h2>\n            <p class=\"notice\">\n              Las gestiones, promesas y cobros recuperados\n              incluyen todo el historial. La fecha de corte\n              se aplica a la cartera y promesas vencidas.\n            </p>\n          </div>\n\n          <div>\n            <button\n              id=\"exportSupervisionButton\"\n              type=\"button\"\n              class=\"secondary\"\n            >\n              Exportar CSV\n            </button>\n\n            <button\n              id=\"refreshSupervisionButton\"\n              type=\"button\"\n              class=\"secondary\"\n            >\n              Actualizar\n            </button>\n          </div>\n        </div>\n\n        <form id=\"supervisionFilterForm\" class=\"form-grid\">\n          <label>\n            Fecha de corte\n            <input\n              id=\"supervisionAsOf\"\n              type=\"date\"\n              required\n            >\n          </label>\n\n          <button type=\"submit\">Consultar supervisión</button>\n        </form>\n\n        <div id=\"generalSummary\" class=\"summary-grid\"></div>\n      </section>\n\n      <section class=\"panel\">\n        <h2>Prioridades del día</h2>\n        <div\n          id=\"dailyOperationsSummary\"\n          class=\"summary-grid\"\n        ></div>\n      </section>\n\n      <section class=\"panel\">\n        <h2>Antigüedad de la cartera vencida</h2>\n        <div id=\"agingSummary\" class=\"summary-grid\"></div>\n      </section>\n\n      <section class=\"panel\">\n        <h2>Promesas de pago</h2>\n        <div id=\"promiseSummary\" class=\"summary-grid\"></div>\n      </section>\n\n      <section class=\"panel\">\n        <div class=\"panel-heading\">\n          <div>\n            <h2>Desempeño por cobrador</h2>\n            <p class=\"notice\">\n              El monto recuperado se presenta solamente como\n              total general. No se atribuyen pagos a un\n              cobrador individual.\n            </p>\n          </div>\n        </div>\n\n        <div\n          id=\"collectorPerformance\"\n          class=\"table-wrap\"\n        ></div>\n      </section>\n    </div>\n  </main>\n\n  <footer>\n    <span>PréstamoDesk · FieldLookers</span>\n  </footer>\n\n  \n", start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {
+const API_BASE = "/api/v1";
+const PRODUCT_BASE = "/products/prestamodesk";
+const TENANT_STORAGE_KEY =
+  "prestamodesk_collections_tenant_id";
+
+let tenantId = localStorage.getItem(
+  TENANT_STORAGE_KEY
+);
+
+const authPanel = document.getElementById("authPanel");
+const supervisionWorkspace =
+  document.getElementById("supervisionWorkspace");
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword =
+  document.getElementById("loginPassword");
+const logoutButton =
+  document.getElementById("logoutButton");
+const clientContext =
+  document.getElementById("clientContext");
+const healthStatus =
+  document.getElementById("healthStatus");
+const errorMessage =
+  document.getElementById("errorMessage");
+const supervisionFilterForm =
+  document.getElementById("supervisionFilterForm");
+const supervisionAsOf =
+  document.getElementById("supervisionAsOf");
+const exportSupervisionButton =
+  document.getElementById(
+    "exportSupervisionButton"
+  );
+const refreshSupervisionButton =
+  document.getElementById(
+    "refreshSupervisionButton"
+  );
+const generalSummary =
+  document.getElementById("generalSummary");
+const dailyOperationsSummary =
+  document.getElementById("dailyOperationsSummary");
+const agingSummary =
+  document.getElementById("agingSummary");
+const promiseSummary =
+  document.getElementById("promiseSummary");
+const collectorPerformance =
+  document.getElementById("collectorPerformance");
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      style: "currency",
+      currency: "DOP"
+    }
+  ).format(Number(value || 0));
+}
+
+
+function formatPercent(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }
+  ).format(Number(value || 0)) + "%";
+}
+
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function setAuthenticatedUI(authenticated) {
+  authPanel.hidden = authenticated;
+  supervisionWorkspace.hidden = !authenticated;
+  logoutButton.hidden = !authenticated;
+  clientContext.hidden = !authenticated;
+}
+
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+}
+
+
+function clearError() {
+  errorMessage.hidden = true;
+}
+
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? {"X-Tenant-ID": tenantId}
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    }
+  );
+
+  if (!response.ok) {
+    let detail =
+      `Solicitud fallida (${response.status})`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // Preserve the safe default.
+    }
+
+    throw new Error(detail);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+}
+
+
+async function checkHealth() {
+  try {
+    const health = await apiRequest("/health");
+    healthStatus.textContent = `API: ${health.status}`;
+  } catch {
+    healthStatus.textContent = "API no disponible";
+  }
+}
+
+
+async function discoverAccess() {
+  const access = await apiRequest(
+    "/auth/products/prestamodesk/access"
+  );
+
+  if (access.clients.length === 0) {
+    throw new Error(
+      "Su cuenta no tiene acceso activo a PréstamoDesk."
+    );
+  }
+
+  if (access.clients.length > 1) {
+    throw new Error(
+      "Su cuenta tiene varios clientes. "
+      + "La selección de cliente aún no está disponible."
+    );
+  }
+
+  const client = access.clients[0];
+
+  if (client.role === "collector") {
+    window.location.replace(
+      "/prestamodesk/cobros"
+    );
+    return false;
+  }
+
+  if (!["owner", "administrator", "supervisor"].includes(client.role)) {
+    throw new Error(
+      "La supervisión requiere rol de propietario, administrador o supervisor."
+    );
+  }
+
+  tenantId = String(client.tenant_id);
+  localStorage.setItem(
+    TENANT_STORAGE_KEY,
+    tenantId
+  );
+
+  clientContext.textContent =
+    `Cliente #${client.client_number} · `
+    + `${client.name} · ${client.role}`;
+
+  return true;
+}
+
+
+function metric(label, value) {
+  return `
+    <section>
+      <span class="eyebrow">${escapeHtml(label)}</span>
+      <h3>${escapeHtml(value)}</h3>
+    </section>
+  `;
+}
+
+
+function renderGeneralSummary(data) {
+  generalSummary.innerHTML = [
+    metric(
+      "Préstamos vencidos",
+      data.overdue_loan_count
+    ),
+    metric(
+      "Saldo vencido",
+      formatMoney(data.overdue_balance)
+    ),
+    metric(
+      "Préstamos asignados",
+      data.assigned_overdue_loan_count
+    ),
+    metric(
+      "Saldo asignado",
+      formatMoney(data.assigned_overdue_balance)
+    ),
+    metric(
+      "Préstamos sin asignar",
+      data.unassigned_overdue_loan_count
+    ),
+    metric(
+      "Saldo sin asignar",
+      formatMoney(data.unassigned_overdue_balance)
+    ),
+    metric(
+      "Total recuperado",
+      formatMoney(data.total_recovered)
+    ),
+    metric(
+      "Gestiones registradas",
+      data.activity_count
+    ),
+    metric(
+      "Promesas registradas",
+      data.promise_count
+    ),
+    metric(
+      "Promesas vencidas",
+      data.overdue_promise_count
+    )
+  ].join("");
+}
+
+
+function renderDailyOperations(data) {
+  dailyOperationsSummary.innerHTML = [
+    metric(
+      "Promesas para hoy",
+      data.promises_due_today_count
+    ),
+    metric(
+      "Seguimientos para hoy",
+      data.follow_ups_due_today_count
+    ),
+    metric(
+      "Seguimientos vencidos",
+      data.overdue_follow_up_count
+    ),
+    metric(
+      "Promesas vencidas",
+      data.overdue_promise_count
+    ),
+  ].join("");
+}
+
+function renderAgingSummary(buckets) {
+  agingSummary.innerHTML = buckets.map((bucket) => (
+    metric(
+      bucket.label,
+      `${bucket.loan_count} · ${
+        formatMoney(bucket.balance)
+      }`
+    )
+  )).join("");
+}
+
+function renderPromiseSummary(data) {
+  promiseSummary.innerHTML = [
+    metric(
+      "Pendientes",
+      data.pending_promise_count
+    ),
+    metric(
+      "Parciales",
+      data.partial_promise_count
+    ),
+    metric(
+      "Cumplidas",
+      data.fulfilled_promise_count
+    ),
+    metric(
+      "Canceladas",
+      data.cancelled_promise_count
+    ),
+    metric(
+      "Monto prometido",
+      formatMoney(data.promised_amount)
+    ),
+    metric(
+      "Monto cumplido",
+      formatMoney(data.fulfilled_amount)
+    ),
+    metric(
+      "Cumplimiento por cantidad",
+      formatPercent(
+        data.promise_count_fulfillment_percent
+      )
+    ),
+    metric(
+      "Cumplimiento por monto",
+      formatPercent(
+        data.promise_amount_fulfillment_percent
+      )
+    )
+  ].join("");
+}
+
+
+function renderCollectorPerformance(collectors) {
+  if (collectors.length === 0) {
+    collectorPerformance.innerHTML =
+      '<p class="empty">No hay cobradores activos.</p>';
+    return;
+  }
+
+  const rows = collectors.map(collector => `
+    <tr>
+      <td>
+        <strong>
+          ${escapeHtml(collector.display_name)}
+        </strong>
+        <br>
+        <span>
+          ${escapeHtml(collector.email)}
+        </span>
+      </td>
+      <td>${collector.active_overdue_loan_count}</td>
+      <td>${formatMoney(
+        collector.active_overdue_balance
+      )}</td>
+      <td>${collector.activity_count}</td>
+      <td>${collector.promise_count}</td>
+      <td>${collector.pending_promise_count}</td>
+      <td>${collector.partial_promise_count}</td>
+      <td>${collector.fulfilled_promise_count}</td>
+      <td>${collector.cancelled_promise_count}</td>
+      <td>${collector.overdue_promise_count}</td>
+      <td>${formatMoney(collector.promised_amount)}</td>
+      <td>${formatMoney(collector.fulfilled_amount)}</td>
+      <td>
+        ${formatPercent(
+          collector.promise_count_fulfillment_percent
+        )}
+      </td>
+      <td>
+        ${formatPercent(
+          collector.promise_amount_fulfillment_percent
+        )}
+      </td>
+    </tr>
+  `).join("");
+
+  collectorPerformance.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cobrador</th>
+          <th>Préstamos asignados</th>
+          <th>Saldo asignado</th>
+          <th>Gestiones</th>
+          <th>Promesas</th>
+          <th>Pendientes</th>
+          <th>Parciales</th>
+          <th>Cumplidas</th>
+          <th>Canceladas</th>
+          <th>Vencidas</th>
+          <th>Prometido</th>
+          <th>Cumplido</th>
+          <th>Cumplimiento por cantidad</th>
+          <th>Cumplimiento por monto</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+
+async function exportSupervision() {
+  clearError();
+  exportSupervisionButton.disabled = true;
+
+  try {
+    const params = new URLSearchParams({
+      as_of: supervisionAsOf.value
+    });
+    const response = await fetch(
+      `${API_BASE}${PRODUCT_BASE}` +
+        `/collections/supervision/export.csv?${params}`,
+      {
+        headers: {
+          "Accept": "text/csv",
+          "X-Tenant-ID": tenantId
+        }
+      }
+    );
+
+    if (!response.ok) {
+      let message = "No se pudo exportar el reporte.";
+
+      try {
+        const error = await response.json();
+        message = error.detail || message;
+      } catch {
+        // Preserve the default export error.
+      }
+
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download =
+      `prestamodesk-cartera-vencida-` +
+      `${supervisionAsOf.value}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+  } finally {
+    exportSupervisionButton.disabled = false;
+  }
+}
+
+
+async function loadSupervision() {
+  clearError();
+
+  const params = new URLSearchParams({
+    as_of: supervisionAsOf.value
+  });
+  const data = await apiRequest(
+    `${PRODUCT_BASE}/collections/supervision?${params}`
+  );
+
+  renderGeneralSummary(data);
+  renderDailyOperations(data);
+  renderAgingSummary(data.aging_buckets);
+  renderPromiseSummary(data);
+  renderCollectorPerformance(data.collectors);
+}
+
+
+supervisionFilterForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await loadSupervision();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+exportSupervisionButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await exportSupervision();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+refreshSupervisionButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await loadSupervision();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loginForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearError();
+
+    try {
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: loginEmail.value,
+            password: loginPassword.value
+          })
+        }
+      );
+
+      const accessGranted = await discoverAccess();
+
+      if (!accessGranted) {
+        return;
+      }
+
+      await loadSupervision();
+      loginForm.reset();
+      setAuthenticatedUI(true);
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+    try {
+      await apiRequest(
+        "/auth/logout",
+        {method: "POST"}
+      );
+    } catch {
+      // Continue local sign-out.
+    }
+
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    location.reload();
+  }
+);
+
+
+async function initialize() {
+  await checkHealth();
+  supervisionAsOf.value = localDateValue();
+
+  if (!tenantId) {
+    setAuthenticatedUI(false);
+    return;
+  }
+
+  try {
+    const accessGranted = await discoverAccess();
+
+    if (!accessGranted) {
+      return;
+    }
+
+    await loadSupervision();
+    setAuthenticatedUI(true);
+  } catch {
+    tenantId = null;
+    localStorage.removeItem(TENANT_STORAGE_KEY);
+    setAuthenticatedUI(false);
+  }
+}
+
+
+initialize();
+
+return {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};
+}},
+"administration": {html:"\n<header class=\"app-header\"><div class=\"brand\"><span class=\"brand-mark\" aria-hidden=\"true\">PD</span><div><h1>PréstamoDesk</h1><p>by FieldLookers</p></div></div><div class=\"header-actions\"><a href=\"/prestamodesk/workspace\">Mi espacio · Todas las secciones</a><a href=\"/prestamodesk/app\">Volver a préstamos</a><span id=\"clientContext\" class=\"badge\" hidden></span><span id=\"healthStatus\">Comprobando API…</span><button id=\"logoutButton\" class=\"secondary\" hidden>Cerrar sesión</button><a id=\"administrationLink\" href=\"/prestamodesk-administracion.html\" hidden aria-label=\"Administración actual\" aria-current=\"page\">Administración</a></div></header>\n<main><div id=\"pageMessage\" class=\"message\" role=\"status\" hidden></div><section id=\"authPanel\" class=\"panel auth-panel\" hidden><h2>Iniciar sesión</h2><form id=\"loginForm\" class=\"form-grid\"><label>Correo electrónico<input id=\"loginEmail\" type=\"email\" autocomplete=\"username\" required></label><label>Contraseña<input id=\"loginPassword\" type=\"password\" autocomplete=\"current-password\" required></label><button type=\"submit\">Iniciar sesión</button></form><a href=\"/prestamodesk/app\">Recuperar contraseña</a></section>\n<section id=\"administrationPanel\" hidden><div class=\"admin-top\"><div><span class=\"page-eyebrow\">GESTIÓN DEL EQUIPO</span><h2>Administración</h2><p>Un solo lugar para gestionar personas, permisos y acceso.</p></div><div class=\"toolbar\"><button id=\"inviteMemberButton\" type=\"button\">Invitar integrante</button><button id=\"administrationRefresh\" type=\"button\" class=\"secondary\">Actualizar</button><details><summary>Más opciones</summary><div class=\"export-menu\"><button id=\"customerExport\" type=\"button\" class=\"secondary\">Descargar datos del cliente</button><p>ZIP con CSV y JSON. Incluye información personal y financiera.</p></div></details></div></div>\n<div id=\"administrationMessage\" class=\"message\" role=\"status\" hidden></div><div id=\"administrationSections\" class=\"admin-tabs\" role=\"tablist\" aria-label=\"Administración\"><button id=\"teamTab\" type=\"button\" role=\"tab\" aria-selected=\"true\" aria-controls=\"teamSection\" data-admin-tab=\"teamSection\">Equipo</button><button id=\"invitationsTab\" type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\" aria-controls=\"invitationsSection\" data-admin-tab=\"invitationsSection\">Invitaciones</button><button id=\"activityTab\" type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\" aria-controls=\"activitySection\" data-admin-tab=\"activitySection\">Actividad</button></div>\n<div class=\"admin-grid\"><div><section id=\"teamSection\" class=\"admin-card\" role=\"tabpanel\" aria-labelledby=\"teamTab\"><div class=\"card-heading\"><div><h3>Integrantes <span id=\"teamCount\" class=\"team-count\">0</span></h3><p>Las personas con acceso a este negocio.</p></div><span class=\"card-label\">Equipo de trabajo</span></div><div class=\"table-wrap\"><table><caption class=\"visually-hidden\">Equipo de este cliente</caption><thead><tr><th scope=\"col\">Integrante</th><th scope=\"col\">Rol</th><th scope=\"col\">Acceso</th><th scope=\"col\">Detalle</th></tr></thead><tbody id=\"administrationMembers\"></tbody></table></div><p class=\"context-note\">Solo el propietario administra propietarios y administradores.</p><nav class=\"related-links\" aria-label=\"Herramientas de cobros\"><a href=\"/prestamodesk/cobros\">Asignar carteras <span aria-hidden=\"true\">↗</span></a><a href=\"/prestamodesk/cobros/supervision\">Supervisión <span aria-hidden=\"true\">↗</span></a></nav></section>\n<section id=\"invitationsSection\" class=\"admin-card\" role=\"tabpanel\" aria-labelledby=\"invitationsTab\" hidden><h3>Invitar integrante</h3>      <form id=\"administrationInvite\" class=\"form-grid\">\n        <label>Nombre <input name=\"display_name\" maxlength=\"200\" required></label>\n        <label>Correo electrónico <input name=\"email\" type=\"email\" maxlength=\"320\" required></label>\n        <label>Rol <select name=\"role\" id=\"administrationInviteRole\"></select></label>\n        <button type=\"submit\">Crear invitación</button>\n      </form>\n      <p id=\"administrationActivation\" hidden></p>\n      <h3>Invitaciones</h3>\n      <div id=\"administrationInvitations\"></div>\n</section>\n<section id=\"activitySection\" class=\"admin-card activity\" role=\"tabpanel\" aria-labelledby=\"activityTab\" hidden><h3>Actividad reciente</h3><div id=\"administrationAudit\"></div><p class=\"context-note\">Los detalles completos de auditoría están incluidos en la exportación del cliente.</p></section></div>      <section id=\"administrationMemberDetail\" class=\"panel\" hidden aria-labelledby=\"administrationMemberTitle\">\n        <div class=\"section-heading\">\n          <h3 id=\"administrationMemberTitle\">Detalle del integrante</h3>\n          <button id=\"administrationMemberClose\" type=\"button\" class=\"secondary\">Cerrar detalle</button>\n        </div>\n        <div id=\"administrationMemberMessage\" role=\"status\" hidden></div>\n        <div id=\"administrationMemberTabs\" role=\"tablist\" aria-label=\"Información del integrante\">\n          <button id=\"memberAccountTab\" type=\"button\" role=\"tab\" aria-controls=\"memberAccountPanel\" aria-selected=\"true\" data-member-tab=\"memberAccountPanel\">Cuenta y acceso</button>\n          <button id=\"memberProfileTab\" type=\"button\" role=\"tab\" aria-controls=\"memberProfilePanel\" aria-selected=\"false\" tabindex=\"-1\" data-member-tab=\"memberProfilePanel\">Perfil y contacto</button>\n          <button id=\"memberResponsibilitiesTab\" type=\"button\" role=\"tab\" aria-controls=\"memberResponsibilitiesPanel\" aria-selected=\"false\" tabindex=\"-1\" data-member-tab=\"memberResponsibilitiesPanel\">Responsabilidades</button>\n          <button id=\"memberHistoryTab\" type=\"button\" role=\"tab\" aria-controls=\"memberHistoryPanel\" aria-selected=\"false\" tabindex=\"-1\" data-member-tab=\"memberHistoryPanel\">Historial</button>\n        </div>\n        <section id=\"memberAccountPanel\" role=\"tabpanel\" aria-labelledby=\"memberAccountTab\">\n          <div id=\"memberAccountInfo\"></div>\n          <div id=\"memberAccountActions\" class=\"item-actions\"></div>\n          <p>El nombre y correo de acceso pertenecen a la cuenta compartida entre clientes. La recuperación se envía al correo de acceso; cambiar la contraseña afecta todos los accesos de esa cuenta.</p>\n        </section>\n        <section id=\"memberProfilePanel\" role=\"tabpanel\" aria-labelledby=\"memberProfileTab\" hidden>\n          <p>Estos datos se usan como referencia de contacto en este cliente. No cambian el correo de acceso, el destinatario de recuperación ni configuran envíos automáticos.</p>\n          <form id=\"memberProfileForm\" class=\"form-grid\">\n            <label>Nombre de contacto en este cliente<input name=\"contact_name\" maxlength=\"200\"></label>\n            <label>Teléfono<input name=\"phone\" type=\"tel\" maxlength=\"40\"></label>\n            <label>Correo de correspondencia<input name=\"correspondence_email\" type=\"email\" maxlength=\"320\"></label>\n            <label>Contacto preferido<select name=\"preferred_contact\"><option value=\"email\">Correo electrónico</option><option value=\"phone\">Teléfono</option><option value=\"whatsapp\">WhatsApp</option></select></label>\n            <label>Notas internas<textarea name=\"notes\" maxlength=\"2000\" rows=\"3\"></textarea></label>\n            <button type=\"submit\">Guardar perfil de este cliente</button>\n          </form>\n          <p id=\"memberProfileRestriction\" hidden>Solo el propietario puede modificar el perfil de propietarios y administradores.</p>\n        </section>\n        <section id=\"memberResponsibilitiesPanel\" role=\"tabpanel\" aria-labelledby=\"memberResponsibilitiesTab\" hidden>\n          <h4>Permisos por rol</h4><div id=\"memberPermissions\"></div>\n          <h4>Préstamos asignados</h4><div id=\"memberAssignments\"></div>\n          <p>Las asignaciones determinan la cartera del cobrador. El supervisor supervisa la cartera completa por su rol; no se asigna aquí un supervisor individual.</p>\n          <a href=\"/prestamodesk/cobros\">Administrar asignaciones</a> · <a href=\"/prestamodesk/cobros/supervision\">Supervisión</a>\n        </section>\n        <section id=\"memberHistoryPanel\" role=\"tabpanel\" aria-labelledby=\"memberHistoryTab\" hidden>\n          <p>Últimos 50 cambios de acceso, perfil, recuperación y asignaciones relacionados con este integrante en este cliente.</p>\n          <div id=\"memberHistory\"></div>\n        </section>\n      </section>\n</div></section></main><footer>PréstamoDesk · FieldLookers</footer>", start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {
+(() => {
+  "use strict";
+  const auth = document.getElementById("authPanel"), message = document.getElementById("pageMessage"), login = document.getElementById("loginForm");
+  let generation = 0;
+  const note = text => {message.textContent = text; message.hidden = false;};
+  async function request(path, options = {}) {
+    const response = await fetch("/api/v1" + path, {credentials: "same-origin", ...options, headers: {"Content-Type": "application/json", ...(options.headers || {})}});
+    const data = response.status === 204 ? null : await response.json();
+    if (!response.ok) {const error = new Error(typeof data?.detail === "string" ? data.detail : "No se pudo completar la solicitud."); error.status = response.status; throw error;}
+    return data;
+  }
+  async function access() {
+    const current = ++generation;
+    const result = await request("/auth/products/prestamodesk/access");
+    if (current !== generation) return;
+    const clients = result.clients || [], selected = localStorage.getItem("prestamodesk_tenant_id");
+    const client = clients.find(item => String(item.tenant_id) === selected) || (clients.length === 1 ? clients[0] : null);
+    auth.hidden = true; document.getElementById("logoutButton").hidden = false;
+    if (!client) {note(clients.length ? "Seleccione su cliente desde el espacio de préstamos." : "Su cuenta no tiene acceso activo a PréstamoDesk.");return;}
+    document.getElementById("clientContext").textContent = `Cliente #${client.client_number} · ${client.name}`;document.getElementById("clientContext").hidden = false;
+    if (!["owner", "administrator"].includes(client.role)) {note("La administración requiere acceso de propietario o administrador.");return;}
+    localStorage.setItem("prestamodesk_tenant_id",String(client.tenant_id));
+    message.hidden = true;window.prestamodeskAccess = client;window.dispatchEvent(new CustomEvent("prestamodesk-access",{detail:client}));
+  }
+  login.addEventListener("submit",async event => {
+    event.preventDefault();const button=login.querySelector("button");button.disabled=true;
+    try {await request("/auth/login",{method:"POST",body:JSON.stringify({email:document.getElementById("loginEmail").value,password:document.getElementById("loginPassword").value})});login.reset();await access();}
+    catch(error){note(error.status===401 ? "Correo o contraseña incorrectos." : error.message);}finally{button.disabled=false;}
+  });
+  document.getElementById("logoutButton").addEventListener("click",async () => {
+    generation++;window.prestamodeskAccess=null;localStorage.removeItem("prestamodesk_tenant_id");
+    document.getElementById("administrationPanel").hidden=true;document.getElementById("clientContext").hidden=true;document.getElementById("logoutButton").hidden=true;document.getElementById("administrationLink").hidden=true;
+    try{await request("/auth/logout",{method:"POST"});}catch{note("No se pudo cerrar la sesión en el servidor. Intente nuevamente.");document.getElementById("logoutButton").hidden=false;}
+    auth.hidden=false;
+  });
+  request("/health").then(data=>{document.getElementById("healthStatus").textContent="API: "+data.status;}).catch(()=>{document.getElementById("healthStatus").textContent="API no disponible";});
+  access().catch(error=>{auth.hidden=false;if(error.status!==401)note(error.message);});
+})();
+
+(() => {
+  "use strict";
+  const panel = document.getElementById("administrationPanel");
+  const message = document.getElementById("administrationMessage");
+  const base = "/api/v1/products/prestamodesk/administration";
+  let client = null;
+  let team = null;
+  const labels = {owner: "Propietario", administrator: "Administrador", supervisor: "Supervisor", collector: "Cobrador", cashier: "Cajero", member: "Miembro (caja existente)"};
+  const permissions = {operations: "Prestatarios, préstamos, solicitudes y configuración", loan_read: "Consultar préstamos", payments: "Consultar caja y registrar pagos", collections: "Cartera completa y gestiones", assignments: "Asignar y liberar carteras", supervision: "Supervisión y exportación", team: "Equipo operativo e invitaciones", privileged_roles: "Propietarios y administradores", assigned_collections: "Solo su cartera asignada", own_cash_closing: "Cierre de su propia caja"};
+  const actions = {"client_team.profile_changed": "Perfil actualizado", "client_team.password_reset_requested": "Recuperación solicitada","customer_data.exported": "Datos del cliente exportados","payments.voided": "Pago anulado","client_team.role_changed": "Cambio de rol", "client_team.status_changed": "Cambio de acceso", "client_team.member_removed": "Integrante retirado", "client_user.invitation_created": "Invitación creada", "client_user.invitation_revoked": "Invitación revocada", "client_user.invitation_accepted": "Invitación aceptada", "collections.assignment_created": "Cartera asignada", "collections.assignment_released": "Cartera liberada"};
+  const element = (tag, text) => {const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;};
+  function notify(text, error = false) {message.textContent = text; message.className = "message " + (error ? "error" : "success"); message.hidden = false;}
+  async function request(path, method = "GET", body) {
+    if (!client) throw new Error("Sesión no disponible.");
+    const selectedTenant = client.tenant_id;
+    const response = await fetch(base + path, {method, credentials: "same-origin", headers: {"Content-Type": "application/json", "X-Tenant-ID": String(client.tenant_id)}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+    const data = await response.json();
+    if (!client || client.tenant_id !== selectedTenant) throw new Error("El cliente cambió. Abra nuevamente el detalle.");
+    if (!response.ok) {
+      if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true;}
+      const translations = {"Release collector assignments before changing or suspending this membership": "Libere las carteras asignadas antes de cambiar el rol o suspender este integrante.", "Client must retain at least one owner": "El cliente debe conservar al menos un propietario.", "You cannot suspend your own membership": "No puede suspender su propio acceso.", "Only the owner may manage owners and administrators": "Solo el propietario puede administrar estos roles."};
+      throw new Error(translations[data.detail] || (typeof data.detail === "string" ? data.detail : "Revise los datos e intente nuevamente."));
+    }
+    return data;
+  }
+  function roleSelect(roles, current) {
+    const select = element("select");
+    for (const role of roles) {const option = element("option", labels[role] || role); option.value = role; select.append(option);}
+    select.value = current;
+    return select;
+  }
+  function button(text, action) {
+    const node = element("button", text); node.type = "button"; node.className = "secondary";
+    node.addEventListener("click", async () => {node.disabled = true; try {await action(); await refresh(); if (memberDetail) await loadMemberDetail(memberDetail.membership_id, false); notify("Cambio guardado.");} catch (error) {notify(error.message, true);} finally {node.disabled = false;}});
+    return node;
+  }
+  let selectedMemberButton = null;
+  function renderMembers() {
+    const container = document.getElementById("administrationMembers"); container.replaceChildren();
+    document.getElementById("teamCount").textContent = String(team.members.length);
+    for (const member of team.members) {
+      const row = element("tr"); row.dataset.membershipId = String(member.membership_id); row.dataset.selected = String(memberDetail?.membership_id === member.membership_id);
+      const name = element("td"); name.dataset.initials = member.display_name.trim().split(/\s+/u).filter(Boolean).slice(0,2).map(part => Array.from(part)[0]).join("").toLocaleUpperCase("es-DO"); name.append(element("strong", member.display_name), element("span", member.email));
+      const role = element("td"), roleBadge = element("span", labels[member.role] || member.role); roleBadge.className = "role-pill"; role.append(roleBadge);
+      const status = element("td"); const badge = element("span", member.is_active ? "Activo" : "Suspendido"); badge.className = "status " + (member.is_active ? "active" : "inactive"); status.append(badge);
+      if (!member.account_active) status.append(element("small", "Cuenta desactivada"));
+      const action = element("td"), detail = element("button", "Ver detalle"); detail.type = "button"; detail.className = "secondary"; detail.setAttribute("aria-label", "Ver detalle de " + member.display_name);
+      detail.addEventListener("click", async () => {
+        if (detailBusy) return;
+        clearMemberDetail(); selectedMemberButton = detail; detail.disabled = true;
+        try {await loadMemberDetail(member.membership_id);} catch (error) {notify(error.message, true);} finally {detail.disabled = false;}
+      });
+      action.append(detail); row.append(name,role,status,action); container.append(row);
+    }
+    if (!team.members.length) {const row = element("tr"), cell = element("td", "Sin integrantes."); cell.colSpan = 4; row.append(cell); container.append(row);}
+  }
+  async function refresh() {
+    const [newTeam, invitations, audit] = await Promise.all([request("/team"), request("/invitations"), request("/audit")]);
+    team = newTeam; renderMembers();
+    const inviteRole = document.getElementById("administrationInviteRole"); inviteRole.replaceChildren(...roleSelect(team.assignable_roles, "collector").children);
+    const list = document.getElementById("administrationInvitations"); list.replaceChildren();
+    for (const invitation of invitations.invitations) {
+      const row = element("p", invitation.display_name + " · " + invitation.email + " · " + labels[invitation.role] + " · " + invitation.status);
+      if (invitation.status === "pending" && (client.role === "owner" || !["owner", "administrator"].includes(invitation.role))) row.append(button("Revocar", async () => {if (confirm("¿Revocar esta invitación?")) await request("/invitations/" + invitation.id + "/revoke", "POST");}));
+      list.append(row);
+    }
+    if (!invitations.invitations.length) list.append(element("p", "Sin invitaciones."));
+    const history = document.getElementById("administrationAudit"); history.replaceChildren();
+    for (const event of audit) history.append(element("p", new Date(event.created_at + (event.created_at.endsWith("Z") ? "" : "Z")).toLocaleString("es-DO") + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · Registro #" + event.target_id));
+    if (!audit.length) history.append(element("p", "Sin cambios registrados."));
+  }
+  let memberDetail = null;
+  let detailGeneration = 0;
+  let detailBusy = false;
+  const detailPanel = document.getElementById("administrationMemberDetail");
+  const profileForm = document.getElementById("memberProfileForm");
+  function detailNotify(text, error = false) {
+    const box = document.getElementById("administrationMemberMessage");
+    box.textContent = text; box.className = "message " + (error ? "error" : "success"); box.hidden = false;
+  }
+  function selectMemberTab(id) {
+    for (const tab of document.querySelectorAll("[data-member-tab]")) {
+      const active = tab.dataset.memberTab === id;
+      tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.dataset.memberTab).hidden = !active;
+    }
+  }
+  function clearMemberDetail() {
+    detailGeneration += 1; memberDetail = null; detailPanel.hidden = true; profileForm.reset();
+    document.querySelectorAll("#administrationMembers tr[data-membership-id]").forEach(row => {row.dataset.selected = "false";});
+    for (const id of ["memberAccountInfo", "memberAccountActions", "memberPermissions", "memberAssignments", "memberHistory"]) document.getElementById(id).replaceChildren();
+    document.getElementById("administrationMemberMessage").hidden = true;
+  }
+  function setDetailBusy(active) {
+    detailBusy = active;
+    detailPanel.setAttribute("aria-busy", String(active));
+    detailPanel.querySelectorAll("input, select, textarea, button").forEach(control => {control.disabled = active;});
+    profileForm.querySelectorAll("input, select, textarea, button").forEach(control => {control.disabled = active || !memberDetail?.editable;});
+  }
+  function dateLabel(raw) {
+    if (!raw) return "Sin fecha";
+    const date = new Date(/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw) ? raw : raw + "Z");
+    return date.toLocaleString("es-DO");
+  }
+  function detailAction(text, callback) {
+    const node = element("button", text); node.type = "button"; node.className = "secondary";
+    node.addEventListener("click", async () => {
+      if (detailBusy || !memberDetail) return;
+      const selected = memberDetail.membership_id, generation = detailGeneration;
+      setDetailBusy(true);
+      try {
+        const notice = await callback();
+        if (generation !== detailGeneration) return;
+        await refresh(); await loadMemberDetail(selected, false);
+        detailNotify(notice || "Cambio guardado.");
+      } catch (error) {if (memberDetail?.membership_id === selected) detailNotify(error.message, true);}
+      finally {setDetailBusy(false);}
+    });
+    return node;
+  }
+  function renderMemberDetail() {
+    const detail = memberDetail;
+    document.querySelectorAll("#administrationMembers tr[data-membership-id]").forEach(row => {row.dataset.selected = String(row.dataset.membershipId === String(detail.membership_id));});
+    document.getElementById("administrationMemberTitle").textContent = "Integrante · " + detail.display_name;
+    const account = document.getElementById("memberAccountInfo"); account.replaceChildren();
+    for (const text of ["Nombre de cuenta: " + detail.display_name, "Correo de acceso: " + detail.login_email,
+      "Rol: " + (labels[detail.role] || detail.role), "Acceso a este cliente: " + (detail.membership_active ? "Activo" : "Suspendido"),
+      "Cuenta en la plataforma: " + (detail.account_active ? "Activa" : "Desactivada")]) account.append(element("p", text));
+    const controls = document.getElementById("memberAccountActions"); controls.replaceChildren();
+    if (detail.editable) {
+      const select = roleSelect(detail.assignable_roles, detail.role); select.setAttribute("aria-label", "Rol del integrante"); controls.append(select);
+      controls.append(detailAction("Guardar rol", async () => {
+        if (select.value === detail.role || !confirm("¿Cambiar el rol de " + detail.display_name + "?")) return "Sin cambios.";
+        await request("/memberships/" + detail.membership_id + "/role", "PUT", {role: select.value});
+      }));
+      if (detail.can_change_status) controls.append(detailAction(detail.membership_active ? "Suspender acceso" : "Reactivar acceso", async () => {
+        if (!confirm("¿Cambiar el acceso de este integrante a este cliente?")) return "Sin cambios.";
+        await request("/memberships/" + detail.membership_id + "/status", "PUT", {is_active: !detail.membership_active});
+      }));
+      if (detail.membership_active && detail.account_active) controls.append(detailAction("Solicitar recuperación de contraseña", async () => {
+        if (!confirm("¿Solicitar recuperación al correo de acceso " + detail.login_email + "? La contraseña pertenece a toda la cuenta.")) return "Solicitud cancelada.";
+        await request("/memberships/" + detail.membership_id + "/password-reset", "POST");
+        return "Solicitud procesada. Si corresponde, el usuario recibirá instrucciones en su correo de acceso.";
+      }));
+    }
+    for (const [name, value] of Object.entries(detail.profile)) profileForm.elements.namedItem(name).value = value || "";
+    document.getElementById("memberProfileRestriction").hidden = detail.editable;
+    const permissionList = document.getElementById("memberPermissions"); permissionList.replaceChildren();
+    for (const permission of detail.permissions) permissionList.append(element("p", permissions[permission] || permission));
+    const assigned = document.getElementById("memberAssignments"); assigned.replaceChildren();
+    for (const assignment of detail.assignments) assigned.append(element("p", "Préstamo #" + assignment.loan_id + " · " + assignment.borrower_name + " · " + (assignment.loan_type === "vehicle" ? "Vehículo" : "Personal") + " · " + assignment.loan_status + " · Asignado " + dateLabel(assignment.assigned_at) + " por usuario #" + assignment.assigned_by_user_id));
+    if (!detail.assignments.length) assigned.append(element("p", "Sin préstamos asignados directamente."));
+    if (detail.more_assignments) assigned.append(element("p", "Se muestran las 100 asignaciones más recientes. Consulte Asignar carteras para continuar."));
+    const history = document.getElementById("memberHistory"); history.replaceChildren();
+    for (const event of detail.history) history.append(element("p", dateLabel(event.created_at) + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id));
+    if (!detail.history.length) history.append(element("p", "Sin cambios registrados para este integrante."));
+    if (detail.more_history) history.append(element("p", "Se muestran los 50 eventos más recientes."));
+    detailPanel.hidden = false;
+    if (window.matchMedia?.("(max-width: 1050px)").matches) detailPanel.scrollIntoView?.({behavior: "smooth", block: "start"});
+    setDetailBusy(detailBusy);
+  }
+  async function loadMemberDetail(id, resetTab = true) {
+    const generation = ++detailGeneration;
+    const detail = await request("/memberships/" + id);
+    if (generation !== detailGeneration) return;
+    memberDetail = detail; renderMemberDetail();
+    if (resetTab) {selectMemberTab("memberAccountPanel"); document.getElementById("memberAccountTab").focus();}
+  }
+  document.getElementById("administrationMemberClose").addEventListener("click", () => {clearMemberDetail(); if (selectedMemberButton?.isConnected) selectedMemberButton.focus(); else document.getElementById("teamTab").focus();});
+  document.addEventListener("keydown", event => {if (event.key === "Escape" && !detailPanel.hidden && !detailBusy) document.getElementById("administrationMemberClose").click();});
+  document.getElementById("administrationMemberTabs").addEventListener("click", event => {
+    const tab = event.target.closest("[data-member-tab]"); if (tab) selectMemberTab(tab.dataset.memberTab);
+  });
+  document.getElementById("administrationMemberTabs").addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = [...document.querySelectorAll("[data-member-tab]")]; const index = tabs.indexOf(document.activeElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    selectMemberTab(tabs[next].dataset.memberTab); tabs[next].focus();
+  });
+  profileForm.addEventListener("submit", async event => {
+    event.preventDefault(); if (detailBusy || !memberDetail?.editable || !profileForm.reportValidity()) return;
+    const selected = memberDetail.membership_id, generation = detailGeneration;
+    const body = Object.fromEntries(new FormData(profileForm));
+    setDetailBusy(true);
+    try {
+      await request("/memberships/" + selected + "/profile", "PUT", body);
+      if (generation !== detailGeneration) return;
+      await loadMemberDetail(selected, false); await refresh(); detailNotify("Perfil guardado para este cliente.");
+    } catch (error) {if (memberDetail?.membership_id === selected) detailNotify(error.message, true);}
+    finally {setDetailBusy(false);}
+  });
+
+  function selectSection(id) {
+    for (const tab of document.querySelectorAll("[data-admin-tab]")) {
+      const active = tab.dataset.adminTab === id; tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.dataset.adminTab).hidden = !active;
+    }
+  }
+  document.getElementById("administrationSections").addEventListener("click", event => {const tab = event.target.closest("[data-admin-tab]"); if (tab) selectSection(tab.dataset.adminTab);});
+  document.getElementById("administrationSections").addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = [...document.querySelectorAll("[data-admin-tab]")], index = tabs.indexOf(document.activeElement); if (index < 0) return;
+    event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    selectSection(tabs[next].dataset.adminTab); tabs[next].focus();
+  });
+  document.getElementById("inviteMemberButton").addEventListener("click", () => {selectSection("invitationsSection"); document.querySelector("#administrationInvite input").focus();});
+  const handleAccess = async event => {
+    clearMemberDetail();
+    client = event.detail; panel.hidden = !["owner", "administrator"].includes(client.role);
+    document.getElementById("administrationLink").hidden = panel.hidden;
+    if (!panel.hidden) {try {await refresh();} catch (error) {notify(error.message, true);}}
+  };
+  window.addEventListener("prestamodesk-access", handleAccess);
+  if (window.prestamodeskAccess) handleAccess({detail: window.prestamodeskAccess});
+  document.getElementById("customerExport").addEventListener("click", async event => {
+    if (!client || !confirm("¿Descargar los datos de este cliente? El archivo contiene información personal y financiera.")) return;
+    const selected = client.tenant_id; const button = event.currentTarget; button.disabled = true;
+    try {
+      const response = await fetch(base + "/export.zip", {method: "POST", credentials: "same-origin", headers: {"X-Tenant-ID": String(selected)}});
+      if (!response.ok) {
+        if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true;}
+        throw new Error(response.status === 413 ? "El archivo supera el límite. Solicite una exportación asistida." : "No se pudo exportar. Revise su acceso e intente nuevamente.");
+      }
+      const blob = await response.blob();
+      if (!client || client.tenant_id !== selected) return;
+      const url = URL.createObjectURL(blob); const link = element("a"); link.href = url;
+      link.download = "prestamodesk-cliente-" + selected + ".zip"; document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      notify("Archivo descargado. Guárdelo en un lugar seguro.");
+      try {await refresh();} catch (_) {notify("Archivo descargado; actualice el historial para ver el registro de exportación.");}
+    } catch (error) {notify(error.message, true);} finally {button.disabled = false;}
+  });
+  document.getElementById("administrationRefresh").addEventListener("click", async () => {try {await refresh();} catch (error) {notify(error.message, true);}});
+  document.getElementById("administrationInvite").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector("button"); submit.disabled = true;
+    try {
+      const result = await request("/invitations", "POST", Object.fromEntries(new FormData(form)));
+      const activation = document.getElementById("administrationActivation"); activation.replaceChildren(element("span", "Comparta este enlace únicamente con la persona invitada (vence en 72 horas): "));
+      const link = element("a", "Activar cuenta"); link.href = result.activation_path; activation.append(link); activation.hidden = false;
+      form.reset(); await refresh(); notify("Invitación creada. El correo no se envía automáticamente.");
+    } catch (error) {notify(error.message, true);} finally {submit.disabled = false;}
+  });
+  document.getElementById("logoutButton").addEventListener("click", () => {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true; client = null; team = null; window.prestamodeskAccess = null; document.getElementById("administrationActivation").replaceChildren();});
+})();
+
+return {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};
+}},
+};
