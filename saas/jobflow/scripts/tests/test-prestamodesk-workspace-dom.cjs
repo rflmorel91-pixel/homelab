@@ -35,6 +35,12 @@ async function setup(role='owner',multi=false){
   const host=a.w.document.getElementById('pdHost');assert(host.children.length===1);assert.equal(host.querySelector('#authPanel').hidden,true,'screen failed to initialize: '+view);
  }
  assert(a.calls.filter(x=>x.url.startsWith('/api/v1/products/')).every(x=>new Headers(x.options.headers).get('X-Tenant-ID')==='4'));
+ let readOnlyPrompts=0;a.w.confirm=()=>{readOnlyPrompts++;return false;};
+ for(const [view,formId,next] of [['cashier','loanSearchForm','collections'],['collections','portfolioFilterForm','supervision'],['supervision','supervisionFilterForm','summary']]){
+  await a.click(view);const field=a.w.document.querySelector('#'+formId+' input, #'+formId+' select');assert(field);field.dispatchEvent(new a.w.Event('input',{bubbles:true}));field.dispatchEvent(new a.w.Event('change',{bubbles:true}));await a.click(next);assert.equal(a.w.location.hash,'#'+next);
+ }
+ assert.equal(readOnlyPrompts,0,'read-only filters must not warn about unsaved data');a.w.confirm=()=>true;
+
  const loan=a.w.document.getElementById('pdHost');await a.click('loans');const input=a.w.document.querySelector('#borrowerName');input.value='Unsubmitted';input.dispatchEvent(new a.w.Event('input',{bubbles:true}));a.w.confirm=()=>false;await a.click('cashier');assert.equal(a.w.location.hash,'#loans');a.w.confirm=()=>true;await a.click('cashier');assert.equal(a.w.location.hash,'#cashier');
  a.deny();await a.click('loans');assert.equal(a.w.document.getElementById('pdWorkspace').hidden,true);assert.equal(a.w.document.getElementById('pdHost').children.length,0);a.dom.window.close();
  for(const [role,views] of Object.entries({owner:['summary','loans','cashier','collections','supervision','administration'],administrator:['summary','loans','cashier','collections','supervision','administration'],collector:['collections'],supervisor:['collections','supervision'],cashier:['cashier'],member:['summary','loans','cashier']})){
