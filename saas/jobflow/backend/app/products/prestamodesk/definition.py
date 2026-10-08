@@ -1,3 +1,4 @@
+from app.products.prestamodesk.portfolio_import_api import router as portfolio_import_router
 from app.products.prestamodesk.customer_export_api import router as customer_export_router
 from app.products.prestamodesk.payment_corrections_api import router as payment_corrections_router
 from app.platform import (
@@ -59,6 +60,7 @@ PRESTAMODESK_PRODUCT = register_product(
             applications_public_router,
         ),
         tenant_routers=(
+            portfolio_import_router,
             customer_export_router,
             payment_corrections_router,
             administration_router,

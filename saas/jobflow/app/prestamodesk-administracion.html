@@ -14,7 +14,25 @@
       <h3>Invitaciones</h3>
       <div id="administrationInvitations"></div>
 </section>
-<section id="activitySection" class="admin-card activity" role="tabpanel" aria-labelledby="activityTab" hidden><h3>Actividad reciente</h3><div id="administrationAudit"></div><p class="context-note">Los detalles completos de auditoría están incluidos en la exportación del cliente.</p></section></div>      <section id="administrationMemberDetail" class="panel" hidden aria-labelledby="administrationMemberTitle">
+<section id="activitySection" class="admin-card activity" role="tabpanel" aria-labelledby="activityTab" hidden><h3>Actividad reciente</h3><div id="administrationAudit"></div><p class="context-note">Los detalles completos de auditoría están incluidos en la exportación del cliente.</p></section></div><section id="portfolioImportPanel" class="panel" aria-labelledby="portfolioImportTitle">
+<h3 id="portfolioImportTitle">Importar cartera · saldos iniciales</h3>
+<p>Primera versión: préstamos personales de interés fijo, sin mora. Incluya todas las cuotas originales, incluso las pagadas. Los abonos históricos no generan recibos ni cobros de Caja. No se recalcula ni convierte el contrato.</p>
+<p>Use una fila por cuota, fechas AAAA-MM-DD, punto decimal y frecuencia daily (diaria), weekly (semanal), biweekly (cada 14 días) o monthly (mensual). El interés es el porcentaje fijo total del préstamo, no una tasa mensual ni anual. Compare el calendario con el contrato antes de importar.</p>
+<button id="importTemplate" class="secondary" type="button">Descargar plantilla con ejemplo ficticio</button>
+<form id="portfolioImportForm" class="form-grid">
+<label>Fecha de corte <input id="importCutoff" type="date" required></label>
+<label>Archivo CSV UTF-8 (máximo 500 cuotas y 100 préstamos) <input id="importFile" type="file" accept=".csv,text/csv" required></label>
+<button id="importPreviewButton" type="submit">Validar y mostrar vista previa</button>
+</form>
+<p>Quite las filas de ejemplo. Use referencias únicas de su registro original; la importación no detecta préstamos ingresados manualmente. Si el prestatario existe, nombre y tipo de documento deben coincidir; sus datos actuales se conservan. No importa vehículos, mora ni calendarios diferentes del cálculo fijo de PréstamoDesk.</p>
+<div id="importMessage" class="message" role="status" hidden></div>
+<div id="importPreview" hidden><h4>Conciliación antes de guardar</h4><p id="importTotals"></p><div class="table-scroll"><table><caption>Préstamos y saldos a la fecha de corte</caption><thead><tr><th>Referencia</th><th>Prestatario</th><th>Acción</th><th>Total original</th><th>Abonos anteriores</th><th>Saldo inicial</th></tr></thead><tbody id="importRows"></tbody></table></div>
+<ul id="importErrors"></ul>
+<label><input id="importConfirm" type="checkbox"> Verifiqué los saldos, cuotas, capital e interés con el negocio. Esta cartera no fue ingresada manualmente en este cliente. Confirmo los abonos anteriores a la fecha de corte.</label>
+<button id="importSave" type="button" disabled>Confirmar e importar cartera</button>
+</div><button id="importDownloadReport" type="button" class="secondary" hidden>Descargar conciliación JSON</button>
+<form id="importReportForm" class="form-grid"><label>Recuperar importación número <input id="importReportId" type="number" min="1" step="1" required></label><button type="submit" class="secondary">Consultar informe anterior</button></form>
+</section>      <section id="administrationMemberDetail" class="panel" hidden aria-labelledby="administrationMemberTitle">
         <div class="section-heading">
           <h3 id="administrationMemberTitle">Detalle del integrante</h3>
           <button id="administrationMemberClose" type="button" class="secondary">Cerrar detalle</button>
@@ -54,4 +72,4 @@
           <div id="memberHistory"></div>
         </section>
       </section>
-</div></section></main><footer>PréstamoDesk · FieldLookers</footer><script src="/assets/prestamodesk-administration-auth-7594d82de519.js" defer></script><script src="/assets/prestamodesk-administration-01c2bf47cc48.js" defer></script></body></html>
+</div></section></main><footer>PréstamoDesk · FieldLookers</footer><script src="/assets/prestamodesk-administration-auth-7594d82de519.js" defer></script><script src="/assets/prestamodesk-administration-01c2bf47cc48.js" defer></script><script src="/assets/prestamodesk-portfolio-import-9a5fb1a63c4e.js" defer></script></body></html>
