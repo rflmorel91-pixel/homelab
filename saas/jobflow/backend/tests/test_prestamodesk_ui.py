@@ -54,7 +54,7 @@ def test_prestamodesk_assets_are_fingerprinted():
         r"[0-9a-f]{12}\.js"
     )
 
-    assert re.search(css_pattern, landing)
+    assert re.search(r"/assets/prestamodesk-sales-style-[0-9a-f]{12}\.css", landing)
     assert re.search(css_pattern, workspace)
     assert re.search(js_pattern, workspace)
 
