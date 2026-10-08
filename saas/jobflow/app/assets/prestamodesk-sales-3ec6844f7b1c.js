@@ -14,6 +14,17 @@ document.querySelectorAll("[data-demo-step]").forEach(button => {
 });
 const form = document.getElementById("demoRequestForm");
 const status = document.getElementById("requestStatus");
+const requestType = document.getElementById("requestType");
+const pilotFeedback = document.getElementById("pilotFeedback");
+const pilotFeedbackLabel = document.getElementById("pilotFeedbackLabel");
+function updateRequestType() {
+  const pilot = requestType.value === "pilot";
+  pilotFeedbackLabel.hidden = !pilot;
+  pilotFeedback.required = pilot;
+  if (!pilot) pilotFeedback.checked = false;
+}
+requestType.addEventListener("change", updateRequestType);
+updateRequestType();
 let submitting = false;
 form.addEventListener("submit", async event => {
   event.preventDefault();
@@ -29,8 +40,8 @@ form.addEventListener("submit", async event => {
     contact_name: values.contact_name.trim(),
     email: values.email.trim(),
     phone: values.phone.trim() || null,
-    service_type: "PréstamoDesk — demostración para " + values.business_type,
-    message: "Préstamos activos: " + values.portfolio_size + "\nNecesidad: " + (values.message.trim() || "No indicada") + "\nAutorizó contacto sobre esta demostración. Aviso: 2026-10-08."
+    service_type: "PréstamoDesk — " + (values.request_type === "pilot" ? "piloto gratuito de 30 días para " : "demostración para ") + values.business_type,
+    message: "Préstamos activos: " + values.portfolio_size + "\nNecesidad: " + (values.message.trim() || "No indicada") + "\nTipo de solicitud: " + (values.request_type === "pilot" ? "Piloto gratuito de 30 días" : "Demostración") + (values.request_type === "pilot" ? "\nAceptó comentarios semanales y revisión final. Inicio y alcance sujetos a acuerdo." : "") + "\nAutorizó contacto sobre su solicitud. Aviso: 2026-10-08."
   };
   let received = false;
   try {
@@ -48,8 +59,9 @@ form.addEventListener("submit", async event => {
     received = true;
     const data = await response.json().catch(() => null);
     form.reset();
+    updateRequestType();
     status.className = "small success";
-    status.textContent = "Solicitud recibida" + (data && Number.isInteger(data.lead_id) ? " · #" + data.lead_id : "") + ". FieldLookers revisará su solicitud para coordinar la demostración.";
+    status.textContent = "Solicitud recibida" + (data && Number.isInteger(data.lead_id) ? " · #" + data.lead_id : "") + ". FieldLookers revisará su solicitud para coordinar los próximos pasos. El envío no confirma el inicio de un piloto.";
   } catch {
     status.className = "small error";
     status.textContent = "No pudimos confirmar el envío. La solicitud podría haberse recibido; no la repita de inmediato.";
