@@ -9,6 +9,8 @@ let tenantId = localStorage.getItem(
 let selectedLoanId = null;
 let selectedLoan = null;
 let currentRole = null;
+let paymentSubmitting = false;
+let paymentNeedsReview = false;
 
 const authPanel = document.getElementById("authPanel");
 const cashierWorkspace =
@@ -554,7 +556,7 @@ function renderPaymentOptions(installments) {
   paymentAmount.disabled = false;
   paymentForm.querySelector(
     'button[type="submit"]'
-  ).disabled = false;
+  ).disabled = paymentSubmitting || paymentNeedsReview;
 
   paymentInstallment.innerHTML = payable
     .map(item => `
@@ -771,7 +773,19 @@ paymentForm.addEventListener(
   "submit",
   async event => {
     event.preventDefault();
+    if (paymentSubmitting || paymentNeedsReview || !selectedLoanId || !selectedLoan) return;
+    paymentSubmitting = true;
     clearMessages();
+    const loanId = selectedLoanId;
+    const borrowerName = selectedLoan.borrower_full_name;
+    const paidDate = paymentDate.value;
+    const submitButton = paymentForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton.textContent;
+    const controls = Array.from(cashierWorkspace.querySelectorAll("button, input, select, textarea"));
+    const disabledBefore = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    submitButton.textContent = "Registrando…";
+    let paymentSaved = false;
 
     try {
       const paymentMethod =
@@ -801,6 +815,7 @@ paymentForm.addEventListener(
         }
       );
 
+      paymentSaved = true;
       receiptContent.innerHTML = `
         <p>
           <strong>${escapeHtml(
@@ -809,17 +824,17 @@ paymentForm.addEventListener(
         </p>
         <p>
           Préstamo:
-          <strong>#${selectedLoanId}</strong>
+          <strong>#${loanId}</strong>
         </p>
         <p>
           Cliente:
           <strong>${escapeHtml(
-            selectedLoan.borrower_full_name
+            borrowerName
           )}</strong>
         </p>
         <p>
           Fecha:
-          ${escapeHtml(paymentDate.value)}
+          ${escapeHtml(paidDate)}
         </p>
         <p>
           Método:
@@ -878,14 +893,31 @@ paymentForm.addEventListener(
       paymentForm.reset();
       setDefaultPaymentDate();
 
-      await openLoan(selectedLoanId);
-      receiptPanel.hidden = false;
-      await searchLoans(loanSearchQuery.value);
-      await loadCashClosing();
-
-      showSuccess("Pago registrado.");
+      try {
+        await openLoan(loanId);
+        await searchLoans(loanSearchQuery.value);
+        await loadCashClosing();
+        showSuccess("Pago registrado.");
+      } catch {
+        paymentNeedsReview = true;
+        showError("Pago registrado. No se pudo actualizar la pantalla. Conserve el recibo y recargue para consultar el saldo antes de registrar otro pago.");
+      } finally {
+        receiptPanel.hidden = false;
+      }
     } catch (error) {
-      showError(error.message);
+      if (paymentSaved || !error.status || error.status >= 500) {
+        paymentNeedsReview = true;
+        showError("No se pudo confirmar el resultado del pago. No lo repita: recargue y revise Pagos y correcciones antes de continuar.");
+      } else {
+        showError(error.message);
+      }
+    } finally {
+      paymentSubmitting = false;
+      controls.forEach((control, index) => { control.disabled = disabledBefore[index]; });
+      submitButton.textContent = originalLabel;
+      submitButton.disabled = paymentNeedsReview
+        || !paymentInstallment.value
+        || Number(paymentInstallment.selectedOptions[0]?.dataset.balance || 0) <= 0;
     }
   }
 );
