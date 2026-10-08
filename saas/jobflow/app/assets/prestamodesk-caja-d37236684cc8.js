@@ -222,7 +222,9 @@ async function apiRequest(path, options = {}) {
       // Preserve the safe default.
     }
 
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -786,6 +788,7 @@ paymentForm.addEventListener(
     controls.forEach(control => { control.disabled = true; });
     submitButton.textContent = "Registrando…";
     let paymentSaved = false;
+    let requestStorageKey = null;
 
     try {
       const paymentMethod =
@@ -797,25 +800,28 @@ paymentForm.addEventListener(
           "paymentReference"
         ).value.trim() || null;
 
+      const paymentPayload = {
+        installment_id: Number(paymentInstallment.value),
+        amount: Number(paymentAmount.value).toFixed(2),
+        payment_method: paymentMethod,
+        reference,
+        paid_at: paidDate ? `${paidDate}T12:00:00Z` : null
+      };
+      requestStorageKey = "prestamodesk-payment-request:" + tenantId
+        + ":" + JSON.stringify(paymentPayload);
+      const requestKey = sessionStorage.getItem(requestStorageKey)
+        || crypto.randomUUID();
+      sessionStorage.setItem(requestStorageKey, requestKey);
       const receipt = await apiRequest(
         `${PRODUCT_BASE}/payments`,
         {
           method: "POST",
-          body: JSON.stringify({
-            installment_id: Number(
-              paymentInstallment.value
-            ),
-            amount: paymentAmount.value,
-            payment_method: paymentMethod,
-            reference,
-            paid_at: paymentDate.value
-              ? `${paymentDate.value}T12:00:00Z`
-              : null
-          })
+          body: JSON.stringify({...paymentPayload, idempotency_key: requestKey})
         }
       );
 
       paymentSaved = true;
+      sessionStorage.removeItem(requestStorageKey);
       receiptContent.innerHTML = `
         <p>
           <strong>${escapeHtml(
@@ -909,6 +915,11 @@ paymentForm.addEventListener(
         paymentNeedsReview = true;
         showError("No se pudo confirmar el resultado del pago. No lo repita: recargue y revise Pagos y correcciones antes de continuar.");
       } else {
+        // Keep keys for conflicts: changing operator or a voided payment
+        // must not turn a retry into a new payment.
+        if (requestStorageKey && error.status !== 409) {
+          sessionStorage.removeItem(requestStorageKey);
+        }
         showError(error.message);
       }
     } finally {

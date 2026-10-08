@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    UniqueConstraint,
     DateTime,
     JSON,
     ForeignKey,
@@ -18,12 +19,17 @@ from app.database import Base
 class Payment(Base):
     __tablename__ = "prestamodesk_payments"
     __table_args__ = (
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_prestamodesk_payment_request"),
         CheckConstraint(
             "(voided_at IS NULL AND voided_by_user_id IS NULL AND void_reason IS NULL) OR "
             "(voided_at IS NOT NULL AND voided_by_user_id IS NOT NULL AND void_reason IS NOT NULL)",
             name="ck_prestamodesk_payment_void",
         ),
     )
+
+    idempotency_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    receipt_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     correction_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     voided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

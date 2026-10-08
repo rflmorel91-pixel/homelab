@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+import hashlib
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -47,6 +49,18 @@ router = APIRouter(
     prefix="/payments",
     tags=["PréstamoDesk Payments"],
 )
+
+
+def payment_fingerprint(payload: PaymentCreate) -> str:
+    data = payload.model_dump(mode="json", exclude={"idempotency_key"})
+    data["amount"] = format(payload.amount.quantize(Decimal("0.01")), "f")
+    if payload.paid_at is not None:
+        # Naive dates are interpreted as UTC, matching existing API behavior.
+        value = payload.paid_at
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        data["paid_at"] = value.astimezone(timezone.utc).isoformat()
+    return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def ordinary_balance(
@@ -159,6 +173,24 @@ def record_payment(
         )
 
     lock_financial_actor(db, tenant, membership, {"owner", "administrator", "member", "cashier"})
+
+    request_key = str(payload.idempotency_key) if payload.idempotency_key else None
+    fingerprint = payment_fingerprint(payload) if request_key else None
+    if request_key:
+        existing = db.scalar(select(Payment).where(
+            Payment.tenant_id == tenant.id,
+            Payment.idempotency_key == request_key,
+        ))
+        if existing is not None:
+            if existing.recorded_by_user_id != membership.user_id:
+                raise HTTPException(status_code=409, detail="Payment request belongs to another operator")
+            if existing.request_fingerprint != fingerprint:
+                raise HTTPException(status_code=409, detail="Payment request key was used with different details")
+            if existing.voided_at is not None:
+                raise HTTPException(status_code=409, detail="Original payment was voided; use a new request key")
+            if existing.receipt_snapshot is None:
+                raise HTTPException(status_code=409, detail="Original receipt unavailable; review payment history")
+            return PaymentReceipt.model_validate(existing.receipt_snapshot)
 
     installment = db.scalar(
         select(Installment)
@@ -286,6 +318,8 @@ def record_payment(
     )
 
     payment = Payment(
+        idempotency_key=request_key,
+        request_fingerprint=fingerprint,
         correction_snapshot={"before": before_payment, "after": installment_snapshot(installment)},
         tenant_id=tenant.id,
         loan_id=loan.id,
@@ -331,50 +365,50 @@ def record_payment(
         if loan_balance == Decimal("0.00"):
             loan.status = "paid"
 
+        payment_data = PaymentRead.model_validate(
+            payment
+        ).model_dump()
+
+        ordinary_remaining = ordinary_balance(
+            installment
+        )
+        late_remaining = late_fee_balance(
+            installment
+        )
+
+        receipt = PaymentReceipt(
+            **payment_data,
+            receipt_number=f"PM-{payment.id:08d}",
+            installment_total=installment.total_due,
+            installment_paid=installment.paid_amount,
+            installment_balance=money(
+                ordinary_remaining + late_remaining
+            ),
+            installment_ordinary_balance=(
+                ordinary_remaining
+            ),
+            installment_late_fee_accrued=(
+                installment.late_fee_accrued
+            ),
+            installment_late_fee_paid=(
+                installment.late_fee_paid
+            ),
+            installment_late_fee_balance=(
+                late_remaining
+            ),
+            installment_status=installment.status,
+            loan_balance=loan_balance,
+            loan_status=loan.status,
+            currency="DOP",
+        )
+        if request_key:
+            payment.receipt_snapshot = receipt.model_dump(mode="json")
         db.commit()
-        db.refresh(payment)
-        db.refresh(installment)
-        db.refresh(loan)
     except Exception:
         db.rollback()
         raise
 
-    payment_data = PaymentRead.model_validate(
-        payment
-    ).model_dump()
-
-    ordinary_remaining = ordinary_balance(
-        installment
-    )
-    late_remaining = late_fee_balance(
-        installment
-    )
-
-    return PaymentReceipt(
-        **payment_data,
-        receipt_number=f"PM-{payment.id:08d}",
-        installment_total=installment.total_due,
-        installment_paid=installment.paid_amount,
-        installment_balance=money(
-            ordinary_remaining + late_remaining
-        ),
-        installment_ordinary_balance=(
-            ordinary_remaining
-        ),
-        installment_late_fee_accrued=(
-            installment.late_fee_accrued
-        ),
-        installment_late_fee_paid=(
-            installment.late_fee_paid
-        ),
-        installment_late_fee_balance=(
-            late_remaining
-        ),
-        installment_status=installment.status,
-        loan_balance=loan_balance,
-        loan_status=loan.status,
-        currency="DOP",
-    )
+    return receipt
 
 
 @router.get(
