@@ -23,7 +23,7 @@
   function defaultView(){return Object.keys(definitions).find(allowed);}
   function canLeave(){
     if(writes>0){note("Espere la confirmación de la operación antes de cambiar de sección.");return false;}
-    if(mounted?.guard&&!mounted.guard.canLeave()){note("Revise el resultado del pago en Caja antes de cambiar de sección.");return false;}
+    if(mounted?.guard&&!mounted.guard.canLeave()&&!mounted.guard.confirmLeave?.()){note(mounted.guard.leaveMessage?.()||"Revise el resultado del pago en Caja antes de cambiar de sección.");return false;}
     return !dirty||window.confirm("Hay datos sin guardar. ¿Desea cambiar de sección y descartarlos?");
   }
   function teardown(){generation++;mounted?.dispose();mounted=null;current=null;dirty=false;$("pdHost").replaceChildren();}
