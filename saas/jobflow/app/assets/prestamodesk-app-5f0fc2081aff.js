@@ -9,6 +9,7 @@ let paymentSubmitting = false;
 let paymentNeedsReview = false;
 let borrowers = [];
 let loanBorrowerNames = new Map();
+let loanBorrowerDocuments = new Map();
 let loans = [];
 let loanDetails = [];
 let prospects = [];
@@ -766,10 +767,39 @@ function renderProspects() {
 }
 
 
+function loanPortfolioToday() {
+  const parts = new Intl.DateTimeFormat("en", {timeZone: "America/Santo_Domingo", year: "numeric", month: "2-digit", day: "2-digit"}).formatToParts(new Date());
+  return ["year", "month", "day"].map(type => parts.find(part => part.type === type).value).join("-");
+}
+
+function normalizeLoanSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-DO").replace(/\s+/g, " ").trim();
+}
+
+function filteredLoans() {
+  const query = normalizeLoanSearch(document.getElementById("loanSearchQuery").value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const status = document.getElementById("loanStatusFilter").value;
+  const today = loanPortfolioToday();
+  const overdueIds = new Set(loanDetails.filter(detail => detail.status === "active" && detail.installments.some(item =>
+    item.due_date < today && Number(item.total_due) - Number(item.paid_amount) > 0
+  )).map(detail => detail.id));
+  return loans.filter(loan => {
+    if (status === "overdue" ? !overdueIds.has(loan.id) : status !== "all" && loan.status !== status) return false;
+    if (!query) return true;
+    const borrower = borrowers.find(item => item.id === loan.borrower_id);
+    const documentNumber = borrower?.document_number || loanBorrowerDocuments.get(loan.id) || "";
+    const searchable = normalizeLoanSearch(`${loan.id} #${loan.id} Préstamo #${loan.id} ${borrowerNameForLoan(loan)} ${documentNumber}`);
+    return searchable.includes(query) || Boolean(compactQuery && normalizeLoanSearch(documentNumber).replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+}
+
 function renderLoans() {
+  const visibleLoans = filteredLoans();
+  document.getElementById("loanFilterResult").textContent = `Mostrando ${visibleLoans.length} de ${loans.length} préstamos.`;
   document.getElementById(
     "loanResultCount"
-  ).textContent = String(loans.length);
+  ).textContent = String(visibleLoans.length);
 
   const activeLoans = loans.filter(
     loan => loan.status === "active"
@@ -779,13 +809,13 @@ function renderLoans() {
     "activeLoanCount"
   ).textContent = String(activeLoans.length);
 
-  if (loans.length === 0) {
+  if (visibleLoans.length === 0) {
     loanList.innerHTML =
-      '<p>No hay préstamos registrados.</p>';
+      loans.length === 0 ? '<p>No hay préstamos registrados.</p>' : '<p>No hay préstamos que coincidan con los filtros.</p>';
     return;
   }
 
-  loanList.innerHTML = loans
+  loanList.innerHTML = visibleLoans
     .map(loan => {
 
       const vehicleDescription = (
@@ -857,8 +887,17 @@ function renderLoans() {
 }
 
 
+const loanFilterForm = document.getElementById("loanFilterForm");
+loanFilterForm.addEventListener("submit", event => {event.preventDefault(); renderLoans();});
+document.getElementById("loanSearchQuery").addEventListener("input", renderLoans);
+document.getElementById("loanStatusFilter").addEventListener("change", renderLoans);
+document.getElementById("loanFilterClear").addEventListener("click", () => {
+  loanFilterForm.reset(); renderLoans(); document.getElementById("loanSearchQuery").focus();
+});
+
+
 function updatePortfolioSummary() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = loanPortfolioToday();
 
   document.getElementById(
     "openApplicationCount"
@@ -955,6 +994,7 @@ async function loadLateFeePolicy() {
 async function loadDashboard() {
   applyLoanAccess();
   loanBorrowerNames = new Map();
+  loanBorrowerDocuments = new Map();
   if (canManageLoans()) {
     [borrowers, loans, prospects, applications, prospectPage] = await Promise.all([
       apiRequest(`${PRODUCT_BASE}/borrowers`),
@@ -972,6 +1012,7 @@ async function loadDashboard() {
     ]);
     loans = readableLoans;
     loanBorrowerNames = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_full_name]));
+    loanBorrowerDocuments = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_document_number || ""]));
   }
 
   loanDetails = await Promise.all(
