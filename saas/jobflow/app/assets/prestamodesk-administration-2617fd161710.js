@@ -54,7 +54,16 @@
   const permissions = {operations: "Prestatarios, préstamos, solicitudes y configuración", loan_read: "Consultar préstamos", payments: "Consultar caja y registrar pagos", collections: "Cartera completa y gestiones", assignments: "Asignar y liberar carteras", supervision: "Supervisión y exportación", team: "Equipo operativo e invitaciones", privileged_roles: "Propietarios y administradores", assigned_collections: "Solo su cartera asignada", own_cash_closing: "Cierre de su propia caja"};
   const actions = {"client_team.profile_changed": "Perfil actualizado", "client_team.password_reset_requested": "Recuperación solicitada","customer_data.exported": "Datos del cliente exportados","payments.voided": "Pago anulado","client_team.role_changed": "Cambio de rol", "client_team.status_changed": "Cambio de acceso", "client_team.member_removed": "Integrante retirado", "client_user.invitation_created": "Invitación creada", "client_user.invitation_revoked": "Invitación revocada", "client_user.invitation_accepted": "Invitación aceptada", "collections.assignment_created": "Cartera asignada", "collections.assignment_released": "Cartera liberada"};
   const element = (tag, text) => {const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;};
-  function notify(text, error = false) {message.textContent = text; message.className = "message " + (error ? "error" : "success"); message.hidden = false;}
+  function notify(text, error = false) {
+    message.setAttribute("role", error ? "alert" : "status");
+    message.setAttribute("aria-atomic", "true");
+    message.textContent = "";
+    message.className = "message " + (error ? "error" : "success"); message.hidden = false;
+    message.textContent = text;
+    if (error && message.isConnected && !message.closest("[hidden]")) {
+      message.scrollIntoView?.({behavior: "instant", block: "center", inline: "nearest"});
+    }
+  }
   async function request(path, method = "GET", body) {
     if (!client) throw new Error("Sesión no disponible.");
     const selectedTenant = client.tenant_id;
@@ -193,7 +202,15 @@
   const profileForm = document.getElementById("memberProfileForm");
   function detailNotify(text, error = false) {
     const box = document.getElementById("administrationMemberMessage");
-    box.textContent = text; box.className = "message " + (error ? "error" : "success"); box.hidden = false;
+    if (!box) return;
+    box.setAttribute("role", error ? "alert" : "status");
+    box.setAttribute("aria-atomic", "true");
+    box.textContent = "";
+    box.className = "message " + (error ? "error" : "success"); box.hidden = false;
+    box.textContent = text;
+    if (error && box.isConnected && !box.closest("[hidden]")) {
+      box.scrollIntoView?.({behavior: "instant", block: "center", inline: "nearest"});
+    }
   }
   function selectMemberTab(id) {
     for (const tab of document.querySelectorAll("[data-member-tab]")) {

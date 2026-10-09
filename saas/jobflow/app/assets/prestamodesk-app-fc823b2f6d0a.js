@@ -270,9 +270,13 @@ function buildLoanPayload() {
 
 
 function showError(message) {
-  errorMessage.textContent = message;
+  errorMessage.textContent = "";
   errorMessage.hidden = false;
+  errorMessage.textContent = message;
   successMessage.hidden = true;
+  if (errorMessage.isConnected && !errorMessage.closest("[hidden]")) {
+    errorMessage.scrollIntoView?.({behavior: "instant", block: "center", inline: "nearest"});
+  }
 }
 
 
