@@ -52,6 +52,14 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Authenticate Docker Hub pulls
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          printf '%s' "$DOCKERHUB_TOKEN" |
+            docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
       - name: Pull Nginx test image
         run: docker pull nginx:1.31.3-alpine
 
@@ -159,6 +167,9 @@ jobs:
     services:
       postgres:
         image: postgres:16
+        credentials:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         env:
           POSTGRES_DB: jobflow_test
           POSTGRES_USER: jobflow
@@ -236,6 +247,14 @@ jobs:
           python -B -m unittest
           saas/jobflow/scripts/tests/test_container_security_policy.py
           -v
+
+      - name: Authenticate Docker Hub pulls
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          printf '%s' "$DOCKERHUB_TOKEN" |
+            docker login --username "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Scan dependencies, secrets and images
         run: saas/jobflow/scripts/run-security-scans.sh
