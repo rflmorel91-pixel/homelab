@@ -8,6 +8,7 @@ let selectedLoanId = null;
 let paymentSubmitting = false;
 let paymentNeedsReview = false;
 let borrowers = [];
+let loanBorrowerNames = new Map();
 let loans = [];
 let loanDetails = [];
 let prospects = [];
@@ -382,6 +383,30 @@ async function discoverAccess() {
   clientContext.textContent =
     `Cliente #${client.client_number} · `
     + `${client.name} · ${client.role}`;
+}
+
+
+function canManageLoans() {
+  return ["owner", "administrator"].includes(window.prestamodeskAccess?.role);
+}
+
+function applyLoanAccess() {
+  const manage = canManageLoans();
+  for (const id of ["borrowerForm", "loanForm", "applicationList", "prospectList", "borrowerList", "lateFeePolicyForm"]) {
+    const panel = document.getElementById(id).closest("section");
+    panel.hidden = !manage;
+    if (!manage) for (const control of panel.querySelectorAll("input, select, textarea, button")) control.disabled = true;
+  }
+  for (const id of ["openApplicationCount", "borrowerCount"]) document.getElementById(id).closest("article").hidden = !manage;
+  loanLateFeeForm.hidden = !manage;
+  loanLateFeeForm.nextElementSibling.hidden = !manage;
+  if (!manage) for (const control of loanLateFeeForm.querySelectorAll("input, button")) control.disabled = true;
+}
+
+function borrowerNameForLoan(loan) {
+  return borrowers.find(item => item.id === loan.borrower_id)?.full_name
+    || loanBorrowerNames.get(loan.id)
+    || `Prestatario #${loan.borrower_id}`;
 }
 
 
@@ -762,9 +787,6 @@ function renderLoans() {
 
   loanList.innerHTML = loans
     .map(loan => {
-      const borrower = borrowers.find(
-        item => item.id === loan.borrower_id
-      );
 
       const vehicleDescription = (
         loan.loan_type === "vehicle"
@@ -784,7 +806,7 @@ function renderLoans() {
           <h3>
             Préstamo #${loan.id}
             · ${escapeHtml(
-              borrower?.full_name || "Prestatario"
+              borrowerNameForLoan(loan)
             )}
           </h3>
           <div class="item-meta">
@@ -931,19 +953,26 @@ async function loadLateFeePolicy() {
 
 
 async function loadDashboard() {
-  [
-    borrowers,
-    loans,
-    prospects,
-    applications,
-    prospectPage
-  ] = await Promise.all([
-    apiRequest(`${PRODUCT_BASE}/borrowers`),
-    apiRequest(`${PRODUCT_BASE}/loans`),
-    apiRequest(`${PRODUCT_BASE}/prospects`),
-    apiRequest(`${PRODUCT_BASE}/applications`),
-    apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
-  ]);
+  applyLoanAccess();
+  loanBorrowerNames = new Map();
+  if (canManageLoans()) {
+    [borrowers, loans, prospects, applications, prospectPage] = await Promise.all([
+      apiRequest(`${PRODUCT_BASE}/borrowers`),
+      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/prospects`),
+      apiRequest(`${PRODUCT_BASE}/applications`),
+      apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
+    ]);
+    await loadLateFeePolicy();
+  } else {
+    borrowers = []; prospects = []; applications = []; prospectPage = null; lateFeePolicy = null;
+    const [readableLoans, cashierLoans] = await Promise.all([
+      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/cashier/loans`)
+    ]);
+    loans = readableLoans;
+    loanBorrowerNames = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_full_name]));
+  }
 
   loanDetails = await Promise.all(
     loans.map(
@@ -952,8 +981,6 @@ async function loadDashboard() {
       )
     )
   );
-
-  await loadLateFeePolicy();
 
   renderApplications();
   renderProspects();
@@ -964,13 +991,10 @@ async function loadDashboard() {
 
 
 function renderLoanDetail(detail) {
-  const borrower = borrowers.find(
-    item => item.id === detail.borrower_id
-  );
 
   loanDetailTitle.textContent =
     `Préstamo #${detail.id} · `
-    + (borrower?.full_name || "Prestatario");
+    + borrowerNameForLoan(detail);
 
   const outstanding = detail.installments.reduce(
     (total, item) => (
