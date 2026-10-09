@@ -315,7 +315,77 @@ async function apiRequest(path, options = {}) {
       // Preserve the safe default.
     }
 
-    const error = new Error(detail);
+    function spanishApiError(detail, status) {
+      const translations = {
+  "Configure and enable the tenant late-fee policy first": "Configure y active la política de mora antes de crear o modificar un préstamo con mora.",
+  "Late-fee policy not configured": "Configure la política de mora en la sección Préstamos.",
+  "First payment date cannot be before the loan start date": "La primera cuota debe vencer en la fecha del préstamo o después. Revise ambas fechas.",
+  "Borrower not found": "No se encontró el prestatario en este negocio. Actualice la lista y selecciónelo nuevamente.",
+  "Borrower is inactive": "El prestatario está inactivo. Revise su estado antes de crear el préstamo.",
+  "Loan not found": "No se encontró el préstamo en este negocio. Actualice la lista y selecciónelo nuevamente.",
+  "Loan is not active": "El préstamo no está activo. Revise su estado antes de registrar un pago.",
+  "Installment not found": "No se encontró la cuota. Actualice el préstamo y selecciónela nuevamente.",
+  "Payment not found": "No se encontró el pago. Actualice el historial del préstamo.",
+  "Payment date cannot be in the future": "La fecha del pago no puede ser futura. Revise la fecha indicada.",
+  "Payment date precedes an existing late-fee assessment": "La fecha del pago es anterior a la mora ya calculada. Revise la fecha y el historial antes de continuar.",
+  "Payment amount must be greater than zero": "El monto del pago debe ser mayor que cero.",
+  "Payment exceeds installment balance": "El pago supera el saldo de la cuota. Actualice el saldo y revise el monto.",
+  "Collectors cannot record payments": "El rol Cobrador no permite registrar pagos. Solicite acceso de caja al propietario o administrador.",
+  "Payment operation access required": "Su rol no permite esta operación de pago. Consulte al propietario o administrador.",
+  "Payment request belongs to another operator": "Esta solicitud de pago pertenece a otro operador. Revise el historial con el propietario o administrador antes de continuar.",
+  "Payment request key was used with different details": "Esta solicitud ya se usó con otros datos de pago. Revise el historial antes de volver a cobrar.",
+  "Original payment was voided; use a new request key": "El pago original fue anulado. Revise su recibo y la anulación antes de iniciar otro pago.",
+  "Original receipt unavailable; review payment history": "El recibo original no está disponible. Revise el historial antes de volver a cobrar.",
+  "Projection date cannot be in the future": "La fecha de consulta no puede ser futura.",
+  "Payment is already voided; the original reason cannot be changed": "El pago ya fue anulado. No se puede cambiar el motivo original.",
+  "Payment belongs to a cash closing; a reconciled adjustment is required": "El pago pertenece a un cierre de caja. Solicite un ajuste conciliado al propietario o administrador.",
+  "Payment predates correction snapshots; a reconciled adjustment is required": "Este pago requiere un ajuste conciliado. Consulte al propietario o administrador.",
+  "Only the latest recorded payment on the loan may be voided": "Solo puede anular el último pago registrado del préstamo. Revise el historial.",
+  "Payment ledger is incomplete; reconciliation is required": "El registro del pago está incompleto. Solicite una conciliación antes de continuar.",
+  "Loan status does not allow payment correction": "El estado del préstamo no permite anular este pago.",
+  "Installment changed after payment; reconciliation is required": "La cuota cambió después del pago. Solicite una conciliación antes de continuar.",
+  "Promise allocation requires reconciliation": "La aplicación del pago a las promesas requiere conciliación. Consulte al propietario o administrador.",
+  "Release collector assignments before changing or suspending this membership": "Libere las carteras asignadas antes de cambiar el rol o suspender este integrante.",
+  "Client must retain at least one owner": "El negocio debe conservar al menos un propietario.",
+  "Client must retain at least one active owner": "El negocio debe conservar al menos un propietario activo.",
+  "You cannot suspend your own membership": "No puede suspender su propio acceso.",
+  "Only the owner may manage owners and administrators": "Solo el propietario puede administrar propietarios y administradores.",
+  "Administration access required": "Su rol no permite administrar el equipo. Consulte al propietario o administrador.",
+  "Reactivate access before requesting password recovery": "Reactive el acceso del integrante antes de solicitar la recuperación de contraseña.",
+  "Membership not found": "No se encontró el integrante en este negocio. Actualice el equipo.",
+  "Invitation not found": "No se encontró la invitación. Actualice la lista.",
+  "Client invitation not found": "No se encontró la invitación en este negocio. Actualice la lista.",
+  "An active invitation already exists for this client and email": "Ya existe una invitación pendiente para este correo. Revísela en Invitaciones; si perdió el enlace, revoque la invitación antes de crear otra.",
+  "A user with this email already exists": "Ya existe una cuenta con este correo. Revise el equipo o use otro correo para la invitación.",
+  "A platform user with this email already exists": "Ya existe una cuenta de plataforma con este correo. Revise el equipo antes de invitarla.",
+  "Only pending client invitations can be revoked": "Solo puede revocar invitaciones pendientes. Actualice la lista para revisar su estado.",
+  "Role is not available for this product": "El rol seleccionado no está disponible para este negocio. Seleccione un rol permitido.",
+  "Client must be active": "El negocio debe estar activo para crear invitaciones.",
+  "Client not found": "No se encontró el negocio. Actualice su acceso y selecciónelo nuevamente.",
+  "Client product is unavailable": "PréstamoDesk no está disponible para este negocio. Consulte al administrador.",
+  "Authentication required": "Su sesión no está disponible. Inicie sesión nuevamente.",
+  "Invalid email or password": "El correo o la contraseña no son correctos. Revise sus datos.",
+  "Tenant context required": "Seleccione un negocio antes de continuar.",
+  "User is not a member of this tenant": "No tiene acceso a este negocio. Actualice su acceso o consulte al propietario.",
+  "Tenant is suspended": "El negocio está suspendido. Consulte al administrador.",
+  "Tenant owner access required": "Esta operación requiere el rol Propietario.",
+  "Role does not permit this operation": "Su rol no permite esta operación. Consulte al propietario o administrador.",
+  "Cashier membership required": "Su rol no permite cerrar caja. Consulte al propietario o administrador."
+};
+      if (status >= 500) return "No se pudo completar la solicitud por un problema del servidor. Si estaba registrando un pago, revise el historial antes de volver a cobrar.";
+      if (typeof detail === "string" && Object.hasOwn(translations, detail)) return translations[detail];
+      const fallback = {
+        400: "No se pudo completar la solicitud. Revise los datos indicados.",
+        401: "Su sesión no está disponible. Inicie sesión nuevamente.",
+        403: "No tiene permiso para esta operación. Consulte al propietario o administrador.",
+        404: "No se encontró el registro en este negocio. Actualice la sección.",
+        409: "No se pudo completar la operación por un conflicto con el estado actual. Actualice la sección y revise el registro antes de continuar.",
+        422: "Revise los campos obligatorios, los montos y las fechas antes de continuar.",
+        429: "Se realizaron demasiadas solicitudes. Espere un momento antes de continuar."
+      };
+      return fallback[status] || "No se pudo completar la solicitud. Actualice la sección y revise los datos antes de continuar.";
+    }
+    const error = new Error(spanishApiError(detail, response.status));
     error.status = response.status;
     throw error;
   }
