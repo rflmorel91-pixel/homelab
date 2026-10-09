@@ -453,6 +453,24 @@
           <h2>Préstamos</h2>
           <span id="loanResultCount" class="badge">0</span>
         </div>
+        <form id="loanFilterForm" class="form-grid" role="search" aria-label="Buscar préstamos">
+          <label>Buscar préstamo
+            <input id="loanSearchQuery" type="search" maxlength="200" placeholder="Nombre, documento o número de préstamo" aria-describedby="loanSearchHelp">
+          </label>
+          <label>Estado
+            <select id="loanStatusFilter">
+              <option value="all">Todos</option>
+              <option value="active">Activos</option>
+              <option value="paid">Pagados</option>
+              <option value="overdue">Con cuotas vencidas</option>
+              <option value="cancelled">Cancelados</option>
+            </select>
+          </label>
+          <button type="submit">Buscar</button>
+          <button id="loanFilterClear" type="button" class="secondary">Limpiar filtros</button>
+        </form>
+        <p id="loanSearchHelp" class="notice">Las cuotas vencidas tienen saldo pendiente y una fecha de vencimiento anterior a hoy en República Dominicana. El resumen general conserva los totales de toda la cartera.</p>
+        <p id="loanFilterResult" role="status" aria-live="polite"></p>
         <div id="loanList" class="card-list"></div>
       </section>
 
@@ -647,7 +665,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-1b405d865893.js" defer></script>
+  <script src="/assets/prestamodesk-app-5f0fc2081aff.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
