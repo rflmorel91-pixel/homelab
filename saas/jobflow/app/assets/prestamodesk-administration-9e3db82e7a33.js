@@ -5,6 +5,51 @@
   const base = "/api/v1/products/prestamodesk/administration";
   let client = null;
   let team = null;
+  let activationRecord = null;
+  let invitationViewActive = true;
+  const activation = document.getElementById("administrationActivation");
+  const invitationLeaveMessage = "Copie o guarde el enlace de invitación antes de salir de Administración.";
+  function clearActivation() {activationRecord = null; activation.replaceChildren(); activation.hidden = true;}
+  function invitationCanLeave() {return !activationRecord || activationRecord.saved && !activationRecord.copying;}
+  function confirmInvitationLeave() {
+    if (invitationCanLeave()) return true;
+    if (activationRecord.copying) return false;
+    return window.confirm("El enlace de invitación aún no se ha copiado o guardado. Si sale, no podrá recuperarlo desde la lista; tendrá que revocar y crear otra invitación. ¿Desea salir y perder el enlace?");
+  }
+  window.prestamodeskInvitationSharing = {canLeave: invitationCanLeave, confirmLeave: confirmInvitationLeave, leaveMessage: invitationLeaveMessage};
+  window.addEventListener("beforeunload", event => {if (!invitationCanLeave()) {event.preventDefault(); event.returnValue = "";}});
+  window.addEventListener("pd-dispose", () => {invitationViewActive = false; clearActivation();});
+  function showActivation(result) {
+    const url = new URL(result.activation_path, document.baseURI);
+    if (url.origin !== new URL(document.baseURI).origin || url.pathname !== "/accept-invitation" || !url.hash.startsWith("#token=")) throw new Error("No se recibió un enlace de activación válido.");
+    const record = {id: result.id, tenantId: client.tenant_id, url: url.href, saved: false, copying: false};
+    activationRecord = record;
+    const title = element("h3", "Invitación creada: guarde el enlace"), recipient = element("p", "Para: " + result.email);
+    const notice = element("p", "El correo no se envía automáticamente. Comparta este enlace privado únicamente con la persona invitada. Al salir de esta sección, el enlace dejará de estar disponible.");
+    const expiry = element("p", result.expires_at ? "Vence: " + new Date(result.expires_at.endsWith("Z") ? result.expires_at : result.expires_at + "Z").toLocaleString("es-DO", {timeZone: "America/Santo_Domingo"}) + " (República Dominicana)." : "El enlace vence en 72 horas.");
+    const label = element("label", "Enlace privado de activación"), field = element("input"); field.type = "text"; field.readOnly = true; field.value = record.url; label.append(field);
+    const copy = element("button", "Copiar enlace"); copy.type = "button";
+    const saved = element("button", "Ya guardé o compartí el enlace"); saved.type = "button"; saved.className = "secondary";
+    const link = element("a", "Activar cuenta"); link.href = record.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+    const status = element("p", "Pendiente de copiar o guardar."); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+    copy.addEventListener("click", async () => {
+      if (activationRecord !== record || record.copying) return;
+      record.copying = true; copy.disabled = true; saved.disabled = true;
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(record.url);
+        if (!invitationViewActive || activationRecord !== record || client?.tenant_id !== record.tenantId) return;
+        record.saved = true; status.textContent = "Enlace copiado. Compártalo únicamente con " + result.email + ".";
+      } catch {
+        if (!invitationViewActive || activationRecord !== record) return;
+        record.saved = false; status.textContent = "No se pudo copiar automáticamente. Seleccione el enlace, cópielo manualmente y pulse «Ya guardé o compartí el enlace».";
+        field.focus(); field.select();
+      } finally {record.copying = false; copy.disabled = false; saved.disabled = false;}
+    });
+    saved.addEventListener("click", () => {if (activationRecord === record && !record.copying) {record.saved = true; status.textContent = "Enlace guardado o compartido. Puede salir de esta sección.";}});
+    activation.replaceChildren(title, recipient, notice, expiry, label, copy, saved, link, status); activation.hidden = false;
+    activation.scrollIntoView({behavior: "smooth", block: "center"}); copy.focus();
+  }
   const labels = {owner: "Propietario", administrator: "Administrador", supervisor: "Supervisor", collector: "Cobrador", cashier: "Cajero", member: "Miembro (caja existente)"};
   const permissions = {operations: "Prestatarios, préstamos, solicitudes y configuración", loan_read: "Consultar préstamos", payments: "Consultar caja y registrar pagos", collections: "Cartera completa y gestiones", assignments: "Asignar y liberar carteras", supervision: "Supervisión y exportación", team: "Equipo operativo e invitaciones", privileged_roles: "Propietarios y administradores", assigned_collections: "Solo su cartera asignada", own_cash_closing: "Cierre de su propia caja"};
   const actions = {"client_team.profile_changed": "Perfil actualizado", "client_team.password_reset_requested": "Recuperación solicitada","customer_data.exported": "Datos del cliente exportados","payments.voided": "Pago anulado","client_team.role_changed": "Cambio de rol", "client_team.status_changed": "Cambio de acceso", "client_team.member_removed": "Integrante retirado", "client_user.invitation_created": "Invitación creada", "client_user.invitation_revoked": "Invitación revocada", "client_user.invitation_accepted": "Invitación aceptada", "collections.assignment_created": "Cartera asignada", "collections.assignment_released": "Cartera liberada"};
@@ -17,7 +62,7 @@
     const data = await response.json();
     if (!client || client.tenant_id !== selectedTenant) throw new Error("El cliente cambió. Abra nuevamente el detalle.");
     if (!response.ok) {
-      if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true;}
+      if ([401, 403].includes(response.status)) {clearActivation(); clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true;}
       const translations = {"Release collector assignments before changing or suspending this membership": "Libere las carteras asignadas antes de cambiar el rol o suspender este integrante.", "Client must retain at least one owner": "El cliente debe conservar al menos un propietario.", "You cannot suspend your own membership": "No puede suspender su propio acceso.", "Only the owner may manage owners and administrators": "Solo el propietario puede administrar estos roles."};
       throw new Error(translations[data.detail] || (typeof data.detail === "string" ? data.detail : "Revise los datos e intente nuevamente."));
     }
@@ -57,6 +102,7 @@
   async function refresh() {
     const [newTeam, invitations, audit] = await Promise.all([request("/team"), request("/invitations"), request("/audit")]);
     team = newTeam; renderMembers();
+    if (activationRecord && invitations.invitations.some(item => item.id === activationRecord.id && item.status !== "pending")) clearActivation();
     const inviteRole = document.getElementById("administrationInviteRole"); inviteRole.replaceChildren(...roleSelect(team.assignable_roles, "collector").children);
     const list = document.getElementById("administrationInvitations"); list.replaceChildren();
     for (const invitation of invitations.invitations) {
@@ -208,6 +254,7 @@
   document.getElementById("inviteMemberButton").addEventListener("click", () => {selectSection("invitationsSection"); document.querySelector("#administrationInvite input").focus();});
   const handleAccess = async event => {
     clearMemberDetail();
+    if (activationRecord && (activationRecord.tenantId !== event.detail.tenant_id || !["owner", "administrator"].includes(event.detail.role))) clearActivation();
     client = event.detail; panel.hidden = !["owner", "administrator"].includes(client.role);
     document.getElementById("administrationLink").hidden = panel.hidden;
     if (!panel.hidden) {try {await refresh();} catch (error) {notify(error.message, true);}}
@@ -220,7 +267,7 @@
     try {
       const response = await fetch(base + "/export.zip", {method: "POST", credentials: "same-origin", headers: {"X-Tenant-ID": String(selected)}});
       if (!response.ok) {
-        if ([401, 403].includes(response.status)) {clearMemberDetail(); panel.hidden = true;}
+        if ([401, 403].includes(response.status)) {clearActivation(); clearMemberDetail(); panel.hidden = true;}
         throw new Error(response.status === 413 ? "El archivo supera el límite. Solicite una exportación asistida." : "No se pudo exportar. Revise su acceso e intente nuevamente.");
       }
       const blob = await response.blob();
@@ -234,13 +281,14 @@
   });
   document.getElementById("administrationRefresh").addEventListener("click", async () => {try {await refresh();} catch (error) {notify(error.message, true);}});
   document.getElementById("administrationInvite").addEventListener("submit", async event => {
-    event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector("button"); submit.disabled = true;
+    event.preventDefault(); if (!confirmInvitationLeave()) return; const form = event.currentTarget; const submit = form.querySelector("button"); if (submit.disabled) return; submit.disabled = true;
     try {
       const result = await request("/invitations", "POST", Object.fromEntries(new FormData(form)));
-      const activation = document.getElementById("administrationActivation"); activation.replaceChildren(element("span", "Comparta este enlace únicamente con la persona invitada (vence en 72 horas): "));
-      const link = element("a", "Activar cuenta"); link.href = result.activation_path; activation.append(link); activation.hidden = false;
-      form.reset(); await refresh(); notify("Invitación creada. El correo no se envía automáticamente.");
+      showActivation(result); form.reset();
+      try {await refresh(); notify("Invitación creada. Copie el enlace privado para compartirlo.");}
+      catch {notify("Invitación creada. Guarde el enlace; no se pudo actualizar la lista.", true);}
     } catch (error) {notify(error.message, true);} finally {submit.disabled = false;}
   });
-  document.getElementById("logoutButton").addEventListener("click", () => {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true; client = null; team = null; window.prestamodeskAccess = null; document.getElementById("administrationActivation").replaceChildren();});
+  document.getElementById("logoutButton").addEventListener("click", event => {if (!confirmInvitationLeave()) {event.preventDefault(); event.stopImmediatePropagation();}}, true);
+  document.getElementById("logoutButton").addEventListener("click", () => {clearMemberDetail(); panel.hidden = true; document.getElementById("administrationLink").hidden = true; client = null; team = null; window.prestamodeskAccess = null; clearActivation();});
 })();

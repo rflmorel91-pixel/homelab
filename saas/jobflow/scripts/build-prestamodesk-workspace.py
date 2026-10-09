@@ -51,7 +51,7 @@ for key,filename in screens.items():
     scripts=re.findall(r'<script[^>]*src="(/assets/[^"]+)"[^>]*>\s*</script>',body,re.S)
     body=re.sub(r'<script.*?</script>','',body,flags=re.S)
     code='\n'.join((app/src.lstrip('/')).read_text() for src in scripts)
-    result.append(json.dumps(key)+': {html:'+json.dumps(body,ensure_ascii=False)+', start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {\n'+code+'\nreturn {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview)};\n}},')
+    result.append(json.dumps(key)+': {html:'+json.dumps(body,ensure_ascii=False)+', start: function(document, window, fetch, localStorage, location, setTimeout, clearTimeout) {\n'+code+'\nreturn {canLeave: () => !(typeof paymentSubmitting !== "undefined" && paymentSubmitting) && !(typeof paymentNeedsReview !== "undefined" && paymentNeedsReview) && (!window.prestamodeskInvitationSharing || window.prestamodeskInvitationSharing.canLeave()), confirmLeave: () => window.prestamodeskInvitationSharing ? window.prestamodeskInvitationSharing.confirmLeave() : false, leaveMessage: () => window.prestamodeskInvitationSharing ? window.prestamodeskInvitationSharing.leaveMessage : "Revise el resultado del pago en Caja antes de cambiar de sección."};\n}},')
     for css in re.findall(r'href="(/assets/[^" ]+\.css)"',page):
         if css not in [item[0] for item in styles]:styles.append((css,scope_css((app/css.lstrip('/')).read_text()).replace(':where(.pd-module)', ':where(.pd-module[data-mode=administration])') if key=='administration' else scope_css((app/css.lstrip('/')).read_text())))
 result.append('};\n')
