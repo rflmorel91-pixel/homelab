@@ -57,11 +57,22 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          printf '%s' "$DOCKERHUB_TOKEN" |
-            docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          for attempt in 1 2 3 4; do
+            if printf '%s' "$DOCKERHUB_TOKEN" |
+              docker login --username "$DOCKERHUB_USERNAME" --password-stdin; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 4 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
 
       - name: Pull Nginx test image
-        run: docker pull nginx:1.31.3-alpine
+        run: |
+          for attempt in 1 2 3 4; do
+            if docker pull nginx:1.31.3-alpine; then exit 0; fi
+            if [ "$attempt" -eq 4 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
 
       - name: Verify hostname-scoped security headers
         run: python -B saas/jobflow/scripts/tests/test_nginx_security_headers.py
@@ -253,8 +264,22 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          printf '%s' "$DOCKERHUB_TOKEN" |
-            docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          for attempt in 1 2 3 4; do
+            if printf '%s' "$DOCKERHUB_TOKEN" |
+              docker login --username "$DOCKERHUB_USERNAME" --password-stdin; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 4 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+
+      - name: Pull dependency audit image
+        run: |
+          for attempt in 1 2 3 4; do
+            if docker pull python:3.14-slim; then exit 0; fi
+            if [ "$attempt" -eq 4 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
 
       - name: Scan dependencies, secrets and images
         run: saas/jobflow/scripts/run-security-scans.sh
