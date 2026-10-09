@@ -180,10 +180,21 @@
         <section class="panel">
           <h2>Nuevo préstamo</h2>
 
+          <div class="form-grid">
+            <label>
+              Buscar prestatario
+              <input id="loanBorrowerSearch" type="search" autocomplete="off"
+                placeholder="Nombre o documento" aria-controls="loanBorrower"
+                aria-describedby="loanBorrowerSearchStatus">
+            </label>
+            <button id="loanBorrowerSearchClear" type="button" class="secondary">Limpiar búsqueda</button>
+          </div>
+          <p id="loanBorrowerSearchStatus" class="notice" role="status" aria-atomic="true"></p>
+
           <form id="loanForm" class="form-grid">
             <label>
               Prestatario
-              <select id="loanBorrower" required></select>
+              <select id="loanBorrower" aria-describedby="loanBorrowerSearchStatus" required></select>
             </label>
 
             <label>
@@ -665,7 +676,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-fc823b2f6d0a.js" defer></script>
+  <script src="/assets/prestamodesk-app-e3d45a93818f.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>

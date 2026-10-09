@@ -59,6 +59,10 @@ const prospectList =
 const publicProspectPageLink =
   document.getElementById("publicProspectPageLink");
 const loanBorrower = document.getElementById("loanBorrower");
+const loanBorrowerSearch = document.getElementById("loanBorrowerSearch");
+const loanBorrowerSearchClear = document.getElementById("loanBorrowerSearchClear");
+const loanBorrowerSearchStatus = document.getElementById("loanBorrowerSearchStatus");
+let borrowerOptionsTenantId = null;
 const loanDetailPanel =
   document.getElementById("loanDetailPanel");
 const loanDetailTitle =
@@ -486,25 +490,56 @@ function borrowerNameForLoan(loan) {
 
 
 function renderBorrowerOptions() {
-  if (borrowers.length === 0) {
-    loanBorrower.innerHTML =
-      '<option value="">Cree un prestatario primero</option>';
-    loanBorrower.disabled = true;
-    return;
+  if (borrowerOptionsTenantId !== tenantId) {
+    borrowerOptionsTenantId = tenantId;
+    loanBorrowerSearch.value = "";
+    loanBorrower.value = "";
   }
-
-  loanBorrower.disabled = false;
-  loanBorrower.innerHTML =
-    '<option value="">Seleccione…</option>'
-    + borrowers
-      .filter(item => item.status === "active")
-      .map(item => `
-        <option value="${item.id}">
-          ${escapeHtml(item.full_name)}
-        </option>
-      `)
-      .join("");
+  const manage = canManageLoans();
+  const active = manage ? borrowers.filter(item => item.status === "active") : [];
+  const selected = active.find(item => String(item.id) === loanBorrower.value);
+  const query = normalizeLoanSearch(loanBorrowerSearch.value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const matches = active.filter(item => {
+    if (!query) return true;
+    const name = normalizeLoanSearch(item.full_name);
+    const documentNumber = normalizeLoanSearch(item.document_number);
+    return name.includes(query) || documentNumber.includes(query)
+      || Boolean(compactQuery && documentNumber.replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+  const outsideSearch = selected && !matches.some(item => item.id === selected.id);
+  const options = outsideSearch ? [selected, ...matches] : matches;
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = active.length ? "Seleccione…" : "No hay prestatarios activos";
+  loanBorrower.replaceChildren(placeholder);
+  for (const item of options) {
+    const option = document.createElement("option");
+    option.value = String(item.id);
+    option.textContent = item.full_name + (item.document_number ? " · " + item.document_number : "")
+      + (outsideSearch && item.id === selected.id ? " · Selección actual" : "");
+    loanBorrower.append(option);
+  }
+  loanBorrower.value = selected ? String(selected.id) : "";
+  loanBorrower.disabled = active.length === 0;
+  loanBorrowerSearch.disabled = !manage || active.length === 0;
+  loanBorrowerSearchClear.disabled = !manage || !loanBorrowerSearch.value;
+  loanBorrowerSearchStatus.textContent = !manage ? "" : active.length === 0
+    ? "No hay prestatarios activos. Cree o active un prestatario antes de crear el préstamo."
+    : matches.length + " coincidencias de " + active.length + " prestatarios activos."
+      + (outsideSearch ? " Se conserva el prestatario seleccionado, aunque no coincide con la búsqueda." : "");
 }
+
+loanBorrowerSearch.addEventListener("input", renderBorrowerOptions);
+loanBorrowerSearch.addEventListener("keydown", event => {
+  if (event.key === "Enter") event.preventDefault();
+});
+loanBorrowerSearchClear.addEventListener("click", () => {
+  loanBorrowerSearch.value = "";
+  renderBorrowerOptions();
+  loanBorrowerSearch.focus();
+});
+loanBorrower.addEventListener("change", renderBorrowerOptions);
 
 
 function renderApplications() {
