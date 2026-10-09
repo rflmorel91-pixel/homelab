@@ -178,3 +178,22 @@ def test_payment_recording_is_separate_from_collections(raw_client, db_session, 
     assert response.status_code == expected, response.text
     if expected == 201:
         assert response.json()["recorded_by_user_id"] == user.id
+
+
+def test_member_workspace_read_contract_preserves_management_boundaries(raw_client, db_session):
+    tenant = create_tenant(db_session, client_number=965, slug="member-workspace-contract")
+    other = create_tenant(db_session, client_number=966, slug="member-workspace-other")
+    _, loan, _ = create_loan(db_session, tenant=tenant, suffix=965)
+    _, other_loan, _ = create_loan(db_session, tenant=other, suffix=966)
+    member, _ = add_member(db_session, tenant, "member", "workspace-contract")
+    h = headers(member, tenant)
+    assert raw_client.get(BASE_URL + "/loans", headers=h).status_code == 200
+    assert raw_client.get(BASE_URL + f"/loans/{loan.id}", headers=h).status_code == 200
+    cashier = raw_client.get(BASE_URL + "/cashier/loans", headers=h)
+    assert cashier.status_code == 200
+    assert [item["id"] for item in cashier.json()] == [loan.id]
+    assert cashier.json()[0]["borrower_full_name"] == "Cliente Cobros 965"
+    for path in ("/borrowers", "/prospects", "/applications", "/prospects/public-page", "/late-fee-policy"):
+        assert raw_client.get(BASE_URL + path, headers=h).status_code == 403
+    assert raw_client.get(BASE_URL + f"/loans/{other_loan.id}", headers=h).status_code == 404
+    assert raw_client.get(BASE_URL + "/cashier/loans", headers=headers(member, other)).status_code == 403
