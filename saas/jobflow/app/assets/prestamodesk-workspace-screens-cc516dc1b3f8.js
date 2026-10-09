@@ -8,6 +8,8 @@ let tenantId =
   localStorage.getItem("prestamodesk_tenant_id");
 
 let selectedLoanId = null;
+let paymentSubmitting = false;
+let paymentNeedsReview = false;
 let borrowers = [];
 let loans = [];
 let loanDetails = [];
@@ -1352,6 +1354,12 @@ function setDefaultPaymentDate() {
 }
 
 setDefaultPaymentDate();
+window.addEventListener("beforeunload", event => {
+  if (paymentSubmitting || paymentNeedsReview) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
 
 
 paymentForm.addEventListener(
@@ -1359,34 +1367,39 @@ paymentForm.addEventListener(
   async event => {
     event.preventDefault();
 
+    if (paymentSubmitting || paymentNeedsReview || !selectedLoanId || !paymentInstallment.value) return;
+    paymentSubmitting = true;
+    const loanId = selectedLoanId;
+    const submitButton = paymentForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton.textContent;
+    const controls = Array.from(workspace.querySelectorAll("button, input, select, textarea"));
+    const disabledBefore = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    submitButton.textContent = "Registrando…";
+    let paymentSaved = false;
+    let requestStorageKey = null;
+
     try {
+      const paymentPayload = {
+        installment_id: Number(paymentInstallment.value),
+        amount: Number(document.getElementById("paymentAmount").value).toFixed(2),
+        payment_method: document.getElementById("paymentMethod").value,
+        reference: document.getElementById("paymentReference").value.trim() || null,
+        paid_at: paymentDate.value ? `${paymentDate.value}T12:00:00Z` : null
+      };
+      requestStorageKey = "prestamodesk-payment-request:" + tenantId + ":" + JSON.stringify(paymentPayload);
+      const requestKey = sessionStorage.getItem(requestStorageKey) || crypto.randomUUID();
+      sessionStorage.setItem(requestStorageKey, requestKey);
       const receipt = await apiRequest(
         `${PRODUCT_BASE}/payments`,
         {
           method: "POST",
-          body: JSON.stringify({
-            installment_id: Number(
-              paymentInstallment.value
-            ),
-            amount:
-              document.getElementById(
-                "paymentAmount"
-              ).value,
-            payment_method:
-              document.getElementById(
-                "paymentMethod"
-              ).value,
-            reference:
-              document.getElementById(
-                "paymentReference"
-              ).value.trim() || null,
-            paid_at: paymentDate.value
-              ? `${paymentDate.value}T12:00:00Z`
-              : null
-          })
+          body: JSON.stringify({...paymentPayload, idempotency_key: requestKey})
         }
       );
 
+      paymentSaved = true;
+      sessionStorage.removeItem(requestStorageKey);
       receiptContent.innerHTML = `
         <p>
           <strong>${escapeHtml(
@@ -1412,20 +1425,32 @@ paymentForm.addEventListener(
       paymentForm.reset();
       setDefaultPaymentDate();
       receiptPanel.hidden = false;
-      await loadDashboard();
-
-      if (selectedLoanId) {
-        await openLoan(selectedLoanId);
+      try {
+        await loadDashboard();
+        await openLoan(loanId);
+        showSuccess("Pago registrado.");
+      } catch {
+        paymentNeedsReview = true;
+        showError("Pago registrado. No se pudo actualizar la pantalla. Conserve el recibo y recargue para consultar el saldo antes de registrar otro pago.");
+      } finally {
         receiptPanel.hidden = false;
       }
-
-      showSuccess("Pago registrado.");
     } catch (error) {
-      showError(error.message);
+      if (paymentSaved || !error.status || error.status >= 500) {
+        paymentNeedsReview = true;
+        showError("No se pudo confirmar el resultado del pago. No lo repita: recargue y revise Pagos y correcciones en Caja antes de continuar.");
+      } else {
+        if (requestStorageKey && error.status !== 409) sessionStorage.removeItem(requestStorageKey);
+        showError(error.message);
+      }
+    } finally {
+      paymentSubmitting = false;
+      controls.forEach((control, index) => { control.disabled = disabledBefore[index]; });
+      submitButton.textContent = originalLabel;
+      submitButton.disabled = paymentNeedsReview || !paymentInstallment.value;
     }
   }
 );
-
 
 applicationList.addEventListener(
   "click",
