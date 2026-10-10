@@ -339,7 +339,7 @@
     event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
     selectSection(tabs[next].dataset.adminTab); tabs[next].focus();
   });
-  document.getElementById("inviteMemberButton").addEventListener("click", () => {selectSection("invitationsSection"); document.querySelector("#administrationInvite input").focus();});
+  document.getElementById("inviteMemberButton").addEventListener("click", () => {selectSection("invitationsSection"); document.getElementById("administrationInviteComposer").open = true; document.querySelector("#administrationInvite input").focus();});
   const handleAccess = async event => {
     clearMemberDetail();
     if (activationRecord && (activationRecord.tenantId !== event.detail.tenant_id || !["owner", "administrator"].includes(event.detail.role))) clearActivation();

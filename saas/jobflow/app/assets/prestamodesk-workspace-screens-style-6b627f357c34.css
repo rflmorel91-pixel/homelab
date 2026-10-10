@@ -832,3 +832,29 @@
 :where(.pd-module[data-mode=administration]) #administrationMemberTabs{gap:0}
 :where(.pd-module[data-mode=administration]) #administrationMemberTabs button{padding:11px 6px;font-size:10px}
 }
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-top{margin-bottom:16px;gap:14px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-top h2{font-size:25px;margin:5px 0;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-tabs{margin-bottom:16px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-card,:where(.pd-module[data-mode=administration]) #administrationPanel #administrationMemberDetail{padding:18px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-grid{gap:16px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .card-heading{margin-bottom:14px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel th{padding-top:9px;padding-bottom:9px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel td{padding-top:12px;padding-bottom:12px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .related-links{margin-top:12px;padding-top:12px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .context-note{margin-top:12px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .invite-composer{border:1px solid #e1e7ee;border-radius:8px;padding:12px;margin-bottom:16px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .invite-composer summary{cursor:pointer;font-weight:650;color:#0e7169;min-height:32px;display:list-item;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .invite-composer .form-grid{margin:12px 0 0;grid-template-columns:repeat(3,minmax(0,1fr));}
+:where(.pd-module[data-mode=administration]) #administrationPanel .invite-composer .form-grid button{grid-column:1/-1;justify-self:start;width:auto;}
+:where(.pd-module[data-mode=administration]) #administrationPanel #administrationInvitations p{padding:10px 0;margin:0;overflow-wrap:anywhere;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .activity p,:where(.pd-module[data-mode=administration]) #administrationPanel #memberHistory p{padding-top:10px;padding-bottom:10px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel #administrationMemberTabs{flex-wrap:wrap;overflow:visible;margin-bottom:14px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel #administrationMemberTabs button{white-space:normal;min-height:40px;}
+@media(max-width:720px){:where(.pd-module[data-mode=administration]) #administrationPanel .invite-composer .form-grid{grid-template-columns:1fr;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-top{gap:12px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel .admin-card,:where(.pd-module[data-mode=administration]) #administrationPanel #administrationMemberDetail{padding:14px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel td{padding-top:0;padding-bottom:0;}
+:where(.pd-module[data-mode=administration]) #administrationPanel tbody tr{padding:12px;gap:8px 12px;}
+:where(.pd-module[data-mode=administration]) #administrationPanel td:last-child{padding-top:8px;}
+
+}
