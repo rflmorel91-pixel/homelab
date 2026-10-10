@@ -844,9 +844,70 @@ contactForm.addEventListener("submit",async event=>{
   } finally {contactBusy=false;contactControls();}
 });
 
+let borrowerStatementLoadedAt = null;
+function clearBorrowerStatement() {
+  document.body.classList.remove("pd-borrower-print");
+  document.getElementById("borrowerStatementPanel").hidden=true;
+  document.getElementById("borrowerStatementContent").replaceChildren();
+}
+function statementCents(value) {
+  const text=String(value);
+  if(!/^\d+(?:\.\d{1,2})?$/.test(text))throw new Error("No se pudo preparar el estado de cuenta: revise los importes del préstamo.");
+  const [whole,fraction=""]=text.split(".");const cents=Number(whole)*100+Number(fraction.padEnd(2,"0"));
+  if(!Number.isSafeInteger(cents))throw new Error("El importe supera el límite del estado de cuenta.");return cents;
+}
+function statementSum(values) {
+  const total=values.reduce((sum,value)=>sum+value,0);
+  if(!Number.isSafeInteger(total))throw new Error("El total supera el límite del estado de cuenta.");return total;
+}
+function buildBorrowerStatement() {
+  if(!canManageLoans()||borrowerDetailTenantId!==tenantId)return;
+  if(contactBusy||contactDirty()){contactMessage("Guarde o descarte los cambios de contacto antes de preparar el estado de cuenta.",true);return;}
+  const borrower=borrowers.find(item=>item.id===selectedBorrowerId);if(!borrower)return;
+  const today=loanPortfolioToday(), client=window.prestamodeskAccess;
+  const linked=loanDetails.filter(loan=>loan.borrower_id===borrower.id).sort((a,b)=>a.id-b.id);
+  try {
+    const rows=linked.map(loan=>{
+      const amounts=loan.installments.map(item=>({due:statementCents(item.total_due),paid:statementCents(item.paid_amount),date:item.due_date}));
+      if(amounts.some(item=>item.paid>item.due))throw new Error("No se pudo preparar el estado de cuenta: revise los saldos de las cuotas.");
+      return {loan,total:statementSum(amounts.map(item=>item.due)),paid:statementSum(amounts.map(item=>item.paid)),
+        balance:statementSum(amounts.map(item=>item.due-item.paid)),overdue:loan.status==='active'?statementSum(amounts.filter(item=>item.date<today).map(item=>item.due-item.paid)):0};
+    });
+    const active=rows.filter(row=>row.loan.status==='active');
+    const ordinary=rows.filter(row=>row.loan.status!=='cancelled');
+    const money=cents=>formatMoney(cents/100);
+    const escape=escapeHtml;
+    document.getElementById("borrowerStatementContent").innerHTML=`
+      <p>PréstamoDesk · by FieldLookers</p>
+      <h2 id="borrowerStatementTitle" tabindex="-1">Estado de cuenta</h2>
+      <p>${escape(client.name)} · Cliente #${escape(String(client.client_number))}</p>
+      <h3>${escape(borrower.full_name)}</h3>
+      <p>Documento: ${escape(borrower.document_number||"No registrado")} · Teléfono: ${escape(borrower.phone||"No registrado")}</p>
+      <p>Correo: ${escape(borrower.email||"No registrado")}</p>
+      <p>Fecha de consulta: ${escape(today)} · República Dominicana · DOP</p>
+      <p>Datos cargados: ${escape(borrowerStatementLoadedAt||"No disponible")} (UTC). Actualice la sección para consultar cambios posteriores.</p>
+      <p><strong>Saldo ordinario pendiente (préstamos activos): ${money(statementSum(active.map(row=>row.balance)))}</strong></p>
+      <p>Saldo ordinario vencido: ${money(statementSum(active.map(row=>row.overdue)))} · Pagado a cuotas (sin préstamos cancelados): ${money(statementSum(ordinary.map(row=>row.paid)))}</p>
+      <p>Los importes no incluyen mora. Pagado a cuotas corresponde al capital e interés aplicado, no al total de recibos. Los préstamos cancelados se muestran como referencia y se excluyen de los totales.</p>
+      ${rows.length?`<div class="table-wrap"><table><thead><tr><th>Préstamo</th><th>Estado</th><th>Total cuotas</th><th>Pagado a cuotas</th><th>Saldo ordinario</th></tr></thead><tbody>${rows.map(row=>`<tr><td>#${row.loan.id} · ${row.loan.loan_type==='vehicle'?'Vehículo':'Personal'}</td><td>${escape(formatStatus(row.loan.status))}</td><td>${money(row.total)}</td><td>${row.loan.status==='cancelled'?'—':money(row.paid)}</td><td>${row.loan.status==='cancelled'?'—':money(row.balance)}</td></tr>`).join('')}</tbody></table></div>`:'<p>No hay préstamos para este prestatario.</p>'}
+      <p>Préstamos: ${rows.length} · Activos: ${active.length}</p>`;
+    document.getElementById("borrowerStatementPanel").hidden=false;
+    document.getElementById("borrowerStatementTitle").focus();
+  }catch(error){clearBorrowerStatement();showError(error.message);}
+}
+document.getElementById("openBorrowerStatement").addEventListener("click",buildBorrowerStatement);
+document.getElementById("closeBorrowerStatement").addEventListener("click",()=>{clearBorrowerStatement();document.getElementById("openBorrowerStatement").focus();});
+document.getElementById("printBorrowerStatement").addEventListener("click",()=>{
+  if(!canManageLoans()||borrowerDetailTenantId!==tenantId||contactBusy||contactDirty()||document.getElementById("borrowerStatementPanel").hidden)return;
+  document.body.classList.add("pd-borrower-print");
+  try{window.print();}finally{document.body.classList.remove("pd-borrower-print");}
+});
+window.addEventListener("afterprint",()=>document.body.classList.remove("pd-borrower-print"));
+
 let selectedBorrowerId = null;
 let borrowerDetailTenantId = null;
 function clearBorrowerDetail() {
+  clearBorrowerStatement();
   resetContactEditor();
   selectedBorrowerId = null;
   borrowerDetailTenantId = null;
@@ -854,6 +915,7 @@ function clearBorrowerDetail() {
   for (const id of ["borrowerDetailTitle", "borrowerContactDetails", "borrowerBalanceSummary", "borrowerLoanList"]) document.getElementById(id).replaceChildren();
 }
 function renderBorrowerDetail() {
+  clearBorrowerStatement();
   const borrower = borrowers.find(item => item.id === selectedBorrowerId);
   if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower) {
     clearBorrowerDetail(); return;
@@ -1315,6 +1377,7 @@ async function loadDashboard() {
   renderBorrowerOptions();
   renderLoans();
   updatePortfolioSummary();
+  borrowerStatementLoadedAt = new Date().toISOString();
   renderBorrowerDetail();
 }
 

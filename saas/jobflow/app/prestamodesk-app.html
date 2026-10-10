@@ -9,7 +9,7 @@
   <title>PréstamoDesk | Espacio de trabajo</title>
   <link
     rel="stylesheet"
-    href="/assets/prestamodesk-app-b4c00c256964.css"
+    href="/assets/prestamodesk-app-2ad94649bff1.css"
   >
 </head>
 <body>
@@ -477,6 +477,7 @@
             <button id="closeBorrowerDetail" type="button" class="secondary">Cerrar detalle</button>
           </div>
           <div id="borrowerContactDetails" class="item-meta"></div>
+          <button id="openBorrowerStatement" type="button" class="secondary">Estado de cuenta</button>
           <button id="editBorrowerContact" type="button" class="secondary">Editar contacto</button>
           <p id="borrowerContactMessage" class="notice" hidden aria-atomic="true"></p>
           <form id="borrowerContactForm" class="form-grid" hidden>
@@ -707,13 +708,20 @@
     </div>
 
 
+    <section id="borrowerStatementPanel" class="panel" hidden aria-labelledby="borrowerStatementTitle">
+      <div class="section-heading statement-actions">
+        <button id="printBorrowerStatement" type="button">Imprimir estado de cuenta</button>
+        <button id="closeBorrowerStatement" type="button" class="secondary">Cerrar estado de cuenta</button>
+      </div>
+      <div id="borrowerStatementContent"></div>
+    </section>
   </main>
 
   <footer>
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-2bdab2db9bde.js" defer></script>
+  <script src="/assets/prestamodesk-app-386ae9e4b50b.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
