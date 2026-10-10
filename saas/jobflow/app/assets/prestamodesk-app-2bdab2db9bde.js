@@ -774,9 +774,80 @@ function renderBorrowers() {
 }
 
 
+const contactFields = {phone:"Phone",email:"Email",address:"Address",municipality:"Municipality",province:"Province",notes:"Notes"};
+const contactForm = document.getElementById("borrowerContactForm");
+let contactSnapshot = null, contactBusy = false, contactDisposed = false;
+function contactValues() {
+  return Object.fromEntries(Object.entries(contactFields).map(([key,suffix]) => [key,document.getElementById("borrowerContact"+suffix).value.trim() || null]));
+}
+function contactDirty() {
+  return !contactForm.hidden && contactSnapshot && JSON.stringify(contactValues()) !== JSON.stringify(contactSnapshot.values);
+}
+function contactMessage(text, error=false) {
+  const box=document.getElementById("borrowerContactMessage");
+  box.textContent="";box.setAttribute("role",error?"alert":"status");box.textContent=text;box.hidden=!text;
+  if(error&&box.isConnected&&!box.closest("[hidden]"))box.scrollIntoView?.({behavior:"instant",block:"center"});
+}
+function contactControls() {
+  for(const control of contactForm.elements) control.disabled=contactBusy;
+  document.getElementById("editBorrowerContact").disabled=contactBusy;
+}
+function resetContactEditor() {
+  contactSnapshot=null;contactForm.reset();contactForm.hidden=true;contactMessage("");
+}
+function leaveContact() {
+  if(contactBusy){contactMessage("Espere la confirmación antes de salir de la edición.",true);return false;}
+  if(contactDirty()&&!window.confirm("Hay cambios de contacto sin guardar. ¿Desea descartarlos?"))return false;
+  resetContactEditor();return true;
+}
+window.prestamodeskBorrowerContact={
+  canLeave:()=>!contactBusy&&!contactDirty(),
+  confirmLeave:()=>leaveContact(),
+  leaveMessage:"Guarde o descarte los cambios de contacto antes de cambiar de sección."
+};
+window.addEventListener("beforeunload",event=>{if(contactBusy||contactDirty()){event.preventDefault();event.returnValue="";}});
+window.addEventListener("pd-dispose",()=>{contactDisposed=true;resetContactEditor();});
+async function startContactEditor() {
+  if(!canManageLoans()||!selectedBorrowerId||borrowerDetailTenantId!==tenantId||!leaveContact())return;
+  const id=selectedBorrowerId,tenant=tenantId;
+  contactBusy=true;contactControls();
+  try {
+    const record=await apiRequest(`${PRODUCT_BASE}/borrowers/${id}`);
+    if(contactDisposed||tenant!==tenantId||id!==selectedBorrowerId||!canManageLoans())return;
+    borrowers=borrowers.map(item=>item.id===id?record:item);renderBorrowerDetail();
+    for(const [key,suffix] of Object.entries(contactFields))document.getElementById("borrowerContact"+suffix).value=record[key]||"";
+    contactSnapshot={id,tenant,updated_at:record.updated_at,values:contactValues()};
+    contactForm.hidden=false;document.getElementById("borrowerContactPhone").focus();
+  } catch(error) {
+    if(!contactDisposed&&tenant===tenantId)contactMessage(error.message||"No se pudo cargar el contacto.",true);
+  } finally {contactBusy=false;contactControls();}
+}
+document.getElementById("editBorrowerContact").addEventListener("click",startContactEditor);
+document.getElementById("refreshBorrowerContact").addEventListener("click",startContactEditor);
+document.getElementById("cancelBorrowerContact").addEventListener("click",()=>{if(leaveContact())document.getElementById("editBorrowerContact").focus();});
+contactForm.addEventListener("submit",async event=>{
+  event.preventDefault();
+  if(contactBusy||!contactSnapshot||!canManageLoans()||contactSnapshot.tenant!==tenantId||contactSnapshot.id!==selectedBorrowerId)return;
+  if(!contactForm.reportValidity())return;
+  if(!contactDirty()){contactMessage("No hay cambios de contacto para guardar.");return;}
+  const snapshot=contactSnapshot;
+  contactBusy=true;contactControls();contactMessage("");
+  try {
+    const record=await apiRequest(`${PRODUCT_BASE}/borrowers/${snapshot.id}/contact`,{method:"PATCH",body:JSON.stringify({expected_updated_at:snapshot.updated_at,...contactValues()})});
+    if(contactDisposed||snapshot.tenant!==tenantId||snapshot.id!==selectedBorrowerId)return;
+    borrowers=borrowers.map(item=>item.id===snapshot.id?record:item);resetContactEditor();renderBorrowers();renderBorrowerDetail();
+    contactMessage("Contacto guardado.");document.getElementById("editBorrowerContact").focus();
+  } catch(error) {
+    if(!contactDisposed&&snapshot.tenant===tenantId)contactMessage(error.status===409
+      ? "El prestatario cambió desde que abrió la edición. Sus cambios se conservan. Use Actualizar datos para revisar la versión actual antes de guardar."
+      : error.status ? error.message : "No se pudo confirmar el guardado. Sus cambios se conservan. Actualice los datos para comprobar el resultado antes de volver a guardar.",true);
+  } finally {contactBusy=false;contactControls();}
+});
+
 let selectedBorrowerId = null;
 let borrowerDetailTenantId = null;
 function clearBorrowerDetail() {
+  resetContactEditor();
   selectedBorrowerId = null;
   borrowerDetailTenantId = null;
   document.getElementById("borrowerDetailPanel").hidden = true;
@@ -828,12 +899,13 @@ function renderBorrowerDetail() {
 }
 borrowerList.addEventListener("click", event => {
   const button = event.target.closest("button[data-view-borrower]");
-  if (!button || !canManageLoans()) return;
+  if (!button || !canManageLoans() || !leaveContact()) return;
   selectedBorrowerId = Number(button.dataset.viewBorrower); borrowerDetailTenantId = tenantId;
   renderBorrowerDetail();
   if (!document.getElementById("borrowerDetailPanel").hidden) document.getElementById("borrowerDetailTitle").focus();
 });
 document.getElementById("closeBorrowerDetail").addEventListener("click", () => {
+  if(!leaveContact())return;
   const button = [...borrowerList.querySelectorAll("[data-view-borrower]")].find(item => Number(item.dataset.viewBorrower) === selectedBorrowerId);
   clearBorrowerDetail();
   (button || document.getElementById("borrowerSearchQuery")).focus();
@@ -843,6 +915,7 @@ document.getElementById("borrowerLoanList").addEventListener("click", async even
   if (!button || !canManageLoans() || borrowerDetailTenantId !== tenantId) return;
   const id = Number(button.dataset.borrowerLoan);
   if (!loanDetails.some(loan=>loan.id===id && loan.borrower_id===selectedBorrowerId)) return;
+  if(!leaveContact())return;
   await openLoan(id);
 });
 
@@ -2000,6 +2073,7 @@ loginForm.addEventListener(
 logoutButton.addEventListener(
   "click",
   async () => {
+    if(!leaveContact())return;
     try {
       await apiRequest(
         "/auth/logout",

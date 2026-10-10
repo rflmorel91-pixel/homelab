@@ -82,7 +82,7 @@
       if(mutating){writes++;controls();}
       try{
         const response=await fetch(url,{...options,headers,credentials:'same-origin',signal:controller.signal});
-        if(mutating && response.ok && epoch===generation)dirty=false;
+        if(mutating && response.ok && epoch===generation && !/\/borrowers\/\d+\/contact$/.test(url.pathname))dirty=false;
         if(response.status===401&&epoch===generation){teardown();selected=null;updateAccess();note("Su sesión venció. Inicie sesión para continuar.");}
         else if(response.status===403&&epoch===generation)note("Revise sus permisos. Puede actualizar el acceso desde el menú.");
         return response;
