@@ -2,7 +2,7 @@ from decimal import Decimal
 import hashlib
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -119,26 +119,7 @@ def loan_fingerprint(payload: LoanCreate) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-@router.post("", response_model=LoanDetail, status_code=201)
-def create_loan(
-    payload: LoanCreate,
-    db: Session = Depends(get_db),
-    tenant: Tenant = Depends(get_current_tenant),
-    membership: TenantMembership = Depends(
-        require_current_tenant_owner
-    ),
-):
-    lock_financial_actor(db, tenant, membership, {"owner", "administrator"})
-    key = str(payload.idempotency_key) if payload.idempotency_key else None
-    fingerprint = loan_fingerprint(payload) if key else None
-    if key:
-        existing = db.scalar(select(Loan).where(Loan.tenant_id == tenant.id, Loan.idempotency_key == key))
-        if existing is not None:
-            if existing.created_by_user_id != membership.user_id:
-                raise HTTPException(status_code=409, detail="Loan request belongs to another operator")
-            if existing.request_fingerprint != fingerprint:
-                raise HTTPException(status_code=409, detail="Loan request key was used with different details")
-            return LoanDetail.model_validate(existing.creation_snapshot)
+def calculate_new_loan(payload: LoanCreate, tenant: Tenant, db: Session):
     borrower = db.scalar(
         select(Borrower).where(
             Borrower.id == payload.borrower_id,
@@ -182,6 +163,62 @@ def create_loan(
         payment_frequency=payload.payment_frequency,
         first_payment_date=payload.first_payment_date,
     )
+
+    return borrower, calculation
+
+
+@router.post("/preview")
+def preview_loan(
+    payload: LoanCreate,
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(require_current_tenant_owner),
+):
+    """Calculate without creating a loan, schedule or request key."""
+    borrower, calculation = calculate_new_loan(payload, tenant, db)
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "borrower_id": borrower.id,
+        "borrower_name": borrower.full_name,
+        "currency": "DOP",
+        "principal_amount": str(calculation.principal_amount),
+        "total_interest": str(calculation.total_interest),
+        "total_due": str(calculation.total_due),
+        "installments": [
+            {
+                "sequence_number": item.sequence_number,
+                "due_date": item.due_date.isoformat(),
+                "principal_due": str(item.principal_due),
+                "interest_due": str(item.interest_due),
+                "total_due": str(item.total_due),
+            }
+            for item in calculation.installments
+        ],
+    }
+
+
+@router.post("", response_model=LoanDetail, status_code=201)
+def create_loan(
+    payload: LoanCreate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    membership: TenantMembership = Depends(
+        require_current_tenant_owner
+    ),
+):
+    lock_financial_actor(db, tenant, membership, {"owner", "administrator"})
+    key = str(payload.idempotency_key) if payload.idempotency_key else None
+    fingerprint = loan_fingerprint(payload) if key else None
+    if key:
+        existing = db.scalar(select(Loan).where(Loan.tenant_id == tenant.id, Loan.idempotency_key == key))
+        if existing is not None:
+            if existing.created_by_user_id != membership.user_id:
+                raise HTTPException(status_code=409, detail="Loan request belongs to another operator")
+            if existing.request_fingerprint != fingerprint:
+                raise HTTPException(status_code=409, detail="Loan request key was used with different details")
+            return LoanDetail.model_validate(existing.creation_snapshot)
+    borrower, calculation = calculate_new_loan(payload, tenant, db)
 
     loan = Loan(
         idempotency_key=key,
