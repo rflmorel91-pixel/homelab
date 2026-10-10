@@ -395,6 +395,7 @@ async function apiRequest(path, options = {}) {
     }
     const error = new Error(spanishApiError(detail, response.status));
     error.status = response.status;
+    error.detail = detail;
     throw error;
   }
 
@@ -915,9 +916,36 @@ function clearBorrowerDetail() {
   for (const id of ["borrowerDetailTitle", "borrowerContactDetails", "borrowerBalanceSummary", "borrowerLoanList"]) document.getElementById(id).replaceChildren();
 }
 let loanCreationPending = false;
+let loanCreationRequest = null;
+let loanCreationStorageBlocked = false;
+let loanCreationDisabled = null;
+function loanCreationStorageKey(){return "prestamodesk_loan_creation_v1:"+tenantId;}
+function loanCreationControls(){
+  const blocked = loanCreationPending || !!loanCreationRequest || loanCreationStorageBlocked;
+  const fields = [...loanForm.querySelectorAll("button,input,select,textarea")];
+  if(blocked && !loanCreationDisabled) loanCreationDisabled = fields.map(field=>[field,field.disabled]);
+  if(blocked) fields.forEach(field=>{field.disabled=true;});
+  else if(loanCreationDisabled){loanCreationDisabled.forEach(([field,disabled])=>{field.disabled=disabled;});loanCreationDisabled=null;}
+  const notice=document.getElementById("loanCreationNotice");
+  notice.hidden=!blocked;
+  notice.textContent=loanCreationStorageBlocked ? "No se pudo leer la solicitud pendiente. No cree otro préstamo; revise esta sesión antes de continuar." : loanCreationPending ? "Creando o confirmando el préstamo. Espere el resultado." : loanCreationRequest ? "Hay una solicitud de préstamo sin confirmar. No cree otra: use Confirmar o recuperar el préstamo para consultar el resultado con la misma solicitud." : "";
+  const retry=document.getElementById("loanCreationRetry");retry.hidden=!loanCreationRequest;retry.disabled=loanCreationPending;
+}
+function restoreLoanCreation(){
+  if(!loanCreationRequest && tenantId){
+    try{
+      const raw=sessionStorage.getItem(loanCreationStorageKey());
+      if(raw){const request=JSON.parse(raw);if(typeof request.key!=="string" || !/^[a-f0-9-]{36}$/i.test(request.key) || !request.payload || typeof request.payload!=="object")throw new Error();loanCreationRequest=request;}
+    }catch{loanCreationStorageBlocked=true;showError("No se pudo leer la solicitud de préstamo pendiente. No cree otro préstamo hasta revisar el almacenamiento de esta sesión.");}
+  }
+  loanCreationControls();
+}
+window.prestamodeskLoanCreation={canLeave:()=>!loanCreationPending&&!loanCreationRequest&&!loanCreationStorageBlocked,confirmLeave:()=>false,leaveMessage:"Confirme el resultado del préstamo pendiente antes de cambiar de sección."};
+window.addEventListener("beforeunload",event=>{if(loanCreationPending||loanCreationRequest){event.preventDefault();event.returnValue="";}});
+
 document.getElementById("borrowerNewLoan").addEventListener("click", () => {
   const borrower = borrowers.find(item => item.id === selectedBorrowerId);
-  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower || borrower.status !== "active" || loanCreationPending) return;
+  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower || borrower.status !== "active" || loanCreationPending || loanCreationRequest) return;
   const previous = loanBorrower.value;
   if (previous && previous !== String(borrower.id) && !window.confirm("El formulario tiene otro prestatario seleccionado. ¿Desea cambiarlo? Los demás datos del préstamo se conservarán.")) return;
   if (!leaveContact()) return;
@@ -1396,6 +1424,7 @@ async function loadDashboard() {
   updatePortfolioSummary();
   borrowerStatementLoadedAt = new Date().toISOString();
   renderBorrowerDetail();
+  restoreLoanCreation();
 }
 
 
@@ -1722,36 +1751,34 @@ borrowerForm.addEventListener(
 );
 
 
-loanForm.addEventListener(
-  "submit",
-  async event => {
-    event.preventDefault();
-    if (loanCreationPending) return;
-    loanCreationPending = true;
-
-    try {
-      const detail = await apiRequest(
-        `${PRODUCT_BASE}/loans`,
-        {
-          method: "POST",
-          body: JSON.stringify(
-            buildLoanPayload()
-          )
-        }
-      );
-
-      loanForm.reset();
-      updateVehicleLoanFields();
-      await loadDashboard();
-      showSuccess("Préstamo creado.");
-      await openLoan(detail.id);
-    } catch (error) {
-      showError(error.message);
-    } finally {
-      loanCreationPending = false;
-    }
+async function submitLoanCreation(){
+  if(loanCreationPending || loanCreationStorageBlocked || !canManageLoans())return;
+  if(!loanCreationRequest){
+    try{
+      const request={key:crypto.randomUUID(),payload:buildLoanPayload()};
+      sessionStorage.setItem(loanCreationStorageKey(),JSON.stringify(request));
+      loanCreationRequest=request;
+    }catch{showError("No se pudo conservar la solicitud para un reintento seguro. El préstamo no se envió.");return;}
   }
-);
+  loanCreationPending=true;loanCreationControls();
+  let confirmed=false;
+  try{
+    const detail=await apiRequest(`${PRODUCT_BASE}/loans`,{method:"POST",body:JSON.stringify({...loanCreationRequest.payload,idempotency_key:loanCreationRequest.key})});
+    if(!detail || !Number.isInteger(detail.id) || !Array.isArray(detail.installments))throw new Error("Invalid loan confirmation");
+    confirmed=true;
+    sessionStorage.removeItem(loanCreationStorageKey());loanCreationRequest=null;
+    loanForm.reset();updateVehicleLoanFields();
+    try{await loadDashboard();await openLoan(detail.id);showSuccess(`Préstamo #${detail.id} confirmado.`);}
+    catch{showError(`Préstamo #${detail.id} confirmado. No se pudo actualizar la pantalla; recargue para consultar sus cuotas.`);}
+  }catch(error){
+    if(!confirmed && ([400,404,422].includes(error.status) || (error.status===409 && ["Borrower is inactive", "Configure and enable the tenant late-fee policy first"].includes(error.detail)))){
+      try{sessionStorage.removeItem(loanCreationStorageKey());loanCreationRequest=null;showError(error.message);}
+      catch{showError("No se pudo actualizar la solicitud pendiente en esta sesión. No cree otro préstamo.");}
+    }else{showError("No se pudo confirmar el resultado del préstamo. Sus datos y la solicitud se conservan; use Confirmar o recuperar el préstamo. No cree otro préstamo.");}
+  }finally{loanCreationPending=false;loanCreationControls();}
+}
+loanForm.addEventListener("submit",event=>{event.preventDefault();submitLoanCreation();});
+document.getElementById("loanCreationRetry").addEventListener("click",submitLoanCreation);
 
 
 loanType.addEventListener(
@@ -2157,6 +2184,7 @@ loginForm.addEventListener(
 logoutButton.addEventListener(
   "click",
   async () => {
+    if(loanCreationPending||loanCreationRequest||loanCreationStorageBlocked){showError(window.prestamodeskLoanCreation.leaveMessage);return;}
     if(!leaveContact())return;
     try {
       await apiRequest(

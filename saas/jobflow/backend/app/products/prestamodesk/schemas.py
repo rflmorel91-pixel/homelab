@@ -106,6 +106,7 @@ LoanType = Literal[
 
 
 class LoanCreate(BaseModel):
+    idempotency_key: UUID | None = None
     borrower_id: int = Field(gt=0)
     loan_type: LoanType = "personal"
     vehicle_cash_price: Decimal | None = Field(

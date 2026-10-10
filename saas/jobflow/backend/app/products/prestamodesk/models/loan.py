@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -19,6 +20,12 @@ from app.database import Base
 
 class Loan(Base):
     __tablename__ = "prestamodesk_loans"
+    __table_args__ = (UniqueConstraint("tenant_id", "idempotency_key", name="uq_prestamodesk_loan_request"),)
+    idempotency_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", name="fk_prestamodesk_loan_creator"), nullable=True)
+    creation_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
