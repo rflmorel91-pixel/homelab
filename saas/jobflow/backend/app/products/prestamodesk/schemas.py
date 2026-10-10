@@ -46,6 +46,31 @@ class BorrowerUpdate(BorrowerBase):
     model_config = ConfigDict(extra="forbid")
 
 
+class BorrowerContactUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_updated_at: datetime
+    phone: str | None = Field(max_length=40)
+    email: str | None = Field(max_length=320)
+    address: str | None = Field(max_length=2000)
+    municipality: str | None = Field(max_length=120)
+    province: str | None = Field(max_length=120)
+    notes: str | None = Field(max_length=5000)
+
+    @field_validator("phone", "email", "address", "municipality", "province", "notes", mode="before")
+    @classmethod
+    def trim_contact(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+    @field_validator("email")
+    @classmethod
+    def validate_contact_email(cls, value):
+        if value is not None:
+            import re
+            if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+                raise ValueError("Invalid contact email")
+        return value
+
+
 class BorrowerRead(BorrowerBase):
     id: int
     created_at: datetime

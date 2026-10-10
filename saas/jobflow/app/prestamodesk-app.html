@@ -477,6 +477,19 @@
             <button id="closeBorrowerDetail" type="button" class="secondary">Cerrar detalle</button>
           </div>
           <div id="borrowerContactDetails" class="item-meta"></div>
+          <button id="editBorrowerContact" type="button" class="secondary">Editar contacto</button>
+          <p id="borrowerContactMessage" class="notice" hidden aria-atomic="true"></p>
+          <form id="borrowerContactForm" class="form-grid" hidden>
+            <label>Teléfono<input id="borrowerContactPhone" type="tel" maxlength="40"></label>
+            <label>Correo electrónico<input id="borrowerContactEmail" type="email" maxlength="320"></label>
+            <label>Dirección<textarea id="borrowerContactAddress" maxlength="2000"></textarea></label>
+            <label>Municipio<input id="borrowerContactMunicipality" maxlength="120"></label>
+            <label>Provincia<input id="borrowerContactProvince" maxlength="120"></label>
+            <label>Observaciones<textarea id="borrowerContactNotes" maxlength="5000"></textarea></label>
+            <button id="saveBorrowerContact" type="submit">Guardar contacto</button>
+            <button id="cancelBorrowerContact" type="button" class="secondary">Cancelar edición</button>
+            <button id="refreshBorrowerContact" type="button" class="secondary">Actualizar datos</button>
+          </form>
           <p id="borrowerBalanceSummary" class="notice"></p>
           <p>El saldo ordinario corresponde a las cuotas pendientes de los préstamos activos; no incluye mora. Abra cada préstamo para revisar sus cuotas y pagos.</p>
           <div id="borrowerLoanList" class="card-list"></div>
@@ -700,7 +713,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-140db0d064f7.js" defer></script>
+  <script src="/assets/prestamodesk-app-2bdab2db9bde.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
