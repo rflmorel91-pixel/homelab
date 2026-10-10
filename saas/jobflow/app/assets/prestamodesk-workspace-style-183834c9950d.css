@@ -18,3 +18,31 @@
 .pd-summary-help p {max-width:760px;line-height:1.7;margin:8px 0;}
 @media(max-width:600px){.pd-module[data-mode=summary] .summary-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.pd-module[data-mode=summary] .summary-card:has(#outstandingBalance) {grid-column:1/-1;}.pd-summary-actions nav {grid-template-columns:1fr;}}
 @media print {.pd-summary-actions {display:none!important;}}
+
+/* Phone layout: preserve task visibility and confine wide tables to their wrappers. */
+@media screen and (max-width:600px){
+ .pd-sidebar{padding:12px;gap:12px;min-width:0;}
+ .pd-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:6px;}
+ .pd-nav button{min-width:0;min-height:44px;white-space:normal;padding:10px 12px;}
+ .pd-main{padding:16px 12px;}
+ .pd-top{gap:14px;min-width:0;}
+ .pd-top>div,.pd-session{min-width:0;max-width:100%;width:100%;}
+ .pd-session select{min-width:0;width:100%;max-width:100%;font-size:16px;min-height:44px;}
+ .pd-session button{min-height:44px;}
+ .pd-context,.pd-module .item-card,.pd-module .admin-card,.pd-module #administrationMemberDetail{overflow-wrap:anywhere;}
+ .pd-module .panel,.pd-module .admin-card,.pd-module #administrationMemberDetail{padding:14px;min-width:0;}
+ .pd-module .form-grid{grid-template-columns:minmax(0,1fr);}
+ .pd-module form,.pd-module label,.pd-module .section-heading{min-width:0;}
+ .pd-module input,.pd-module select,.pd-module textarea{min-width:0;max-width:100%;font-size:16px!important;box-sizing:border-box;}
+ .pd-module input:not([type=checkbox]):not([type=radio]),.pd-module select{min-height:44px;}
+ .pd-module button,.pd-module summary{min-height:44px!important;}
+ .pd-module .compact-tabs,.pd-module .compact-actions,.pd-module .collection-toolbar,.pd-module .supervision-toolbar,.pd-module .cashier-task-toolbar{flex-wrap:wrap;gap:8px;}
+ .pd-module .compact-tabs button,.pd-module .collection-toolbar button,.pd-module .supervision-toolbar button,.pd-module .cashier-task-toolbar button{white-space:normal;min-width:0;}
+ .pd-module .table-wrap,.pd-module .table-scroll{max-width:100%;overscroll-behavior-x:contain;}
+ .pd-module .related-links{flex-wrap:wrap;gap:12px;}
+ .pd-module .related-links a{display:inline-flex;align-items:center;min-height:44px;}
+ .pd-module .export-menu{min-width:0;width:min(270px,calc(100vw - 52px));}
+ .pd-summary-help summary{min-height:44px;}
+ .pd-auth{margin:24px 12px;padding:20px;min-width:0;}
+ .pd-auth input{min-width:0;width:100%;font-size:16px;}
+}
