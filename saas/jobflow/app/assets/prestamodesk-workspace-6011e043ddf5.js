@@ -121,6 +121,7 @@
     }catch(error){note(error.status===401?"Inicie sesión para continuar.":error.message);if([401,403].includes(error.status)){teardown();selected=null;updateAccess();}}
     finally{loading=false;controls();}
   }
+  $("pdSkip").addEventListener("click",event=>{event.preventDefault();$("pdTitle").focus();});
   for(const button of document.querySelectorAll('[data-pd-view]'))button.addEventListener('click',()=>navigate(button.dataset.pdView));
   for(const button of document.querySelectorAll("[data-pd-summary-view]"))button.addEventListener("click",()=>navigate(button.dataset.pdSummaryView));
   window.addEventListener('hashchange',()=>navigate(location.hash.slice(1)));
