@@ -914,12 +914,29 @@ function clearBorrowerDetail() {
   document.getElementById("borrowerDetailPanel").hidden = true;
   for (const id of ["borrowerDetailTitle", "borrowerContactDetails", "borrowerBalanceSummary", "borrowerLoanList"]) document.getElementById(id).replaceChildren();
 }
+let loanCreationPending = false;
+document.getElementById("borrowerNewLoan").addEventListener("click", () => {
+  const borrower = borrowers.find(item => item.id === selectedBorrowerId);
+  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower || borrower.status !== "active" || loanCreationPending) return;
+  const previous = loanBorrower.value;
+  if (previous && previous !== String(borrower.id) && !window.confirm("El formulario tiene otro prestatario seleccionado. ¿Desea cambiarlo? Los demás datos del préstamo se conservarán.")) return;
+  if (!leaveContact()) return;
+  clearBorrowerStatement();
+  loanBorrowerSearch.value = "";
+  renderBorrowerOptions();
+  loanBorrower.value = String(borrower.id);
+  renderBorrowerOptions();
+  if (previous !== loanBorrower.value) loanBorrower.dispatchEvent(new Event("change", {bubbles:true}));
+  loanForm.scrollIntoView?.({behavior:"instant",block:"start"});
+  loanBorrower.focus();
+});
 function renderBorrowerDetail() {
   clearBorrowerStatement();
   const borrower = borrowers.find(item => item.id === selectedBorrowerId);
   if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower) {
     clearBorrowerDetail(); return;
   }
+  document.getElementById("borrowerNewLoan").hidden = borrower.status !== "active";
   const title = document.getElementById("borrowerDetailTitle");
   title.textContent = borrower.full_name;
   const contact = document.getElementById("borrowerContactDetails");
@@ -1709,6 +1726,8 @@ loanForm.addEventListener(
   "submit",
   async event => {
     event.preventDefault();
+    if (loanCreationPending) return;
+    loanCreationPending = true;
 
     try {
       const detail = await apiRequest(
@@ -1728,6 +1747,8 @@ loanForm.addEventListener(
       await openLoan(detail.id);
     } catch (error) {
       showError(error.message);
+    } finally {
+      loanCreationPending = false;
     }
   }
 );
