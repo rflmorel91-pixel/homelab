@@ -478,6 +478,7 @@ function applyLoanAccess() {
     if (!manage) for (const control of panel.querySelectorAll("input, select, textarea, button")) control.disabled = true;
   }
   for (const id of ["openApplicationCount", "borrowerCount"]) document.getElementById(id).closest("article").hidden = !manage;
+  applyCompactAccess(manage);
   loanLateFeeForm.hidden = !manage;
   loanLateFeeForm.nextElementSibling.hidden = !manage;
   if (!manage) for (const control of loanLateFeeForm.querySelectorAll("input, button")) control.disabled = true;
@@ -922,6 +923,7 @@ let loanCreationDisabled = null;
 function loanCreationStorageKey(){return "prestamodesk_loan_creation_v1:"+tenantId;}
 function loanCreationControls(){
   const blocked = loanCreationPending || !!loanCreationRequest || loanCreationStorageBlocked;
+  if (blocked && canManageLoans()) openCompactForm("compactLoanForm");
   const fields = [...loanForm.querySelectorAll("button,input,select,textarea")];
   if(blocked && !loanCreationDisabled) loanCreationDisabled = fields.map(field=>[field,field.disabled]);
   if(blocked) fields.forEach(field=>{field.disabled=true;});
@@ -955,6 +957,7 @@ document.getElementById("borrowerNewLoan").addEventListener("click", () => {
   loanBorrower.value = String(borrower.id);
   renderBorrowerOptions();
   if (previous !== loanBorrower.value) loanBorrower.dispatchEvent(new Event("change", {bubbles:true}));
+  openCompactForm("compactLoanForm");
   loanForm.scrollIntoView?.({behavior:"instant",block:"start"});
   loanBorrower.focus();
 });
@@ -1422,6 +1425,9 @@ async function loadDashboard() {
   renderBorrowers();
   renderBorrowerOptions();
   renderLoans();
+  document.getElementById("compactLoanCount").textContent = String(loans.length);
+  document.getElementById("compactBorrowerCount").textContent = String(borrowers.length);
+  document.getElementById("compactApplicationCount").textContent = String(applications.filter(item => !["rejected", "converted"].includes(item.status)).length);
   updatePortfolioSummary();
   borrowerStatementLoadedAt = new Date().toISOString();
   renderBorrowerDetail();
@@ -1607,6 +1613,7 @@ function renderLoanDetail(detail) {
     `)
     .join("");
 
+  setCompactTask("loans");
   loanDetailPanel.hidden = false;
   paymentPanel.hidden = (
     detail.status !== "active"
@@ -2313,3 +2320,52 @@ async function initialize() {
 
 
 initialize();
+
+// Task changes keep the same form nodes, values and request-key state.
+function applyCompactAccess(manage) {
+  for (const button of document.querySelectorAll("[data-loan-manager]")) button.hidden = !manage;
+  if (!manage) document.getElementById("workspace").dataset.loanTask = "loans";
+}
+function openCompactForm(id) {
+  if (!canManageLoans()) return;
+  if ((id !== "compactLoanForm" && (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked)) || paymentSubmitting || paymentNeedsReview) {showError("Confirme el resultado de la operación pendiente antes de abrir otro formulario.");return;}
+  const panel = document.getElementById(id);
+  document.getElementById("workspace").dataset.activeForm = id;
+  for (const button of document.querySelectorAll("[data-loan-form]")) button.setAttribute("aria-expanded", String(button.dataset.loanForm === id));
+  panel.dataset.expanded = "true";
+  document.querySelector('[data-loan-form="'+id+'"]')?.setAttribute("aria-expanded", "true");
+}
+for (const button of document.querySelectorAll("[data-loan-form]")) {
+  button.addEventListener("click", () => {
+    if (!canManageLoans()) return;
+    openCompactForm(button.dataset.loanForm);
+    document.getElementById(button.dataset.loanForm).querySelector("input,select")?.focus();
+  });
+}
+for (const button of document.querySelectorAll("[data-loan-tab]")) {
+  button.addEventListener("click", () => {
+    const task = button.dataset.loanTab;
+    if (task !== "loans" && !canManageLoans()) return;
+    if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || paymentSubmitting || paymentNeedsReview) {
+      showError("Confirme el resultado de la operación pendiente antes de cambiar de tarea.");return;
+    }
+    const box = document.getElementById("workspace");
+    delete box.dataset.activeForm;
+    for (const formButton of document.querySelectorAll("[data-loan-form]")) formButton.setAttribute("aria-expanded", "false");
+    setCompactTask(task === "settings" && box.dataset.loanTask === "settings" ? "loans" : task);
+    for (const tab of document.querySelectorAll("[data-loan-tab]")) {
+      tab.setAttribute(tab.dataset.loanTab === "settings" ? "aria-expanded" : "aria-pressed", String(tab.dataset.loanTab === box.dataset.loanTask));
+    }
+  });
+}
+
+function setCompactTask(task) {
+  document.getElementById("workspace").dataset.loanTask = task;
+  for (const tab of document.querySelectorAll("[data-loan-tab]")) tab.setAttribute(tab.dataset.loanTab === "settings" ? "aria-expanded" : "aria-pressed", String(tab.dataset.loanTab === task));
+}
+for (const button of document.querySelectorAll("[data-loan-close]")) button.addEventListener("click", () => {
+  if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked) {showError("Confirme el resultado del préstamo pendiente antes de ocultar el formulario.");return;}
+  delete document.getElementById("workspace").dataset.activeForm;
+  document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.setAttribute("aria-expanded", "false");
+  document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.focus();
+});

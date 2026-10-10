@@ -9,7 +9,7 @@
   <title>PréstamoDesk | Espacio de trabajo</title>
   <link
     rel="stylesheet"
-    href="/assets/prestamodesk-app-95344eaf0ff1.css"
+    href="/assets/prestamodesk-app-2de5d7b56917.css"
   >
 </head>
 <body>
@@ -106,7 +106,21 @@
       </form>
     </section>
 
-    <div id="workspace" hidden>
+    <div id="workspace" data-loan-task="loans" hidden>
+      <div id="compactLoanToolbar" class="compact-toolbar">
+        <nav aria-label="Tareas de préstamos" class="compact-tabs">
+          <button type="button" data-loan-tab="loans" aria-pressed="true" aria-controls="compactLoans">Préstamos <span id="compactLoanCount" class="badge">0</span></button>
+          <button type="button" data-loan-tab="borrowers" aria-pressed="false" aria-controls="compactBorrowers" data-loan-manager>Prestatarios <span id="compactBorrowerCount" class="badge">0</span></button>
+          <button type="button" data-loan-tab="applications" aria-pressed="false" aria-controls="compactApplications compactProspects" data-loan-manager>Solicitudes <span id="compactApplicationCount" class="badge">0</span></button>
+        </nav>
+        <div class="compact-actions">
+          <button type="button" data-loan-form="compactLoanForm" aria-expanded="false" aria-controls="compactLoanForm" data-loan-manager>Nuevo préstamo</button>
+          <button type="button" data-loan-form="compactBorrowerForm" aria-expanded="false" aria-controls="compactBorrowerForm" data-loan-manager>Nuevo prestatario</button>
+          <button type="button" data-loan-tab="settings" aria-expanded="false" aria-controls="compactSettings" data-loan-manager>Configuración de mora</button>
+        </div>
+        <p class="compact-hint">Los datos de los formularios se conservan al cambiar de tarea dentro de esta sección.</p>
+      </div>
+
       <section class="summary-grid">
         <article class="summary-card">
           <span>Solicitudes abiertas</span>
@@ -135,8 +149,8 @@
       </section>
 
       <div class="workspace-grid">
-        <section class="panel">
-          <h2>Nuevo prestatario</h2>
+        <section class="panel" id="compactBorrowerForm" data-compact-panel="form">
+          <div class="section-heading"><h2>Nuevo prestatario</h2><button type="button" class="secondary" data-loan-close="compactBorrowerForm">Ocultar formulario</button></div>
 
           <form id="borrowerForm" class="form-grid">
             <label>
@@ -177,8 +191,8 @@
           </form>
         </section>
 
-        <section class="panel">
-          <h2>Nuevo préstamo</h2>
+        <section class="panel" id="compactLoanForm" data-compact-panel="form">
+          <div class="section-heading"><h2>Nuevo préstamo</h2><button type="button" class="secondary" data-loan-close="compactLoanForm">Ocultar formulario</button></div>
 
           <div class="form-grid">
             <label>
@@ -364,7 +378,7 @@
         </section>
       </div>
 
-      <section class="panel">
+      <section class="panel" id="compactApplications" data-compact-panel="applications">
         <div class="section-heading">
           <h2>Solicitudes de préstamo</h2>
           <span id="applicationResultCount" class="badge">0</span>
@@ -379,7 +393,7 @@
         <div id="applicationList" class="card-list"></div>
       </section>
 
-        <section class="panel">
+        <section class="panel" id="compactProspects" data-compact-panel="applications">
           <div class="section-heading">
             <h2>Prospectos</h2>
             <span id="prospectResultCount" class="badge">0</span>
@@ -457,7 +471,7 @@
 
         </section>
 
-      <section class="panel">
+      <section class="panel" id="compactBorrowers" data-compact-panel="borrowers">
         <div class="section-heading">
           <h2>Prestatarios</h2>
           <span id="borrowerResultCount" class="badge">0</span>
@@ -504,7 +518,7 @@
         </section>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="compactLoans" data-compact-panel="loans">
         <div class="section-heading">
           <h2>Préstamos</h2>
           <span id="loanResultCount" class="badge">0</span>
@@ -525,12 +539,12 @@
           <button type="submit">Buscar</button>
           <button id="loanFilterClear" type="button" class="secondary">Limpiar filtros</button>
         </form>
-        <p id="loanSearchHelp" class="notice">Las cuotas vencidas tienen saldo pendiente y una fecha de vencimiento anterior a hoy en República Dominicana. El resumen general conserva los totales de toda la cartera.</p>
+        <details class="compact-help"><summary>Acerca de las cuotas vencidas</summary><p id="loanSearchHelp" class="notice">Las cuotas vencidas tienen saldo pendiente y una fecha de vencimiento anterior a hoy en República Dominicana. El resumen general conserva los totales de toda la cartera.</p></details>
         <p id="loanFilterResult" role="status" aria-live="polite"></p>
         <div id="loanList" class="card-list"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="compactSettings" data-compact-panel="settings">
         <h2>Política de mora</h2>
         <p>
           Configure los valores predeterminados de mora del
@@ -729,7 +743,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-3c84ac4d2fc2.js" defer></script>
+  <script src="/assets/prestamodesk-app-3aa01a6b1013.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
