@@ -576,6 +576,31 @@
 }
 
 
+:where(.pd-module) .cashier-task-toolbar{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+:where(.pd-module) .cashier-task-toolbar button[aria-pressed="false"]{background:white; color:#0f766e;}
+:where(.pd-module) .cashier-hint{font-size:13px; color:#526777;}
+:where(.pd-module) #loanSearchForm{grid-template-columns:minmax(0,1fr) 110px 170px; align-items:end;}
+:where(.pd-module) #loanSearchForm label,:where(.pd-module) #loanSearchForm input,:where(.pd-module) #loanSearchForm button{min-width:0;}
+:where(.pd-module) #loanSearchForm input,:where(.pd-module) #loanSearchForm button{width:100%; box-sizing:border-box;}
+:where(.pd-module) #cashierLoanList td,:where(.pd-module) #cashierLoanList th{padding:8px 10px; font-size:13px;}
+:where(.pd-module) #cashierLoanList td:nth-child(2){white-space:normal; min-width:140px;}
+@media screen{:where(.pd-module) #cashierWorkspace:not([data-cashier-task="collect"]) #cashierSearchPanel,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="collect"]) #loanDetailPanel,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="collect"]) #paymentPanel,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="collect"]) #receiptPanel,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="closing"]) #cashClosingPanel,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="closing"]) #cashClosingReceipt,:where(.pd-module) #cashierWorkspace:not([data-cashier-task="history"]) #cashClosingHistoryPanel{display:none;}
+
+}
+@media(max-width:600px){:where(.pd-module) #loanSearchForm{grid-template-columns:1fr;}
+:where(.pd-module) .cashier-task-toolbar button{flex:1 1 auto;}
+}
+@media print{:where(.pd-module) #cashierTaskToolbar{display:none!important;}
+:where(.pd-module) #cashierWorkspace[data-cashier-task="closing"] #receiptPanel{display:none!important;}
+:where(.pd-module) #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt,:where(.pd-module) #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt *{visibility:visible;}
+:where(.pd-module) #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt{position:absolute; inset:0; width:100%;}
+:where(.pd-module) #printCashClosingButton{display:none;}
+
+}
+:where(.pd-module) #cashierLoanList{max-width:100%; overflow-x:auto;}
+:where(.pd-module) #cashierLoanList button{min-width:72px; width:auto; padding:8px 10px; font-size:13px;}
+
+
 :where(.pd-module[data-mode=administration]) [hidden]{display:none!important}
 :where(.pd-module[data-mode=administration]){background:#f5f7fa}
 :where(.pd-module[data-mode=administration]) .app-header{padding:24px 0}
