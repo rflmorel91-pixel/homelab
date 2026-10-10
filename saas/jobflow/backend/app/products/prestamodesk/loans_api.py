@@ -1,7 +1,12 @@
+from decimal import Decimal
+import hashlib
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.products.prestamodesk.payment_corrections import lock_financial_actor
 from app.database import get_db
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.authorization import (
@@ -106,15 +111,34 @@ def build_loan_detail(
     )
 
 
+def loan_fingerprint(payload: LoanCreate) -> str:
+    data = payload.model_dump(mode="json", exclude={"idempotency_key"})
+    for name, value in payload.model_dump().items():
+        if isinstance(value, Decimal):
+            data[name] = format(value.normalize(), "f")
+    return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 @router.post("", response_model=LoanDetail, status_code=201)
 def create_loan(
     payload: LoanCreate,
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
-    _: TenantMembership = Depends(
+    membership: TenantMembership = Depends(
         require_current_tenant_owner
     ),
 ):
+    lock_financial_actor(db, tenant, membership, {"owner", "administrator"})
+    key = str(payload.idempotency_key) if payload.idempotency_key else None
+    fingerprint = loan_fingerprint(payload) if key else None
+    if key:
+        existing = db.scalar(select(Loan).where(Loan.tenant_id == tenant.id, Loan.idempotency_key == key))
+        if existing is not None:
+            if existing.created_by_user_id != membership.user_id:
+                raise HTTPException(status_code=409, detail="Loan request belongs to another operator")
+            if existing.request_fingerprint != fingerprint:
+                raise HTTPException(status_code=409, detail="Loan request key was used with different details")
+            return LoanDetail.model_validate(existing.creation_snapshot)
     borrower = db.scalar(
         select(Borrower).where(
             Borrower.id == payload.borrower_id,
@@ -160,6 +184,9 @@ def create_loan(
     )
 
     loan = Loan(
+        idempotency_key=key,
+        request_fingerprint=fingerprint,
+        created_by_user_id=membership.user_id,
         tenant_id=tenant.id,
         borrower_id=borrower.id,
         loan_type=payload.loan_type,
@@ -210,13 +237,17 @@ def create_loan(
             ]
         )
 
+        db.flush()
+        detail = build_loan_detail(loan, db)
+        if key:
+            loan.creation_snapshot = detail.model_dump(mode="json")
         db.commit()
         db.refresh(loan)
     except Exception:
         db.rollback()
         raise
 
-    return build_loan_detail(loan, db)
+    return detail
 
 
 @router.put(
