@@ -456,6 +456,20 @@
           <h2>Prestatarios</h2>
           <span id="borrowerResultCount" class="badge">0</span>
         </div>
+        <form id="borrowerFilterForm" class="form-grid">
+          <label>Buscar prestatario
+            <input id="borrowerSearchQuery" type="search" autocomplete="off" placeholder="Nombre o documento" aria-controls="borrowerList" aria-describedby="borrowerFilterResult">
+          </label>
+          <label>Estado
+            <select id="borrowerStatusFilter" aria-controls="borrowerList">
+              <option value="all">Todos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+          </label>
+          <button id="borrowerFilterClear" type="button" class="secondary">Limpiar filtros</button>
+        </form>
+        <p id="borrowerFilterResult" class="notice" role="status" aria-atomic="true"></p>
         <div id="borrowerList" class="card-list"></div>
       </section>
 
@@ -676,7 +690,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-e3d45a93818f.js" defer></script>
+  <script src="/assets/prestamodesk-app-658ca9025ccd.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>

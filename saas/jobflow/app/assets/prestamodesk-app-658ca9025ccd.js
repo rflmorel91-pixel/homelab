@@ -689,23 +689,54 @@ function renderApplications() {
 }
 
 
+document.getElementById("borrowerFilterForm").addEventListener("submit", event => event.preventDefault());
+document.getElementById("borrowerSearchQuery").addEventListener("input", renderBorrowers);
+document.getElementById("borrowerStatusFilter").addEventListener("change", renderBorrowers);
+document.getElementById("borrowerFilterClear").addEventListener("click", () => {
+  document.getElementById("borrowerSearchQuery").value = "";
+  document.getElementById("borrowerStatusFilter").value = "all";
+  renderBorrowers();
+  document.getElementById("borrowerSearchQuery").focus();
+});
+let borrowerFilterTenantId = null;
 function renderBorrowers() {
+  const search = document.getElementById("borrowerSearchQuery");
+  const status = document.getElementById("borrowerStatusFilter");
+  if (borrowerFilterTenantId !== tenantId) {
+    borrowerFilterTenantId = tenantId;
+    search.value = "";
+    status.value = "all";
+  }
+  const query = normalizeLoanSearch(search.value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const matches = borrowers.filter(item => {
+    if (status.value !== "all" && item.status !== status.value) return false;
+    const name = normalizeLoanSearch(item.full_name);
+    const number = normalizeLoanSearch(item.document_number);
+    return !query || name.includes(query) || number.includes(query)
+      || Boolean(compactQuery && number.replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+  document.getElementById("borrowerFilterResult").textContent =
+    `Mostrando ${matches.length} de ${borrowers.length} prestatarios.`;
   document.getElementById(
     "borrowerCount"
   ).textContent = String(borrowers.length);
 
   document.getElementById(
     "borrowerResultCount"
-  ).textContent = String(borrowers.length);
+  ).textContent = String(matches.length);
 
   if (borrowers.length === 0) {
     borrowerList.innerHTML =
       '<p>No hay prestatarios registrados.</p>';
-    renderBorrowerOptions();
     return;
   }
 
-  borrowerList.innerHTML = borrowers
+  if (matches.length === 0) {
+    borrowerList.innerHTML = '<p>No hay prestatarios que coincidan con los filtros.</p>';
+    return;
+  }
+  borrowerList.innerHTML = matches
     .map(item => `
       <article class="item-card">
         <h3>${escapeHtml(item.full_name)}</h3>
@@ -739,7 +770,6 @@ function renderBorrowers() {
     `)
     .join("");
 
-  renderBorrowerOptions();
 }
 
 
@@ -1135,6 +1165,7 @@ async function loadDashboard() {
   renderApplications();
   renderProspects();
   renderBorrowers();
+  renderBorrowerOptions();
   renderLoans();
   updatePortfolioSummary();
 }
