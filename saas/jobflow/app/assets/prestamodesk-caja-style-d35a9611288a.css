@@ -1,0 +1,30 @@
+/* Caja task views only; shared product styling stays unchanged. */
+.cashier-task-toolbar {display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+.cashier-task-toolbar button[aria-pressed="false"] {background:white; color:#0f766e;}
+.cashier-hint {font-size:13px; color:#526777;}
+#loanSearchForm {grid-template-columns:minmax(0,1fr) 110px 170px; align-items:end;}
+#loanSearchForm label,#loanSearchForm input,#loanSearchForm button {min-width:0;}
+#loanSearchForm input,#loanSearchForm button {width:100%; box-sizing:border-box;}
+#cashierLoanList td,#cashierLoanList th {padding:8px 10px; font-size:13px;}
+#cashierLoanList td:nth-child(2) {white-space:normal; min-width:140px;}
+@media screen {
+ #cashierWorkspace:not([data-cashier-task="collect"]) #cashierSearchPanel,
+ #cashierWorkspace:not([data-cashier-task="collect"]) #loanDetailPanel,
+ #cashierWorkspace:not([data-cashier-task="collect"]) #paymentPanel,
+ #cashierWorkspace:not([data-cashier-task="collect"]) #receiptPanel,
+ #cashierWorkspace:not([data-cashier-task="closing"]) #cashClosingPanel,
+ #cashierWorkspace:not([data-cashier-task="closing"]) #cashClosingReceipt,
+ #cashierWorkspace:not([data-cashier-task="history"]) #cashClosingHistoryPanel {display:none;}
+}
+@media(max-width:600px) {#loanSearchForm {grid-template-columns:1fr;} .cashier-task-toolbar button {flex:1 1 auto;}}
+@media print {
+ #cashierTaskToolbar {display:none!important;}
+ #cashierWorkspace[data-cashier-task="closing"] #receiptPanel {display:none!important;}
+ #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt,
+ #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt * {visibility:visible;}
+ #cashierWorkspace[data-cashier-task="closing"] #cashClosingReceipt {position:absolute; inset:0; width:100%;}
+ #printCashClosingButton {display:none;}
+}
+
+#cashierLoanList {max-width:100%; overflow-x:auto;}
+#cashierLoanList button {min-width:72px; width:auto; padding:8px 10px; font-size:13px;}

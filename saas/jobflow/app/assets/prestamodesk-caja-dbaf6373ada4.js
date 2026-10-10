@@ -11,6 +11,7 @@ let selectedLoan = null;
 let currentRole = null;
 let paymentSubmitting = false;
 let paymentNeedsReview = false;
+let cashClosingSubmitting = false;
 
 const authPanel = document.getElementById("authPanel");
 const cashierWorkspace =
@@ -363,6 +364,8 @@ async function discoverAccess() {
   );
 
   currentRole = client.role;
+  for (const button of document.querySelectorAll('[data-cashier-task="closing"],[data-cashier-task="history"]')) button.hidden = !["member", "cashier"].includes(currentRole);
+  if (!["member", "cashier"].includes(currentRole)) setCashierTask("collect");
   cashClosingPanel.hidden = !["member", "cashier"].includes(currentRole);
   cashClosingHistoryPanel.hidden =
     !["member", "cashier"].includes(currentRole);
@@ -732,6 +735,7 @@ async function openLoan(loanId) {
   renderInstallments(loan.installments);
   renderPaymentOptions(loan.installments);
 
+  setCashierTask("collect");
   loanDetailPanel.hidden = false;
   paymentPanel.hidden = (
     loan.status !== "active"
@@ -1020,6 +1024,10 @@ cashClosingForm.addEventListener(
   "submit",
   async event => {
     event.preventDefault();
+    if (cashClosingSubmitting || paymentSubmitting || paymentNeedsReview) {showError("Confirme la operación pendiente antes de cerrar la caja.");return;}
+    cashClosingSubmitting = true;
+    const closingButton = cashClosingForm.querySelector('button[type="submit"]');
+    closingButton.disabled = true;
     clearMessages();
 
     try {
@@ -1093,6 +1101,9 @@ cashClosingForm.addEventListener(
       showSuccess("Caja cerrada correctamente.");
     } catch (error) {
       showError(error.message);
+    } finally {
+      cashClosingSubmitting = false;
+      closingButton.disabled = false;
     }
   }
 );
@@ -1238,3 +1249,14 @@ async function initialize() {
 
 
 initialize();
+
+function setCashierTask(task) {
+  cashierWorkspace.dataset.cashierTask = task;
+  for (const button of document.querySelectorAll("button[data-cashier-task]")) button.setAttribute("aria-pressed", String(button.dataset.cashierTask === task));
+}
+for (const button of document.querySelectorAll("button[data-cashier-task]")) button.addEventListener("click", () => {
+  const task = button.dataset.cashierTask;
+  if (task !== "collect" && !["member", "cashier"].includes(currentRole)) return;
+  if (paymentSubmitting || paymentNeedsReview || cashClosingSubmitting) {showError("Confirme el resultado de la operación pendiente antes de cambiar de tarea.");return;}
+  setCashierTask(task);
+});

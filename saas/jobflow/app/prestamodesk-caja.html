@@ -11,6 +11,7 @@
     rel="stylesheet"
     href="/assets/prestamodesk-app-b4c00c256964.css"
   >
+  <link rel="stylesheet" href="/assets/prestamodesk-caja-style-d35a9611288a.css">
 </head>
 <body>
   <header class="app-header">
@@ -105,10 +106,15 @@
       </form>
     </section>
 
-    <div id="cashierWorkspace" hidden>
-      <section class="panel">
+    <div id="cashierWorkspace" data-cashier-task="collect" hidden>
+      <nav id="cashierTaskToolbar" class="cashier-task-toolbar" aria-label="Tareas de Caja">
+        <button type="button" data-cashier-task="collect" aria-pressed="true" aria-controls="cashierSearchPanel loanDetailPanel paymentPanel receiptPanel">Cobrar</button>
+        <button type="button" data-cashier-task="closing" aria-pressed="false" aria-controls="cashClosingPanel cashClosingReceipt" hidden>Cierre de caja</button>
+        <button type="button" data-cashier-task="history" aria-pressed="false" aria-controls="cashClosingHistoryPanel" hidden>Mis cierres</button>
+      </nav>
+      <section id="cashierSearchPanel" class="panel">
         <h2>Buscar préstamo</h2>
-        <p class="notice">
+        <p class="cashier-hint">
           Busque por número de préstamo, nombre o documento
           del cliente.
         </p>
@@ -289,7 +295,7 @@
   </main>
 
   <script
-    src="/assets/prestamodesk-caja-3669c7df35fb.js"
+    src="/assets/prestamodesk-caja-dbaf6373ada4.js"
     defer
   ></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
