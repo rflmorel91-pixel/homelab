@@ -281,6 +281,38 @@
 :where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel h1{ font-size:18pt; }
 
 }
+:where(.pd-module) .compact-toolbar{ margin-bottom:18px; }
+:where(.pd-module) .compact-tabs,:where(.pd-module) .compact-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+:where(.pd-module) .compact-tabs button[aria-pressed="false"],:where(.pd-module) .compact-actions button{ background:#fff; color:#164e3c; border:1px solid #cedcd3; }
+:where(.pd-module) #workspace .workspace-grid{ display:block; }
+:where(.pd-module) #workspace [data-compact-panel="form"]:not([data-expanded="true"]){ display:none; }
+:where(.pd-module) #workspace:not([data-loan-task="loans"]) [data-compact-panel="loans"],:where(.pd-module) #workspace:not([data-loan-task="borrowers"]) [data-compact-panel="borrowers"],:where(.pd-module) #workspace:not([data-loan-task="applications"]) [data-compact-panel="applications"],:where(.pd-module) #workspace:not([data-loan-task="settings"]) [data-compact-panel="settings"]{ display:none; }
+:where(.pd-module) #loanList .item-card{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 16px; padding:14px; }
+:where(.pd-module) #loanList .item-card h3{ margin:0; font-size:16px; }
+:where(.pd-module) #loanList .item-meta{ grid-column:1; font-size:13px; }
+:where(.pd-module) #loanList .item-actions{ grid-column:2; grid-row:1/3; align-self:center; margin:0; }
+@media(max-width:600px){:where(.pd-module) #loanList .item-card{ grid-template-columns:1fr; }
+:where(.pd-module) #loanList .item-actions{ grid-column:1; grid-row:auto; }
+ }
+:where(.pd-module) #workspace:not([data-active-form="compactLoanForm"]) #compactLoanForm,:where(.pd-module) #workspace:not([data-active-form="compactBorrowerForm"]) #compactBorrowerForm{ display:none; }
+:where(.pd-module) #workspace:not([data-loan-task="loans"]) #loanDetailPanel,:where(.pd-module) #workspace:not([data-loan-task="loans"]) #paymentPanel{ display:none; }
+:where(.pd-module)[data-mode="loans"] #workspace > .summary-grid{ display:none; }
+:where(.pd-module) .compact-tabs button{ display:inline-flex; align-items:center; justify-content:center; gap:8px; width:auto; flex:0 1 auto; }
+:where(.pd-module) .compact-tabs .badge{ width:auto; flex:0 0 auto; min-width:24px; padding:2px 7px; }
+:where(.pd-module) .compact-hint{ color:#526777; font-size:13px; margin:6px 0; }
+:where(.pd-module) .compact-help{ margin-top:12px; font-size:13px; }
+:where(.pd-module) .compact-help summary{ cursor:pointer; color:#526777; }
+:where(.pd-module) #loanFilterForm{ grid-template-columns:minmax(0,1fr) 170px 110px 140px; align-items:end; }
+:where(.pd-module) #borrowerFilterForm{ grid-template-columns:minmax(0,1fr) 170px 140px; align-items:end; }
+@media(max-width:1000px){:where(.pd-module) #loanFilterForm,:where(.pd-module) #borrowerFilterForm{grid-template-columns:repeat(2,minmax(0,1fr));}
+ }
+@media(max-width:600px){:where(.pd-module) #loanFilterForm,:where(.pd-module) #borrowerFilterForm{grid-template-columns:1fr;}
+:where(.pd-module) .compact-tabs button{flex:1 1 auto;}
+ }
+:where(.pd-module) #loanFilterForm label,:where(.pd-module) #borrowerFilterForm label{min-width:0;}
+:where(.pd-module) #loanFilterForm input,:where(.pd-module) #loanFilterForm select,:where(.pd-module) #borrowerFilterForm input,:where(.pd-module) #borrowerFilterForm select{min-width:0; width:100%; box-sizing:border-box;}
+:where(.pd-module) .compact-help:not([open]) > p{display:none;}
+:where(.pd-module) #loanFilterForm button,:where(.pd-module) #borrowerFilterForm button{min-width:0; width:100%; box-sizing:border-box;}
 
 
 :where(.pd-module){
