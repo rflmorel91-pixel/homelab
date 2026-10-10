@@ -252,7 +252,14 @@ function clearMessages() {
 }
 
 
+let collectionWritePending = 0;
 async function apiRequest(path, options = {}) {
+  const writing = ["POST", "PATCH", "PUT", "DELETE"].includes(options.method);
+  if (writing) collectionWritePending++;
+  try { return await collectionRequest(path, options); }
+  finally { if (writing) collectionWritePending--; }
+}
+async function collectionRequest(path, options = {}) {
   const response = await fetch(
     `${API_BASE}${path}`,
     {
@@ -346,6 +353,8 @@ async function discoverAccess() {
 
   assignmentStatusField.hidden = !isOwner;
   collectorAssignmentPanel.hidden = !isOwner;
+  document.getElementById("collectionAssignmentTab").hidden = !isOwner;
+  if (!isOwner && collectionDetailPanel.dataset.collectionDetail === "assignment") setCollectionDetailTask("activity");
 
   if (isOwner) {
     portfolioTitle.textContent = "Cartera vencida";
@@ -738,7 +747,38 @@ async function loadOverduePromises() {
 }
 
 
+function setCollectionTask(task) {
+  collectionsWorkspace.dataset.collectionTask = task;
+  document.querySelectorAll("button[data-collection-task]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.collectionTask === task));
+  });
+}
+function setCollectionDetailTask(task) {
+  collectionDetailPanel.dataset.collectionDetail = task;
+  document.querySelectorAll("button[data-collection-detail]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.collectionDetail === task));
+  });
+}
+function canSwitchCollectionTask() {
+  if (!collectionWritePending) return true;
+  showError("Espere la confirmación de la gestión antes de cambiar de tarea.");
+  return false;
+}
+document.getElementById("collectionTaskToolbar").addEventListener("click", event => {
+  const button = event.target.closest("button[data-collection-task]");
+  if (button && canSwitchCollectionTask()) setCollectionTask(button.dataset.collectionTask);
+});
+document.getElementById("collectionDetailToolbar").addEventListener("click", event => {
+  const button = event.target.closest("button[data-collection-detail]");
+  if (!button || button.hidden || !canSwitchCollectionTask()) return;
+  if (button.dataset.collectionDetail === "assignment" && !["owner","administrator","supervisor"].includes(currentRole)) return;
+  setCollectionDetailTask(button.dataset.collectionDetail);
+});
+
 async function openLoan(item) {
+  if (!canSwitchCollectionTask()) return;
+  setCollectionTask("portfolio");
+  setCollectionDetailTask("activity");
   selectedPortfolioItem = item;
 
   collectionDetailTitle.textContent =
@@ -867,6 +907,7 @@ document.getElementById(
 ).addEventListener(
   "click",
   () => {
+    if (!canSwitchCollectionTask()) return;
     selectedPortfolioItem = null;
     collectionDetailPanel.hidden = true;
   }

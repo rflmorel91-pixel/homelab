@@ -1,0 +1,20 @@
+/* Compact collection task views. Role visibility remains controlled by hidden. */
+.collection-toolbar {display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}
+.collection-toolbar button {width:auto;min-height:42px;}
+.collection-toolbar button[aria-pressed="false"] {background:#eef2f7;color:#24364b;}
+.collection-hint {font-size:.9rem;color:#526277;margin:6px 0;}
+#portfolioFilterForm {grid-template-columns:repeat(3,minmax(140px,1fr));align-items:end;}
+#collectionsWorkspace .table-wrap {max-width:100%;overflow-x:auto;}
+#collectionsWorkspace th,#collectionsWorkspace td {padding:8px 10px;font-size:.9rem;}
+@media screen {
+#collectionsWorkspace[data-collection-task="portfolio"] #collectionOverduePanel,
+#collectionsWorkspace[data-collection-task="overdue"] #collectionPortfolioPanel,
+#collectionsWorkspace[data-collection-task="overdue"] #collectionDetailPanel {display:none;}
+#collectionDetailPanel:not([data-collection-detail="activity"]) #collectionActivityPanel,
+#collectionDetailPanel:not([data-collection-detail="promise"]) #collectionPromisePanel,
+#collectionDetailPanel:not([data-collection-detail="assignment"]) #collectorAssignmentPanel,
+#collectionDetailPanel:not([data-collection-detail="history"]) #collectionActivityPanelHistory,
+#collectionDetailPanel:not([data-collection-detail="history"]) #collectionPromisePanelHistory {display:none;}
+}
+@media(max-width:600px) {#portfolioFilterForm {grid-template-columns:1fr;}.collection-toolbar button {flex:1;}}
+@media print {.collection-toolbar {display:none;}}
