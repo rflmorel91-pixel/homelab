@@ -471,6 +471,16 @@
         </form>
         <p id="borrowerFilterResult" class="notice" role="status" aria-atomic="true"></p>
         <div id="borrowerList" class="card-list"></div>
+        <section id="borrowerDetailPanel" class="panel" hidden aria-labelledby="borrowerDetailTitle">
+          <div class="section-heading">
+            <h3 id="borrowerDetailTitle" tabindex="-1"></h3>
+            <button id="closeBorrowerDetail" type="button" class="secondary">Cerrar detalle</button>
+          </div>
+          <div id="borrowerContactDetails" class="item-meta"></div>
+          <p id="borrowerBalanceSummary" class="notice"></p>
+          <p>El saldo ordinario corresponde a las cuotas pendientes de los préstamos activos; no incluye mora. Abra cada préstamo para revisar sus cuotas y pagos.</p>
+          <div id="borrowerLoanList" class="card-list"></div>
+        </section>
       </section>
 
       <section class="panel">
@@ -690,7 +700,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-658ca9025ccd.js" defer></script>
+  <script src="/assets/prestamodesk-app-140db0d064f7.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>

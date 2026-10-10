@@ -766,12 +766,85 @@ function renderBorrowers() {
               : ""
           }
         </div>
+        <div class="item-actions"><button type="button" class="secondary" data-view-borrower="${Number(item.id)}">Ver detalle</button></div>
       </article>
     `)
     .join("");
 
 }
 
+
+let selectedBorrowerId = null;
+let borrowerDetailTenantId = null;
+function clearBorrowerDetail() {
+  selectedBorrowerId = null;
+  borrowerDetailTenantId = null;
+  document.getElementById("borrowerDetailPanel").hidden = true;
+  for (const id of ["borrowerDetailTitle", "borrowerContactDetails", "borrowerBalanceSummary", "borrowerLoanList"]) document.getElementById(id).replaceChildren();
+}
+function renderBorrowerDetail() {
+  const borrower = borrowers.find(item => item.id === selectedBorrowerId);
+  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower) {
+    clearBorrowerDetail(); return;
+  }
+  const title = document.getElementById("borrowerDetailTitle");
+  title.textContent = borrower.full_name;
+  const contact = document.getElementById("borrowerContactDetails");
+  contact.replaceChildren();
+  const labels = {cedula:"Cédula", passport:"Pasaporte", other:"Otro"};
+  for (const [label,value] of [
+    ["Estado",formatStatus(borrower.status)],
+    ["Tipo de documento",labels[borrower.document_type] || borrower.document_type],
+    ["Documento",borrower.document_number],["Teléfono",borrower.phone],
+    ["Correo",borrower.email],["Dirección",borrower.address],
+    ["Municipio",borrower.municipality],["Provincia",borrower.province],
+    ["Observaciones",borrower.notes]
+  ]) {
+    const field = document.createElement("span");
+    field.textContent = label + ": " + (value || "No registrado");
+    contact.append(field);
+  }
+  const linked = loanDetails.filter(loan => loan.borrower_id === borrower.id);
+  const balance = loan => loan.installments.reduce((sum,item) => sum + Math.max(0,Number(item.total_due)-Number(item.paid_amount)),0);
+  const active = linked.filter(loan => loan.status === "active");
+  document.getElementById("borrowerBalanceSummary").textContent =
+    `Préstamos: ${linked.length} · Activos: ${active.length} · Saldo ordinario pendiente: ${formatMoney(active.reduce((sum,loan)=>sum+balance(loan),0))}`;
+  const list = document.getElementById("borrowerLoanList");
+  list.replaceChildren();
+  if (!linked.length) {
+    const empty = document.createElement("p"); empty.textContent = "No hay préstamos para este prestatario."; list.append(empty);
+  }
+  for (const loan of linked) {
+    const card = document.createElement("article"); card.className = "item-card";
+    const heading = document.createElement("h4"); heading.textContent = "Préstamo #" + loan.id;
+    const info = document.createElement("p");
+    info.textContent = `${loan.loan_type === "vehicle" ? "Vehículo" : "Personal"} · ${formatStatus(loan.status)} · Financiado: ${formatMoney(loan.principal_amount)}`
+      + (loan.status === "cancelled" ? "" : ` · Saldo ordinario: ${formatMoney(balance(loan))}`);
+    const button = document.createElement("button"); button.type = "button"; button.className = "secondary";
+    button.dataset.borrowerLoan = String(loan.id); button.textContent = "Ver préstamo";
+    card.append(heading,info,button); list.append(card);
+  }
+  document.getElementById("borrowerDetailPanel").hidden = false;
+}
+borrowerList.addEventListener("click", event => {
+  const button = event.target.closest("button[data-view-borrower]");
+  if (!button || !canManageLoans()) return;
+  selectedBorrowerId = Number(button.dataset.viewBorrower); borrowerDetailTenantId = tenantId;
+  renderBorrowerDetail();
+  if (!document.getElementById("borrowerDetailPanel").hidden) document.getElementById("borrowerDetailTitle").focus();
+});
+document.getElementById("closeBorrowerDetail").addEventListener("click", () => {
+  const button = [...borrowerList.querySelectorAll("[data-view-borrower]")].find(item => Number(item.dataset.viewBorrower) === selectedBorrowerId);
+  clearBorrowerDetail();
+  (button || document.getElementById("borrowerSearchQuery")).focus();
+});
+document.getElementById("borrowerLoanList").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-borrower-loan]");
+  if (!button || !canManageLoans() || borrowerDetailTenantId !== tenantId) return;
+  const id = Number(button.dataset.borrowerLoan);
+  if (!loanDetails.some(loan=>loan.id===id && loan.borrower_id===selectedBorrowerId)) return;
+  await openLoan(id);
+});
 
 function renderProspects() {
   document.getElementById(
@@ -1131,6 +1204,7 @@ async function loadLateFeePolicy() {
 
 
 async function loadDashboard() {
+  if (borrowerDetailTenantId !== tenantId || !canManageLoans()) clearBorrowerDetail();
   applyLoanAccess();
   loanBorrowerNames = new Map();
   loanBorrowerDocuments = new Map();
@@ -1168,6 +1242,7 @@ async function loadDashboard() {
   renderBorrowerOptions();
   renderLoans();
   updatePortfolioSummary();
+  renderBorrowerDetail();
 }
 
 
