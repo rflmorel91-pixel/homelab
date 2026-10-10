@@ -601,6 +601,24 @@
 :where(.pd-module) #cashierLoanList button{min-width:72px; width:auto; padding:8px 10px; font-size:13px;}
 
 
+:where(.pd-module) .collection-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}
+:where(.pd-module) .collection-toolbar button{width:auto;min-height:42px;}
+:where(.pd-module) .collection-toolbar button[aria-pressed="false"]{background:#eef2f7;color:#24364b;}
+:where(.pd-module) .collection-hint{font-size:.9rem;color:#526277;margin:6px 0;}
+:where(.pd-module) #portfolioFilterForm{grid-template-columns:repeat(3,minmax(140px,1fr));align-items:end;}
+:where(.pd-module) #collectionsWorkspace .table-wrap{max-width:100%;overflow-x:auto;}
+:where(.pd-module) #collectionsWorkspace th,:where(.pd-module) #collectionsWorkspace td{padding:8px 10px;font-size:.9rem;}
+@media screen{:where(.pd-module) #collectionsWorkspace[data-collection-task="portfolio"] #collectionOverduePanel,:where(.pd-module) #collectionsWorkspace[data-collection-task="overdue"] #collectionPortfolioPanel,:where(.pd-module) #collectionsWorkspace[data-collection-task="overdue"] #collectionDetailPanel{display:none;}
+:where(.pd-module) #collectionDetailPanel:not([data-collection-detail="activity"]) #collectionActivityPanel,:where(.pd-module) #collectionDetailPanel:not([data-collection-detail="promise"]) #collectionPromisePanel,:where(.pd-module) #collectionDetailPanel:not([data-collection-detail="assignment"]) #collectorAssignmentPanel,:where(.pd-module) #collectionDetailPanel:not([data-collection-detail="history"]) #collectionActivityPanelHistory,:where(.pd-module) #collectionDetailPanel:not([data-collection-detail="history"]) #collectionPromisePanelHistory{display:none;}
+
+}
+@media(max-width:600px){:where(.pd-module) #portfolioFilterForm{grid-template-columns:1fr;}
+:where(.pd-module) .collection-toolbar button{flex:1;}
+}
+@media print{:where(.pd-module) .collection-toolbar{display:none;}
+}
+
+
 :where(.pd-module[data-mode=administration]) [hidden]{display:none!important}
 :where(.pd-module[data-mode=administration]){background:#f5f7fa}
 :where(.pd-module[data-mode=administration]) .app-header{padding:24px 0}

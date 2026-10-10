@@ -11,6 +11,7 @@
     rel="stylesheet"
     href="/assets/prestamodesk-app-b4c00c256964.css"
   >
+<link rel="stylesheet" href="/assets/prestamodesk-cobros-style-4a7b7f084ad5.css">
 </head>
 <body>
   <header class="app-header">
@@ -70,12 +71,16 @@
       </form>
     </section>
 
-    <div id="collectionsWorkspace" hidden>
-      <section class="panel">
+    <div id="collectionsWorkspace" data-collection-task="portfolio" hidden>
+      <nav id="collectionTaskToolbar" class="collection-toolbar" aria-label="Tareas de Cobros">
+        <button type="button" data-collection-task="portfolio" aria-pressed="true" aria-controls="collectionPortfolioPanel collectionDetailPanel">Cartera</button>
+        <button type="button" data-collection-task="overdue" aria-pressed="false" aria-controls="collectionOverduePanel">Promesas vencidas</button>
+      </nav>
+      <section id="collectionPortfolioPanel" class="panel">
         <div class="panel-heading">
           <div>
             <h2 id="portfolioTitle">Cartera vencida</h2>
-            <p id="portfolioNotice" class="notice">
+            <p id="portfolioNotice" class="collection-hint">
               Incluye todos los préstamos con cuotas vencidas
               y saldo pendiente del cliente seleccionado.
             </p>
@@ -120,7 +125,7 @@
         <div id="portfolioList" class="table-wrap"></div>
       </section>
 
-      <section id="collectionDetailPanel" class="panel" hidden>
+      <section id="collectionDetailPanel" class="panel" data-collection-detail="activity" hidden>
         <div class="panel-heading">
           <div>
             <h2 id="collectionDetailTitle">
@@ -138,8 +143,14 @@
           </button>
         </div>
 
-        <div class="summary-grid">
-          <section>
+        <nav id="collectionDetailToolbar" class="collection-toolbar" aria-label="Tareas del préstamo">
+          <button type="button" data-collection-detail="activity" aria-pressed="true" aria-controls="collectionActivityPanel">Gestión</button>
+          <button type="button" data-collection-detail="promise" aria-pressed="false" aria-controls="collectionPromisePanel">Promesa</button>
+          <button type="button" data-collection-detail="history" aria-pressed="false" aria-controls="collectionActivityPanelHistory collectionPromisePanelHistory">Historial</button>
+          <button id="collectionAssignmentTab" type="button" data-collection-detail="assignment" aria-pressed="false" aria-controls="collectorAssignmentPanel" hidden>Asignación</button>
+        </nav>
+        <div class="collection-forms">
+          <section id="collectionActivityPanel">
             <h3>Registrar gestión</h3>
 
             <form id="activityForm" class="form-grid">
@@ -193,7 +204,7 @@
             </form>
           </section>
 
-          <section>
+          <section id="collectionPromisePanel">
             <h3>Registrar promesa de pago</h3>
 
             <form id="promiseForm" class="form-grid">
@@ -261,7 +272,7 @@
           ></div>
         </section>
 
-        <section>
+        <section id="collectionActivityPanelHistory">
           <h3>Historial de gestiones</h3>
           <div
             id="collectionActivityHistory"
@@ -269,7 +280,7 @@
           ></div>
         </section>
 
-        <section>
+        <section id="collectionPromisePanelHistory">
           <h3>Promesas de pago</h3>
           <div
             id="paymentPromiseHistory"
@@ -278,11 +289,11 @@
         </section>
       </section>
 
-      <section class="panel">
+      <section id="collectionOverduePanel" class="panel">
         <div class="panel-heading">
           <div>
             <h2>Promesas vencidas</h2>
-            <p class="notice">
+            <p class="collection-hint">
               Promesas pendientes o parciales cuya fecha ya
               venció.
             </p>
@@ -310,7 +321,7 @@
   </footer>
 
   <script
-    src="/assets/prestamodesk-cobros-3d5ee594d630.js"
+    src="/assets/prestamodesk-cobros-34c3e439970f.js"
     defer
   ></script>
 </body>
