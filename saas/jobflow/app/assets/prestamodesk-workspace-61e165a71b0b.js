@@ -14,7 +14,7 @@
   const storageKeys=["prestamodesk_tenant_id","prestamodesk_cashier_tenant_id","prestamodesk_collections_tenant_id","prestamodesk_supervision_tenant_id"];
   const roleNames={owner:"Propietario",administrator:"Administrador",supervisor:"Supervisor",collector:"Cobrador",cashier:"Cajero",member:"Miembro"};
   function note(text){$("pdMessage").textContent=text;$("pdMessage").hidden=!text;}
-  function controls(){for(const node of document.querySelectorAll('[data-pd-view],#pdClient,#pdLogout,#pdRefresh'))node.disabled=loading||writes>0;}
+  function controls(){for(const node of document.querySelectorAll('[data-pd-view],[data-pd-summary-view],#pdClient,#pdLogout,#pdRefresh'))node.disabled=loading||writes>0;}
   async function api(path,options={}) {
     const response=await fetch("/api/v1"+path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
     const data=await response.json();if(!response.ok){const error=new Error(typeof data.detail==="string"?data.detail:"No se pudo completar la solicitud.");error.status=response.status;throw error;}return data;
@@ -26,9 +26,11 @@
     if(mounted?.guard&&!mounted.guard.canLeave()&&!mounted.guard.confirmLeave?.()){note(mounted.guard.leaveMessage?.()||"Revise el resultado del pago en Caja antes de cambiar de sección.");return false;}
     return !dirty||window.confirm("Hay datos sin guardar. ¿Desea cambiar de sección y descartarlos?");
   }
-  function teardown(){generation++;mounted?.dispose();mounted=null;current=null;dirty=false;$("pdHost").replaceChildren();}
+  function teardown(){$("pdSummaryActions").hidden=true;generation++;mounted?.dispose();mounted=null;current=null;dirty=false;$("pdHost").replaceChildren();}
   function updateAccess(){
     for(const button of document.querySelectorAll('[data-pd-view]'))button.hidden=!allowed(button.dataset.pdView);
+    for(const button of document.querySelectorAll("[data-pd-summary-view]"))button.hidden=!allowed(button.dataset.pdSummaryView);
+    $("pdSummaryActions").hidden=!selected||current!=="summary";
     $("pdRole").textContent=roleNames[selected?.role]||"";
     $("pdContext").textContent=selected?`Cliente #${selected.client_number} · ${selected.name}`:"";
     $("pdWorkspace").hidden=!selected;$("pdAuth").hidden=Boolean(selected);
@@ -114,11 +116,13 @@
       root.addEventListener('click',event=>{const link=event.target.closest('a[href]');if(!link)return;const target=new URL(link.href,location.origin);if(target.origin===location.origin&&paths[target.pathname]){event.preventDefault();navigate(paths[target.pathname]);}});
       for(const button of document.querySelectorAll('[data-pd-view]')){const active=button.dataset.pdView===view;button.setAttribute('aria-current',active?'page':'false');}
       $("pdTitle").textContent=definition.label;$("pdHint").textContent=view==='summary'?"Su negocio, de un vistazo.":"Trabaje en esta sección sin salir de PréstamoDesk.";
+      $("pdSummaryActions").hidden=view!=="summary";
       history.replaceState(null,'','#'+view);$("pdTitle").focus();
     }catch(error){note(error.status===401?"Inicie sesión para continuar.":error.message);if([401,403].includes(error.status)){teardown();selected=null;updateAccess();}}
     finally{loading=false;controls();}
   }
   for(const button of document.querySelectorAll('[data-pd-view]'))button.addEventListener('click',()=>navigate(button.dataset.pdView));
+  for(const button of document.querySelectorAll("[data-pd-summary-view]"))button.addEventListener("click",()=>navigate(button.dataset.pdSummaryView));
   window.addEventListener('hashchange',()=>navigate(location.hash.slice(1)));
   window.addEventListener('beforeunload',event=>{if(dirty||writes>0||mounted?.guard&&!mounted.guard.canLeave()){event.preventDefault();event.returnValue='';}});
   $("pdClient").addEventListener('change',()=>{
