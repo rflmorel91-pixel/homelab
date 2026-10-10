@@ -78,7 +78,9 @@
       }
       const headers=new Headers(options.headers||{});
       if(url.pathname.startsWith('/api/v1/products/prestamodesk/'))headers.set('X-Tenant-ID',String(tenant.tenant_id));
-      const mutating=!['GET','HEAD'].includes((options.method||'GET').toUpperCase());
+      const method=(options.method||'GET').toUpperCase();
+      const readOnlyPreview=method==='POST'&&url.pathname==='/api/v1/products/prestamodesk/loans/preview';
+      const mutating=!['GET','HEAD'].includes(method)&&!readOnlyPreview;
       if(mutating){writes++;controls();}
       try{
         const response=await fetch(url,{...options,headers,credentials:'same-origin',signal:controller.signal});

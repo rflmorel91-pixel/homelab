@@ -350,8 +350,12 @@
               Cobrar mora en este préstamo
             </label>
 
+            <button id="loanPreviewButton" type="button" class="secondary">Vista previa del préstamo</button>
             <button type="submit">Crear préstamo</button>
           </form>
+
+          <section id="loanPreview" class="panel" aria-label="Vista previa del préstamo" hidden></section>
+          <p id="loanPreviewStatus" class="notice" role="status" hidden></p>
 
           <p class="notice">
             El porcentaje indicado es interés fijo total del
@@ -724,7 +728,7 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-5dc2b09b53ac.js" defer></script>
+  <script src="/assets/prestamodesk-app-70eb981f17a1.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
   <script src="/assets/prestamodesk-payment-corrections-07258dc317f1.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>

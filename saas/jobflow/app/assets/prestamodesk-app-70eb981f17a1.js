@@ -1384,6 +1384,7 @@ async function loadLateFeePolicy() {
 
 
 async function loadDashboard() {
+  invalidateLoanPreview();
   if (borrowerDetailTenantId !== tenantId || !canManageLoans()) clearBorrowerDetail();
   applyLoanAccess();
   loanBorrowerNames = new Map();
@@ -1751,6 +1752,56 @@ borrowerForm.addEventListener(
 );
 
 
+const loanPreviewButton = document.getElementById("loanPreviewButton");
+const loanPreviewBox = document.getElementById("loanPreview");
+const loanPreviewStatus = document.getElementById("loanPreviewStatus");
+let loanPreviewVersion = 0;
+function invalidateLoanPreview() {
+  loanPreviewVersion++;
+  loanPreviewBox.hidden = true;
+  loanPreviewBox.replaceChildren();
+  loanPreviewStatus.hidden = true;
+}
+loanForm.addEventListener("input", invalidateLoanPreview);
+loanForm.addEventListener("change", invalidateLoanPreview);
+loanForm.addEventListener("reset", invalidateLoanPreview);
+loanPreviewButton.addEventListener("click", async () => {
+  if (!canManageLoans() || loanCreationRequest || loanCreationPending || loanCreationStorageBlocked) return;
+  if (!loanForm.reportValidity()) return;
+  invalidateLoanPreview();
+  const version = loanPreviewVersion;
+  const payload = buildLoanPayload();
+  const snapshot = JSON.stringify(payload);
+  const tenant = tenantId;
+  loanPreviewButton.disabled = true;
+  loanPreviewStatus.textContent = "Calculando vista previa…";
+  loanPreviewStatus.hidden = false;
+  try {
+    const preview = await apiRequest(`${PRODUCT_BASE}/loans/preview`, {method:"POST",body:snapshot});
+    if (version !== loanPreviewVersion || tenant !== tenantId || !canManageLoans() || loanCreationRequest || snapshot !== JSON.stringify(buildLoanPayload())) return;
+    if (preview.borrower_id !== payload.borrower_id || preview.currency !== "DOP" || !Array.isArray(preview.installments) || preview.installments.length !== payload.installment_count) throw new Error("No se pudo verificar la vista previa. Intente de nuevo.");
+    const add = (tag, text, parent=loanPreviewBox) => {const element=document.createElement(tag);element.textContent=text;parent.append(element);return element;};
+    add("h3", "Vista previa del préstamo");
+    add("p", preview.borrower_name);
+    add("p", `Tipo: ${payload.loan_type === "vehicle" ? "Vehículo" : "Personal"} · Frecuencia: ${{daily:"Diaria",weekly:"Semanal",biweekly:"Quincenal",monthly:"Mensual"}[payload.payment_frequency]} · Fecha del préstamo: ${payload.start_date}`);
+    if (payload.loan_type === "vehicle") add("p", `Precio: ${formatMoney(payload.vehicle_cash_price)} · Inicial: ${formatMoney(payload.vehicle_down_payment)} · ${payload.vehicle_make} ${payload.vehicle_model} ${payload.vehicle_year}`);
+    add("p", `Financiado: ${formatMoney(preview.principal_amount)} · Interés total: ${formatMoney(preview.total_interest)} · Total: ${formatMoney(preview.total_due)}`);
+    add("p", `Interés fijo total: ${payload.flat_interest_rate_percent}% · Mora: ${payload.late_fee_enabled ? "Activada según la política del negocio; no incluida en estos importes" : "No activada"}`);
+    add("p", "Esta vista previa no crea ni reserva un préstamo. Revise los datos y pulse Crear préstamo para guardarlo. Los datos se validan nuevamente al crear.");
+    const table=add("table", ""), head=add("thead", "", table), row=add("tr", "", head);
+    for (const label of ["Cuota", "Vence", "Principal", "Interés", "Total"]) {const th=add("th",label,row);th.scope="col";}
+    const body=add("tbody", "", table);
+    for (const item of preview.installments) {const tr=add("tr", "", body);for (const value of [item.sequence_number,item.due_date,formatMoney(item.principal_due),formatMoney(item.interest_due),formatMoney(item.total_due)]) add("td",String(value),tr);}
+    loanPreviewBox.hidden=false;
+    loanPreviewStatus.textContent="Vista previa calculada. El préstamo todavía no se ha creado.";
+    loanPreviewBox.scrollIntoView?.({behavior:"instant",block:"start"});
+  } catch (error) {
+    if (version === loanPreviewVersion && tenant === tenantId) {loanPreviewStatus.textContent="No se pudo calcular la vista previa. Revise los datos e intente de nuevo.";showError(error.message);}
+  } finally {
+    if (!loanCreationRequest && !loanCreationPending && !loanCreationStorageBlocked) loanPreviewButton.disabled=false;
+  }
+});
+
 async function submitLoanCreation(){
   if(loanCreationPending || loanCreationStorageBlocked || !canManageLoans())return;
   if(!loanCreationRequest){
@@ -1760,6 +1811,7 @@ async function submitLoanCreation(){
       loanCreationRequest=request;
     }catch{showError("No se pudo conservar la solicitud para un reintento seguro. El préstamo no se envió.");return;}
   }
+  invalidateLoanPreview();loanPreviewButton.disabled=false;
   loanCreationPending=true;loanCreationControls();
   let confirmed=false;
   try{
