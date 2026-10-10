@@ -1,0 +1,16 @@
+.supervision-toolbar {display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}
+.supervision-toolbar button {width:auto;min-height:42px;}
+.supervision-toolbar button[aria-pressed="false"] {background:#eef2f7;color:#24364b;}
+.supervision-hint {font-size:.9rem;color:#526277;margin:6px 0;}
+#supervisionFilterForm {grid-template-columns:minmax(160px,240px) auto;justify-content:start;align-items:end;}
+#supervisionWorkspace .summary-grid {grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;}
+#collectorPerformance {max-width:100%;overflow-x:auto;}
+#collectorPerformance td,#collectorPerformance th {padding:8px 10px;font-size:.9rem;}
+@media screen {
+#supervisionWorkspace[data-supervision-task="overview"] [data-supervision-panel]:not([data-supervision-panel="overview"]),
+#supervisionWorkspace[data-supervision-task="aging"] [data-supervision-panel]:not([data-supervision-panel="aging"]),
+#supervisionWorkspace[data-supervision-task="promises"] [data-supervision-panel]:not([data-supervision-panel="promises"]),
+#supervisionWorkspace[data-supervision-task="team"] [data-supervision-panel]:not([data-supervision-panel="team"]) {display:none;}
+}
+@media(max-width:600px) {#supervisionFilterForm {grid-template-columns:1fr;}.supervision-toolbar button {flex:1;}}
+@media print {.supervision-toolbar {display:none;}}

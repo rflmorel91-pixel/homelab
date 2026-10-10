@@ -11,6 +11,7 @@
     rel="stylesheet"
     href="/assets/prestamodesk-app-b4c00c256964.css"
   >
+<link rel="stylesheet" href="/assets/prestamodesk-supervision-style-420c73f528c3.css">
 </head>
 <body>
   <header class="app-header">
@@ -39,9 +40,8 @@
 
     <section id="authPanel" class="panel auth-panel">
       <h2>Iniciar sesión en supervisión de cobros</h2>
-      <p class="notice">
-        Esta página está disponible únicamente para el
-        propietario del cliente.
+      <p class="supervision-hint">
+        Disponible para propietarios, administradores y supervisores.
       </p>
 
       <form id="loginForm" class="form-grid">
@@ -69,12 +69,12 @@
       </form>
     </section>
 
-    <div id="supervisionWorkspace" hidden>
+    <div id="supervisionWorkspace" data-supervision-task="overview" hidden>
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2>Resumen general</h2>
-            <p class="notice">
+            <h2>Supervisión de cobros</h2>
+            <p class="supervision-hint">
               Las gestiones, promesas y cobros recuperados
               incluyen todo el historial. La fecha de corte
               se aplica a la cartera y promesas vencidas.
@@ -113,10 +113,19 @@
           <button type="submit">Consultar supervisión</button>
         </form>
 
+              </section>
+      <nav id="supervisionTaskToolbar" class="supervision-toolbar" aria-label="Reportes de supervisión">
+        <button type="button" data-supervision-task="overview" aria-pressed="true" aria-controls="supervisionOverviewPanel supervisionDailyPanel">Resumen</button>
+        <button type="button" data-supervision-task="aging" aria-pressed="false" aria-controls="supervisionAgingPanel">Cartera vencida</button>
+        <button type="button" data-supervision-task="promises" aria-pressed="false" aria-controls="supervisionPromisesPanel">Promesas</button>
+        <button type="button" data-supervision-task="team" aria-pressed="false" aria-controls="supervisionTeamPanel">Equipo</button>
+      </nav>
+      <section id="supervisionOverviewPanel" class="panel" data-supervision-panel="overview">
+        <h2>Resumen general</h2>
         <div id="generalSummary" class="summary-grid"></div>
       </section>
 
-      <section class="panel">
+      <section id="supervisionDailyPanel" class="panel" data-supervision-panel="overview">
         <h2>Prioridades del día</h2>
         <div
           id="dailyOperationsSummary"
@@ -124,21 +133,21 @@
         ></div>
       </section>
 
-      <section class="panel">
+      <section id="supervisionAgingPanel" class="panel" data-supervision-panel="aging">
         <h2>Antigüedad de la cartera vencida</h2>
         <div id="agingSummary" class="summary-grid"></div>
       </section>
 
-      <section class="panel">
+      <section id="supervisionPromisesPanel" class="panel" data-supervision-panel="promises">
         <h2>Promesas de pago</h2>
         <div id="promiseSummary" class="summary-grid"></div>
       </section>
 
-      <section class="panel">
+      <section id="supervisionTeamPanel" class="panel" data-supervision-panel="team">
         <div class="panel-heading">
           <div>
             <h2>Desempeño por cobrador</h2>
-            <p class="notice">
+            <p class="supervision-hint">
               El monto recuperado se presenta solamente como
               total general. No se atribuyen pagos a un
               cobrador individual.
@@ -159,7 +168,7 @@
   </footer>
 
   <script
-    src="/assets/prestamodesk-cobros-supervision-d3eb51db43fc.js"
+    src="/assets/prestamodesk-cobros-supervision-6897fb4e7d8c.js"
     defer
   ></script>
 </body>
