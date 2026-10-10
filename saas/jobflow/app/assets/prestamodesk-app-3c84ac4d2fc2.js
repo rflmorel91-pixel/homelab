@@ -1756,8 +1756,31 @@ const loanPreviewButton = document.getElementById("loanPreviewButton");
 const loanPreviewBox = document.getElementById("loanPreview");
 const loanPreviewStatus = document.getElementById("loanPreviewStatus");
 let loanPreviewVersion = 0;
+let loanPreviewPrintSnapshot = null;
+const loanPreviewPrintPanel = document.getElementById("loanPreviewPrintPanel");
+function clearLoanPreviewPrint() {
+  document.body.classList.remove("pd-loan-preview-print");
+  loanPreviewPrintPanel.hidden = true;
+  loanPreviewPrintPanel.replaceChildren();
+}
+function printLoanPreview() {
+  if (!canManageLoans() || loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || loanPreviewBox.hidden || !loanPreviewPrintSnapshot) return;
+  if (loanPreviewPrintSnapshot.tenant !== tenantId || loanPreviewPrintSnapshot.payload !== JSON.stringify(buildLoanPayload())) {invalidateLoanPreview();return;}
+  clearLoanPreviewPrint();
+  const heading=document.createElement("h1");heading.textContent="PréstamoDesk · Propuesta de préstamo";loanPreviewPrintPanel.append(heading);
+  const business=document.createElement("p");business.textContent=`Cliente #${window.prestamodeskAccess?.client_number || ""} · ${window.prestamodeskAccess?.name || clientContext.textContent}`;loanPreviewPrintPanel.append(business);
+  const date=document.createElement("p");date.textContent="Vista previa calculada: " + loanPreviewPrintSnapshot.calculatedAt + " (República Dominicana).";loanPreviewPrintPanel.append(date);
+  for (const child of loanPreviewBox.children) if (!child.classList.contains("loan-preview-actions") && !child.textContent.startsWith("Esta vista previa no crea")) loanPreviewPrintPanel.append(child.cloneNode(true));
+  const note=document.createElement("p");note.textContent="Propuesta sin guardar. No es un contrato ni un recibo. Interés fijo total; no representa una tasa APR. No incluye mora acumulada. Los datos se validan nuevamente al crear el préstamo.";loanPreviewPrintPanel.append(note);
+  loanPreviewPrintPanel.hidden=false;
+  document.body.classList.remove("pd-borrower-print");
+  document.body.classList.add("pd-loan-preview-print");
+  try {window.print();} catch {showError("No se pudo abrir la impresión. Intente de nuevo.");} finally {clearLoanPreviewPrint();}
+}
+window.addEventListener("afterprint", clearLoanPreviewPrint);
 function invalidateLoanPreview() {
   loanPreviewVersion++;
+  loanPreviewPrintSnapshot=null;clearLoanPreviewPrint();
   loanPreviewBox.hidden = true;
   loanPreviewBox.replaceChildren();
   loanPreviewStatus.hidden = true;
@@ -1792,6 +1815,9 @@ loanPreviewButton.addEventListener("click", async () => {
     for (const label of ["Cuota", "Vence", "Principal", "Interés", "Total"]) {const th=add("th",label,row);th.scope="col";}
     const body=add("tbody", "", table);
     for (const item of preview.installments) {const tr=add("tr", "", body);for (const value of [item.sequence_number,item.due_date,formatMoney(item.principal_due),formatMoney(item.interest_due),formatMoney(item.total_due)]) add("td",String(value),tr);}
+    loanPreviewPrintSnapshot={tenant:tenantId,payload:snapshot,calculatedAt:new Date().toLocaleString("es-DO",{timeZone:"America/Santo_Domingo"})};
+    const actions=add("div", "");actions.className="loan-preview-actions";
+    const printButton=add("button", "Imprimir vista previa", actions);printButton.id="printLoanPreviewButton";printButton.type="button";printButton.addEventListener("click",printLoanPreview);
     loanPreviewBox.hidden=false;
     loanPreviewStatus.textContent="Vista previa calculada. El préstamo todavía no se ha creado.";
     loanPreviewBox.scrollIntoView?.({behavior:"instant",block:"start"});
