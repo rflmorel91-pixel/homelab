@@ -28,4 +28,5 @@ def test_preview_permissions_and_foreign_borrower(authenticated_client, db_sessi
     tenant, loan, headers = setup(authenticated_client, db_session)
     payload = request(loan)
     assert authenticated_client.post(URL + "/preview", headers=authenticated_client.auth_headers(tenant), json=payload).status_code == 403
+    headers = authenticated_client.owner_headers(tenant)
     assert authenticated_client.post(URL + "/preview", headers=headers, json=payload | {"borrower_id": 999999}).status_code == 404
