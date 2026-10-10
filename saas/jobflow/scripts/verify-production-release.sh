@@ -474,6 +474,10 @@ then
 fi
 
 printf '\n===== RELEASE EVIDENCE =====\n'
+python3 "$JOBFLOW_ROOT/scripts/verify-prestamodesk-release.py" \
+  --container jobflow-web \
+  --base-url "$BASE_URL"
+
 VERIFIED_AT="$(
   date -u +'%Y-%m-%dT%H:%M:%SZ'
 )"
