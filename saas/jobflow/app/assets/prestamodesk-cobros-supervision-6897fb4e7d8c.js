@@ -593,3 +593,13 @@ async function initialize() {
 
 
 initialize();
+
+// Report switches retain the loaded snapshot and filter, without requests.
+document.getElementById("supervisionTaskToolbar").addEventListener("click", event => {
+  const button = event.target.closest("button[data-supervision-task]");
+  if (!button) return;
+  supervisionWorkspace.dataset.supervisionTask = button.dataset.supervisionTask;
+  document.querySelectorAll("button[data-supervision-task]").forEach(item => {
+    item.setAttribute("aria-pressed", String(item === button));
+  });
+});
