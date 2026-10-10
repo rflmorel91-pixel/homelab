@@ -344,3 +344,20 @@ footer {
   body.pd-borrower-print #borrowerStatementContent tr { break-inside:avoid; }
   body.pd-borrower-print #borrowerStatementContent .table-wrap { overflow:visible; }
 }
+
+@media print {
+  :root { background:#fff !important; }
+  body.pd-loan-preview-print { background:#fff; padding:0; margin:0; }
+  body.pd-loan-preview-print main { width:100%; max-width:none; padding:0; margin:0; }
+  body.pd-loan-preview-print > header, body.pd-loan-preview-print > footer,
+  body.pd-loan-preview-print main > :not(#loanPreviewPrintPanel) { display:none !important; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel,
+  body.pd-loan-preview-print #loanPreviewPrintPanel * { visibility:visible; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel { display:block; position:static; width:100%; margin:0; padding:0; border:0; color:#000; background:#fff; font-size:11pt; overflow-wrap:anywhere; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel table { width:100%; font-size:10pt; border-collapse:collapse; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel th,
+  body.pd-loan-preview-print #loanPreviewPrintPanel td { padding:6pt; border-bottom:1px solid #bbb; text-align:left; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel thead { display:table-header-group; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel tr { break-inside:avoid; }
+  body.pd-loan-preview-print #loanPreviewPrintPanel h1 { font-size:18pt; }
+}

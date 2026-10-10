@@ -268,6 +268,19 @@
 :where(.pd-module).pd-borrower-print #borrowerStatementContent .table-wrap{ overflow:visible; }
 
 }
+@media print{:where(.pd-module){ background:#fff !important; }
+:where(.pd-module).pd-loan-preview-print{ background:#fff; padding:0; margin:0; }
+:where(.pd-module).pd-loan-preview-print main{ width:100%; max-width:none; padding:0; margin:0; }
+:where(.pd-module).pd-loan-preview-print > header,:where(.pd-module).pd-loan-preview-print > footer,:where(.pd-module).pd-loan-preview-print main > :not(#loanPreviewPrintPanel){ display:none !important; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel,:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel *{ visibility:visible; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel{ display:block; position:static; width:100%; margin:0; padding:0; border:0; color:#000; background:#fff; font-size:11pt; overflow-wrap:anywhere; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel table{ width:100%; font-size:10pt; border-collapse:collapse; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel th,:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel td{ padding:6pt; border-bottom:1px solid #bbb; text-align:left; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel thead{ display:table-header-group; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel tr{ break-inside:avoid; }
+:where(.pd-module).pd-loan-preview-print #loanPreviewPrintPanel h1{ font-size:18pt; }
+
+}
 
 
 :where(.pd-module){
