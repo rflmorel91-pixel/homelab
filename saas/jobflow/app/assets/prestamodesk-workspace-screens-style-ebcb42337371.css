@@ -361,6 +361,13 @@
 }
 
 
+@media screen{:where(.pd-module) #loanDetailViews{ display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0; }
+:where(.pd-module) #loanDetailViews button[aria-pressed="true"]{ background:#164e63; color:#fff; }
+:where(.pd-module) #workspace:not([data-loan-detail-view="installments"]) [data-loan-detail-pane="installments"],:where(.pd-module) #workspace:not([data-loan-detail-view="payments"]) [data-loan-detail-pane="payments"],:where(.pd-module) #workspace:not([data-loan-detail-view="late-fee"]) [data-loan-detail-pane="late-fee"],:where(.pd-module) #workspace:not([data-loan-detail-view="installments"]) #paymentPanel,:where(.pd-module) #workspace:not([data-loan-detail-view="payments"]) #receiptPanel{ display:none; }
+
+}
+
+
 :where(.pd-module){
   color-scheme: light;
   font-family:

@@ -52,6 +52,7 @@
               historical: true, snapshotAvailable: result.snapshot_available
             });
             receiptPanel.hidden = false;
+            window.prestamodeskLoanDetailViews?.showReceipt();
             receiptPanel.scrollIntoView({block: "start", behavior: "smooth"});
             document.getElementById("printReceiptButton").focus();
           } catch (cause) {

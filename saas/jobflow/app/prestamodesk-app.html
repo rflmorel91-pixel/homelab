@@ -13,6 +13,7 @@
   >
   <link rel="stylesheet" href="/assets/prestamodesk-receipt-style-9203e59c1e0b.css">
   <link rel="stylesheet" href="/assets/prestamodesk-loan-schedule-print-style-b9ef23a2b05d.css">
+<link rel="stylesheet" href="/assets/prestamodesk-loan-detail-style-3acf54e17d9f.css">
 </head>
 <body>
   <header class="app-header">
@@ -636,6 +637,13 @@
         </div>
 
         <div id="loanDetailSummary"></div>
+        <nav id="loanDetailViews" class="pd-detail-views" aria-label="Vistas del préstamo">
+          <button type="button" data-loan-detail="installments" aria-pressed="true">Cuotas</button>
+          <button type="button" data-loan-detail="payments" aria-pressed="false">Pagos y recibos</button>
+          <button type="button" data-loan-detail="late-fee" aria-pressed="false" hidden>Mora</button>
+        </nav>
+        <div data-loan-detail-pane="payments">
+        <p id="loanReceiptGuidance" class="notice">El recibo del pago registrado aparece aquí. El historial completo está disponible para el propietario y administrador.</p>
         <section id="paymentCorrectionPanel" hidden aria-labelledby="paymentCorrectionTitle">
           <h3 id="paymentCorrectionTitle">Pagos y correcciones</h3>
           <p>Solo el propietario o administrador puede anular el último pago registrado antes de su cierre de caja. El recibo se conserva con el motivo de anulación. Los pagos anteriores a esta función requieren conciliación.</p>
@@ -644,6 +652,8 @@
         </section>
 
 
+        </div>
+        <div data-loan-detail-pane="late-fee">
         <form id="loanLateFeeForm" class="form-grid">
           <label>
             <input
@@ -663,8 +673,11 @@
           el tope y la fecha efectiva de la política del cliente.
         </p>
 
+        </div>
+        <div data-loan-detail-pane="installments">
         <div class="section-heading"><h3>Calendario de cuotas</h3><button id="printLoanScheduleButton" type="button" class="secondary" disabled>Imprimir calendario</button></div>
         <div id="installmentList" class="table-wrap"></div>
+        </div>
       </section>
 
       <section id="paymentPanel" class="panel" hidden>
@@ -745,9 +758,9 @@
     PréstamoDesk · FieldLookers
   </footer>
 
-  <script src="/assets/prestamodesk-app-090ed175e291.js" defer></script>
+  <script src="/assets/prestamodesk-app-d12770ff7de6.js" defer></script>
   <script src="/assets/prestamodesk-administration-link-3465e12fd2c6.js" defer></script>
-  <script src="/assets/prestamodesk-payment-corrections-64fa01a0ee70.js" defer></script>
+  <script src="/assets/prestamodesk-payment-corrections-0066d52a360e.js" defer></script>
   <script src="/assets/prestamodesk-prospect-routing-4002276842c7.js" defer></script>
 </body>
 </html>
