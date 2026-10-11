@@ -362,7 +362,7 @@ function renderPromiseSummary(data) {
 function renderCollectorPerformance(collectors) {
   if (collectors.length === 0) {
     collectorPerformance.innerHTML =
-      '<p class="empty">No hay cobradores activos.</p>';
+      '<p class="empty">No hay cobradores activos. El rendimiento del equipo aparecerá aquí cuando haya cobradores activos.</p>';
     return;
   }
 

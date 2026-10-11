@@ -427,7 +427,7 @@ function renderClosingPreview(preview) {
 function renderClosingHistory(closings) {
   if (closings.length === 0) {
     cashClosingHistory.innerHTML = `
-      <p class="notice">No hay cierres registrados.</p>
+      <p class="notice">No hay cierres registrados. Sus cierres aparecerán aquí después de realizar el primero desde Cierre de caja.</p>
     `;
     return;
   }
@@ -498,8 +498,9 @@ function renderLoans(loans) {
   if (loans.length === 0) {
     cashierLoanList.innerHTML = `
       <p class="notice">
-        No se encontraron préstamos.
+        No se encontraron préstamos. Pruebe otro nombre, documento o número de préstamo.
       </p>
+      ${loanSearchQuery.value.trim() ? '<button type="button" class="secondary" data-empty-show-loans>Mostrar préstamos</button>' : '<p class="notice">Los préstamos disponibles para cobrar aparecerán aquí cuando se registren.</p>'}
     `;
     return;
   }
@@ -802,6 +803,11 @@ document.getElementById(
 cashierLoanList.addEventListener(
   "click",
   async event => {
+    if (event.target.closest("button[data-empty-show-loans]")) {
+      document.getElementById("showAllLoansButton").click();
+      loanSearchQuery.focus();
+      return;
+    }
     const button = event.target.closest(
       "button[data-open-loan]"
     );

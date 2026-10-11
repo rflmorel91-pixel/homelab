@@ -455,7 +455,7 @@ function renderPortfolio(items) {
 
   if (items.length === 0) {
     portfolioList.innerHTML =
-      '<p class="empty">No hay cartera vencida.</p>';
+      '<p class="empty">No hay cartera vencida para esta consulta. Revise la fecha de corte y el filtro de asignación; los cobradores solo ven su cartera asignada.</p>';
     return;
   }
 
@@ -653,7 +653,7 @@ function renderPromises(items) {
 function renderOverduePromises(items) {
   if (items.length === 0) {
     overduePromiseList.innerHTML =
-      '<p class="empty">No hay promesas vencidas.</p>';
+      '<p class="empty">No hay promesas vencidas para esta consulta. Revise la fecha de corte.</p>';
     return;
   }
 
