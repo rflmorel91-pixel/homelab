@@ -1,3 +1,11 @@
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",dateStyle:"medium",timeStyle:"short"}).format(date);
+}
 (() => {
   "use strict";
   const panel = document.getElementById("administrationPanel");
@@ -26,7 +34,7 @@
     activationRecord = record;
     const title = element("h3", "Invitación creada: guarde el enlace"), recipient = element("p", "Para: " + result.email);
     const notice = element("p", "El correo no se envía automáticamente. Comparta este enlace privado únicamente con la persona invitada. Al salir de esta sección, el enlace dejará de estar disponible.");
-    const expiry = element("p", result.expires_at ? "Vence: " + new Date(result.expires_at.endsWith("Z") ? result.expires_at : result.expires_at + "Z").toLocaleString("es-DO", {timeZone: "America/Santo_Domingo"}) + " (República Dominicana)." : "El enlace vence en 72 horas.");
+    const expiry = element("p", result.expires_at ? "Vence: " + pdDateTime(result.expires_at, "Sin fecha") + " (República Dominicana)." : "El enlace vence en 72 horas.");
     const label = element("label", "Enlace privado de activación"), field = element("input"); field.type = "text"; field.readOnly = true; field.value = record.url; label.append(field);
     const copy = element("button", "Copiar enlace"); copy.type = "button";
     const saved = element("button", "Ya guardé o compartí el enlace"); saved.type = "button"; saved.className = "secondary";
@@ -192,7 +200,7 @@
     }
     if (!invitations.invitations.length) list.append(element("p", "Sin invitaciones."));
     const history = document.getElementById("administrationAudit"); history.replaceChildren();
-    for (const event of audit) history.append(element("p", new Date(event.created_at + (event.created_at.endsWith("Z") ? "" : "Z")).toLocaleString("es-DO") + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · Registro #" + event.target_id));
+    for (const event of audit) history.append(element("p", pdDateTime(event.created_at, "Sin fecha") + " · " + (actions[event.action] || event.action) + " · Usuario #" + event.actor_user_id + " · Registro #" + event.target_id));
     if (!audit.length) history.append(element("p", "Sin cambios registrados."));
   }
   let memberDetail = null;
@@ -231,11 +239,7 @@
     detailPanel.querySelectorAll("input, select, textarea, button").forEach(control => {control.disabled = active;});
     profileForm.querySelectorAll("input, select, textarea, button").forEach(control => {control.disabled = active || !memberDetail?.editable;});
   }
-  function dateLabel(raw) {
-    if (!raw) return "Sin fecha";
-    const date = new Date(/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw) ? raw : raw + "Z");
-    return date.toLocaleString("es-DO");
-  }
+  function dateLabel(raw) { return pdDateTime(raw, "Sin fecha"); }
   function detailAction(text, callback) {
     const node = element("button", text); node.type = "button"; node.className = "secondary";
     node.addEventListener("click", async () => {

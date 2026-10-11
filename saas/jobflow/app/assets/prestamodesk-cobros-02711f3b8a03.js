@@ -1,3 +1,16 @@
+function pdBusinessDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("year")+"-"+part("month")+"-"+part("day");
+}
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",dateStyle:"medium",timeStyle:"short"}).format(date);
+}
 const API_BASE = "/api/v1";
 const PRODUCT_BASE = "/products/prestamodesk";
 const TENANT_STORAGE_KEY =
@@ -134,19 +147,7 @@ function formatDate(value) {
 }
 
 
-function formatDateTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat(
-    "es-DO",
-    {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }
-  ).format(new Date(value));
-}
+function formatDateTime(value) { return pdDateTime(value); }
 
 
 function formatRole(value) {
@@ -213,10 +214,10 @@ function localDateTimeValue(date = new Date()) {
 
 
 function setDefaults() {
-  portfolioAsOf.value = localDateValue();
+  portfolioAsOf.value = pdBusinessDate();
   activityContactedAt.value =
     localDateTimeValue();
-  promiseDueDate.value = localDateValue();
+  promiseDueDate.value = pdBusinessDate();
 }
 
 
@@ -1080,7 +1081,7 @@ promiseForm.addEventListener(
       );
 
       promiseForm.reset();
-      promiseDueDate.value = localDateValue();
+      promiseDueDate.value = pdBusinessDate();
       await Promise.all([
         loadLoanHistory(),
         loadOverduePromises()

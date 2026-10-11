@@ -1,3 +1,11 @@
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",dateStyle:"medium",timeStyle:"short"}).format(date);
+}
 const API_BASE = "/api/v1";
 const PRODUCT_BASE = "/products/prestamodesk";
 const TENANT_STORAGE_KEY =
@@ -127,15 +135,7 @@ function formatStatus(value) {
 }
 
 
-function formatDateTime(value) {
-  return new Intl.DateTimeFormat(
-    "es-DO",
-    {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }
-  ).format(new Date(value));
-}
+function formatDateTime(value) { return pdDateTime(value); }
 
 
 function formatPaymentMethod(value) {

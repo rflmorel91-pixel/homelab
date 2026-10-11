@@ -1,3 +1,8 @@
+function pdBusinessDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("year")+"-"+part("month")+"-"+part("day");
+}
 const API_BASE = "/api/v1";
 const PRODUCT_BASE = "/products/prestamodesk";
 const TENANT_STORAGE_KEY =
@@ -568,7 +573,7 @@ logoutButton.addEventListener(
 
 async function initialize() {
   await checkHealth();
-  supervisionAsOf.value = localDateValue();
+  supervisionAsOf.value = pdBusinessDate();
 
   if (!tenantId) {
     setAuthenticatedUI(false);
