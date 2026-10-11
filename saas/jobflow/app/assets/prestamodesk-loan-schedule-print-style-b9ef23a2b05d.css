@@ -1,0 +1,18 @@
+#loanSchedulePrintPanel { display:none; }
+@media print {
+  body.pd-loan-schedule-print { background:#fff; padding:0; margin:0; }
+  body.pd-loan-schedule-print > header, body.pd-loan-schedule-print > footer,
+  body.pd-loan-schedule-print main > :not(#loanSchedulePrintPanel) { display:none !important; }
+  body.pd-loan-schedule-print main { width:100%; max-width:none; margin:0; padding:0; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel,
+  body.pd-loan-schedule-print #loanSchedulePrintPanel * { visibility:visible; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel { display:block !important; position:static; width:100%; margin:0; padding:0; border:0; color:#000; background:#fff; font-size:10pt; overflow-wrap:anywhere; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel h1 { font-size:18pt; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel h2 { font-size:13pt; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel .item-meta { display:flex; flex-wrap:wrap; gap:5pt 12pt; font-size:10pt; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel table { width:100%; min-width:0; border-collapse:collapse; font-size:9pt; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel th,
+  body.pd-loan-schedule-print #loanSchedulePrintPanel td { padding:5pt 3pt; text-align:left; border-bottom:1px solid #bbb; white-space:normal; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel thead { display:table-header-group; }
+  body.pd-loan-schedule-print #loanSchedulePrintPanel tr { break-inside:avoid; }
+}

@@ -1,0 +1,27 @@
+// Synthetic schedules only; no real loans, payments or services.
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+let code=fs.readFileSync(path.join(__dirname,'test-prestamodesk-compact-loans.cjs'),'utf8').split('(async()=>{')[0];
+code=code.replace("else if(u.pathname.startsWith(base+'/loans/'))data=detail(loans.find(l=>l.id===Number(u.pathname.split('/').pop())));", "else if(u.pathname.startsWith(base+'/loans/')){if(control.schedulePending)await control.schedulePending;if(control.scheduleFail){status=500;data={detail:'Synthetic failure'};}else data=detail(loans.find(l=>l.id===Number(u.pathname.split('/').pop())));}");
+code=code.replace("for(const match of page.matchAll(/<script[^>]*src=\"([^\"]+)\"/g))w.eval(fs.readFileSync(path.join(root,'app',match[1]),'utf8'));", "w.eval([...page.matchAll(/<script[^>]*src=\"([^\"]+)\"/g)].map(match=>fs.readFileSync(path.join(root,'app',match[1]),'utf8').replaceAll('window.prestamodeskSchedulePrint = {capture, clear};', 'window.prestamodeskSchedulePrint = {capture, clear}; document.getElementById(\"printLoanScheduleButton\").syntheticOpenLoan=openLoan;').replaceAll('let paymentNeedsReview = false;', 'let paymentNeedsReview = false; document.getElementById(\"printLoanScheduleButton\").syntheticSetPaymentState=(pending,uncertain)=>{paymentSubmitting=pending;paymentNeedsReview=uncertain;};')).join('\\n'));");
+code=code.replace("else data=detail(loans.find(l=>l.id===Number(u.pathname.split('/').pop())));", "else {data=detail(loans.find(l=>l.id===Number(u.pathname.split('/').pop())));if(control.scheduleRows)data.installments=Array.from({length:control.scheduleRows},(_,i)=>({...data.installments[0],id:410+i,sequence_number:i+1}));}");
+const {setup,flush}=new Function('require','__dirname',code+'\nreturn {setup,flush};')(require,__dirname);
+(async()=>{
+ for(const standalone of [true,false])for(const role of ['owner','administrator','member']){
+  const s=await setup(role,standalone),w=s.w,d=w.document,q=id=>d.getElementById(id);
+  assert(q('printLoanScheduleButton').disabled);
+  q('loanList').querySelector('button').click();await flush();assert(!q('printLoanScheduleButton').disabled);
+  q('paymentAmount').value='123';let prints=0,printed=null,mode=false;const root=standalone?d.body:d.querySelector('.pd-module');
+  w.print=()=>{prints++;mode=root.classList.contains('pd-loan-schedule-print');printed=q('loanSchedulePrintPanel').cloneNode(true);};
+  const before=s.calls.length;q('printLoanScheduleButton').click();assert.equal(prints,1);assert(mode);assert.match(printed.textContent,/Préstamo #41/);assert.match(printed.textContent,/Ana Rodríguez/);assert.match(printed.textContent,/08\/10\/2026/);assert.match(printed.textContent,/no incluyen mora/);assert.match(printed.textContent,/Saldo ordinario/);assert.match(printed.textContent,/Datos consultados/);assert.equal(printed.querySelectorAll('tbody tr').length,1);assert(!printed.querySelector('form,button,input'));assert.equal(s.calls.length,before);assert.equal(q('paymentAmount').value,'123');assert(!root.classList.contains('pd-loan-schedule-print'));assert(q('loanSchedulePrintPanel').hidden);assert.equal(q('loanSchedulePrintPanel').children.length,0);
+  for(const state of [[true,false],[false,true]]){q('printLoanScheduleButton').syntheticSetPaymentState(...state);q('printLoanScheduleButton').click();assert.equal(prints,1);}q('printLoanScheduleButton').syntheticSetPaymentState(false,false);
+  w.print=()=>{throw new Error('Synthetic printer failure');};q('printLoanScheduleButton').click();assert(!root.classList.contains('pd-loan-schedule-print'));assert(q('loanSchedulePrintPanel').hidden);assert.match(q('errorMessage').textContent,/impresión del calendario/);assert(!q('loanDetailPanel').hidden);assert.equal(q('paymentAmount').value,'123');assert.equal(s.calls.length,before);
+  q('closeLoanDetail').click();assert(q('printLoanScheduleButton').disabled);q('printLoanScheduleButton').dispatchEvent(new w.Event('click'));assert.equal(prints,1);
+  let release;s.control.schedulePending=new Promise(r=>release=r);q('loanList').querySelector('button').click();await flush();assert(q('printLoanScheduleButton').disabled);release();await flush();s.control.schedulePending=null;assert(!q('printLoanScheduleButton').disabled);
+  // Print a borrower whose name contains markup: it remains text.
+  q('loanList').querySelectorAll('button')[3].click();await flush();w.print=()=>{printed=q('loanSchedulePrintPanel').cloneNode(true);};q('printLoanScheduleButton').click();assert(!printed.querySelector('img'));assert.match(printed.textContent,/<img src=x onerror=alert\(1\)>/);
+  s.control.scheduleRows=60;await q('printLoanScheduleButton').syntheticOpenLoan(41);q('printLoanScheduleButton').click();assert.equal(printed.querySelectorAll('tbody tr').length,60);assert.equal(printed.querySelector('thead').rows.length,1);
+  s.control.scheduleFail=true;await assert.rejects(q('printLoanScheduleButton').syntheticOpenLoan(41));assert(q('printLoanScheduleButton').disabled);assert(!root.classList.contains('pd-loan-schedule-print'));
+  assert(!s.calls.some(c=>c.options.method==='POST'));s.dom.window.close();
+ }
+ console.log('Saved schedule print checks passed: three roles, standalone/workspace, existing loan values and DD/MM/YYYY, safe names, isolated content, no requests/writes on print, preserved payment drafts, pending/uncertain guards, read failures, close and printer cleanup.');
+})().catch(error=>{console.error(error);process.exit(1);});
