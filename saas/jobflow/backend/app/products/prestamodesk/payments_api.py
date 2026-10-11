@@ -3,7 +3,7 @@ from decimal import Decimal
 import hashlib
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,12 +12,14 @@ from app.products.prestamodesk.payment_corrections import lock_financial_actor, 
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.authorization import (
     require_prestamodesk_payment_member,
+    require_prestamodesk_manager,
 )
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.late_fees import (
     calculate_late_fee,
 )
 from app.products.prestamodesk.models import (
+    Borrower,
     Installment,
     LateFeePolicy,
     Loan,
@@ -30,6 +32,7 @@ from app.products.prestamodesk.promise_reconciliation import (
     reconcile_payment_promises,
 )
 from app.products.prestamodesk.schemas import (
+    HistoricalPaymentReceipt,
     PaymentCreate,
     PaymentRead,
     PaymentReceipt,
@@ -446,3 +449,39 @@ def list_loan_payments(
     )
 
     return result.scalars().all()
+
+
+@router.get("/{payment_id}/receipt", response_model=HistoricalPaymentReceipt,
+            dependencies=[Depends(require_prestamodesk_manager)])
+def read_payment_receipt(
+    payment_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    response.headers["Cache-Control"] = "no-store"
+    payment = db.scalar(select(Payment).where(
+        Payment.id == payment_id, Payment.tenant_id == tenant.id))
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    loan = db.scalar(select(Loan).where(
+        Loan.id == payment.loan_id, Loan.tenant_id == tenant.id))
+    if loan is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    borrower = db.scalar(select(Borrower).where(
+        Borrower.id == loan.borrower_id, Borrower.tenant_id == tenant.id))
+    if borrower is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    current = PaymentRead.model_validate(payment)
+    if payment.receipt_snapshot is None:
+        receipt = current
+    else:
+        # Keep recorded financial balances; overlay the current cancellation state.
+        receipt = PaymentReceipt.model_validate(payment.receipt_snapshot).model_copy(update={
+            "voided_at": current.voided_at,
+            "voided_by_user_id": current.voided_by_user_id,
+            "void_reason": current.void_reason,
+        })
+    return HistoricalPaymentReceipt(
+        receipt=receipt, snapshot_available=payment.receipt_snapshot is not None,
+        borrower_name=borrower.full_name, business_name=tenant.name)

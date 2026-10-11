@@ -383,6 +383,13 @@ class PaymentReceipt(PaymentRead):
     currency: Literal["DOP"]
 
 
+class HistoricalPaymentReceipt(BaseModel):
+    receipt: PaymentReceipt | PaymentRead
+    snapshot_available: bool
+    borrower_name: str
+    business_name: str
+
+
 ProspectStatus = Literal[
     "new",
     "contacted",

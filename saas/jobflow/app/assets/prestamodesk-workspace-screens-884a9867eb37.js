@@ -8,7 +8,9 @@ function pdReceiptMarkup(receipt, context) {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
   const date = receipt.paid_at ? pdDateTime(receipt.paid_at) : pdDateOnly(context.date);
   return `<div class="pd-receipt-heading"><p>PréstamoDesk · by FieldLookers</p><p>${text(context.business)}</p>
-    <p class="pd-receipt-number">${text(receipt.receipt_number)}</p></div>
+    <p class="pd-receipt-number">${text(receipt.receipt_number ?? `PM-${String(receipt.id).padStart(8, "0")}`)}</p></div>
+    ${context.historical ? `<p class="pd-receipt-note">Copia del registro de pago. Nombre del prestatario y negocio actuales.</p>` : ""}
+    ${receipt.voided_at ? `<p class="message error"><strong>ANULADO · No acredita un pago vigente</strong><br>${text(receipt.void_reason)} · ${text(pdDateTime(receipt.voided_at))} · Usuario #${text(receipt.voided_by_user_id)}</p>` : ""}
     <p class="pd-receipt-amount"><span>Monto pagado (DOP)</span><strong>${text(money(receipt.amount))}</strong></p>
     <dl class="pd-receipt-details">
       ${row("Préstamo", text("#" + (receipt.loan_id ?? context.loanId)))}
@@ -28,7 +30,7 @@ function pdReceiptMarkup(receipt, context) {
       ${row("Total pendiente de cuota", text(money(receipt.installment_balance)))}
       ${row("Saldo total del préstamo", text(money(receipt.loan_balance)))}
     </dl>
-    <p class="pd-receipt-note">Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes.</p>
+    <p class="pd-receipt-note">${context.snapshotAvailable === false ? "Este pago no conserva los saldos originales. Los guiones indican información histórica no disponible." : "Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes."}</p>
     <p class="pd-receipt-note">Registrado por usuario #${text(receipt.recorded_by_user_id)}</p>`;
 }
 function renderEmptyState(container, message, label, action) {
@@ -2460,6 +2462,7 @@ for (const button of document.querySelectorAll("[data-loan-close]")) button.addE
   const list = document.getElementById("paymentCorrectionList");
   const message = document.getElementById("paymentCorrectionMessage");
   let generation = 0;
+  let receiptGeneration = 0;
   let busy = false;
   const currency = new Intl.NumberFormat("es-DO", {style: "currency", currency: "DOP"});
   const text = (tag, contents) => { const node = document.createElement(tag); node.textContent = contents; return node; };
@@ -2475,9 +2478,10 @@ for (const button of document.querySelectorAll("[data-loan-close]")) button.addE
     message.className = "message " + (failed ? "error" : "success");
     message.hidden = false;
   }
-  function clear() { generation++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
+  function clear() { generation++; receiptGeneration++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
   async function load(loanId, role) {
     const request = ++generation;
+    receiptGeneration++;
     list.replaceChildren();
     message.hidden = true;
     panel.hidden = !["owner", "administrator"].includes(role);
@@ -2491,6 +2495,28 @@ for (const button of document.querySelectorAll("[data-loan-close]")) button.addE
         const row = document.createElement("article");
         row.append(text("h4", `PM-${String(payment.id).padStart(8, "0")} · ${currency.format(Number(payment.amount))}`));
         row.append(text("p", `Registrado por usuario #${payment.recorded_by_user_id} · ${payment.paid_at}`));
+        const receiptButton = text("button", "Ver recibo");
+        receiptButton.type = "button";
+        receiptButton.className = "secondary";
+        receiptButton.addEventListener("click", async () => {
+          if (busy || paymentSubmitting || paymentNeedsReview) return;
+          const receiptRequest = ++receiptGeneration;
+          receiptButton.disabled = true;
+          try {
+            const result = await apiRequest(`${PRODUCT_BASE}/payments/${payment.id}/receipt`);
+            if (request !== generation || receiptRequest !== receiptGeneration || paymentSubmitting || paymentNeedsReview) return;
+            receiptContent.innerHTML = pdReceiptMarkup(result.receipt, {
+              loanId, borrower: result.borrower_name, business: result.business_name,
+              historical: true, snapshotAvailable: result.snapshot_available
+            });
+            receiptPanel.hidden = false;
+            receiptPanel.scrollIntoView({block: "start", behavior: "smooth"});
+            document.getElementById("printReceiptButton").focus();
+          } catch (cause) {
+            if (request === generation && receiptRequest === receiptGeneration) notify("No se pudo recuperar el recibo. Intente abrirlo de nuevo; esta consulta no registra otro pago.", true);
+          } finally { receiptButton.disabled = false; }
+        });
+        row.append(receiptButton);
         if (payment.voided_at) {
           row.append(text("p", `Anulado · ${payment.void_reason} · Usuario #${payment.voided_by_user_id}`));
         } else if (payment.cash_closing_id) {
@@ -2745,7 +2771,9 @@ function pdReceiptMarkup(receipt, context) {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
   const date = receipt.paid_at ? pdDateTime(receipt.paid_at) : pdDateOnly(context.date);
   return `<div class="pd-receipt-heading"><p>PréstamoDesk · by FieldLookers</p><p>${text(context.business)}</p>
-    <p class="pd-receipt-number">${text(receipt.receipt_number)}</p></div>
+    <p class="pd-receipt-number">${text(receipt.receipt_number ?? `PM-${String(receipt.id).padStart(8, "0")}`)}</p></div>
+    ${context.historical ? `<p class="pd-receipt-note">Copia del registro de pago. Nombre del prestatario y negocio actuales.</p>` : ""}
+    ${receipt.voided_at ? `<p class="message error"><strong>ANULADO · No acredita un pago vigente</strong><br>${text(receipt.void_reason)} · ${text(pdDateTime(receipt.voided_at))} · Usuario #${text(receipt.voided_by_user_id)}</p>` : ""}
     <p class="pd-receipt-amount"><span>Monto pagado (DOP)</span><strong>${text(money(receipt.amount))}</strong></p>
     <dl class="pd-receipt-details">
       ${row("Préstamo", text("#" + (receipt.loan_id ?? context.loanId)))}
@@ -2765,7 +2793,7 @@ function pdReceiptMarkup(receipt, context) {
       ${row("Total pendiente de cuota", text(money(receipt.installment_balance)))}
       ${row("Saldo total del préstamo", text(money(receipt.loan_balance)))}
     </dl>
-    <p class="pd-receipt-note">Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes.</p>
+    <p class="pd-receipt-note">${context.snapshotAvailable === false ? "Este pago no conserva los saldos originales. Los guiones indican información histórica no disponible." : "Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes."}</p>
     <p class="pd-receipt-note">Registrado por usuario #${text(receipt.recorded_by_user_id)}</p>`;
 }
 function pdDateOnly(value, fallback = "—") {
@@ -3989,6 +4017,7 @@ for (const button of document.querySelectorAll("button[data-cashier-task]")) but
   const list = document.getElementById("paymentCorrectionList");
   const message = document.getElementById("paymentCorrectionMessage");
   let generation = 0;
+  let receiptGeneration = 0;
   let busy = false;
   const currency = new Intl.NumberFormat("es-DO", {style: "currency", currency: "DOP"});
   const text = (tag, contents) => { const node = document.createElement(tag); node.textContent = contents; return node; };
@@ -4004,9 +4033,10 @@ for (const button of document.querySelectorAll("button[data-cashier-task]")) but
     message.className = "message " + (failed ? "error" : "success");
     message.hidden = false;
   }
-  function clear() { generation++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
+  function clear() { generation++; receiptGeneration++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
   async function load(loanId, role) {
     const request = ++generation;
+    receiptGeneration++;
     list.replaceChildren();
     message.hidden = true;
     panel.hidden = !["owner", "administrator"].includes(role);
@@ -4020,6 +4050,28 @@ for (const button of document.querySelectorAll("button[data-cashier-task]")) but
         const row = document.createElement("article");
         row.append(text("h4", `PM-${String(payment.id).padStart(8, "0")} · ${currency.format(Number(payment.amount))}`));
         row.append(text("p", `Registrado por usuario #${payment.recorded_by_user_id} · ${payment.paid_at}`));
+        const receiptButton = text("button", "Ver recibo");
+        receiptButton.type = "button";
+        receiptButton.className = "secondary";
+        receiptButton.addEventListener("click", async () => {
+          if (busy || paymentSubmitting || paymentNeedsReview) return;
+          const receiptRequest = ++receiptGeneration;
+          receiptButton.disabled = true;
+          try {
+            const result = await apiRequest(`${PRODUCT_BASE}/payments/${payment.id}/receipt`);
+            if (request !== generation || receiptRequest !== receiptGeneration || paymentSubmitting || paymentNeedsReview) return;
+            receiptContent.innerHTML = pdReceiptMarkup(result.receipt, {
+              loanId, borrower: result.borrower_name, business: result.business_name,
+              historical: true, snapshotAvailable: result.snapshot_available
+            });
+            receiptPanel.hidden = false;
+            receiptPanel.scrollIntoView({block: "start", behavior: "smooth"});
+            document.getElementById("printReceiptButton").focus();
+          } catch (cause) {
+            if (request === generation && receiptRequest === receiptGeneration) notify("No se pudo recuperar el recibo. Intente abrirlo de nuevo; esta consulta no registra otro pago.", true);
+          } finally { receiptButton.disabled = false; }
+        });
+        row.append(receiptButton);
         if (payment.voided_at) {
           row.append(text("p", `Anulado · ${payment.void_reason} · Usuario #${payment.voided_by_user_id}`));
         } else if (payment.cash_closing_id) {

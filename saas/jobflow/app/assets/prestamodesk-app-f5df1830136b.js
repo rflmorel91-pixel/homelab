@@ -5,7 +5,9 @@ function pdReceiptMarkup(receipt, context) {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
   const date = receipt.paid_at ? pdDateTime(receipt.paid_at) : pdDateOnly(context.date);
   return `<div class="pd-receipt-heading"><p>PréstamoDesk · by FieldLookers</p><p>${text(context.business)}</p>
-    <p class="pd-receipt-number">${text(receipt.receipt_number)}</p></div>
+    <p class="pd-receipt-number">${text(receipt.receipt_number ?? `PM-${String(receipt.id).padStart(8, "0")}`)}</p></div>
+    ${context.historical ? `<p class="pd-receipt-note">Copia del registro de pago. Nombre del prestatario y negocio actuales.</p>` : ""}
+    ${receipt.voided_at ? `<p class="message error"><strong>ANULADO · No acredita un pago vigente</strong><br>${text(receipt.void_reason)} · ${text(pdDateTime(receipt.voided_at))} · Usuario #${text(receipt.voided_by_user_id)}</p>` : ""}
     <p class="pd-receipt-amount"><span>Monto pagado (DOP)</span><strong>${text(money(receipt.amount))}</strong></p>
     <dl class="pd-receipt-details">
       ${row("Préstamo", text("#" + (receipt.loan_id ?? context.loanId)))}
@@ -25,7 +27,7 @@ function pdReceiptMarkup(receipt, context) {
       ${row("Total pendiente de cuota", text(money(receipt.installment_balance)))}
       ${row("Saldo total del préstamo", text(money(receipt.loan_balance)))}
     </dl>
-    <p class="pd-receipt-note">Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes.</p>
+    <p class="pd-receipt-note">${context.snapshotAvailable === false ? "Este pago no conserva los saldos originales. Los guiones indican información histórica no disponible." : "Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes."}</p>
     <p class="pd-receipt-note">Registrado por usuario #${text(receipt.recorded_by_user_id)}</p>`;
 }
 function renderEmptyState(container, message, label, action) {
