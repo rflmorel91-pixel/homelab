@@ -41,7 +41,7 @@ async function setup(role='owner',multi=false,standalone=false,scenario={}){
  const s=await setup('owner',false,false,{request:async p=>p.endsWith('/loans')?await held:undefined});
  const d=s.w.document;assert(!d.getElementById('pdReadState').hidden);assert.match(d.getElementById('pdReadState').textContent,/Cargando/);
  release(new Response('[]',{headers:{'content-type':'application/json'}}));await flush();
- assert(d.getElementById('pdReadState').hidden);assert.equal(d.querySelector('.pd-module #loanList').textContent.trim(),'No hay préstamos registrados.');
+ assert(d.getElementById('pdReadState').hidden);assert.match(d.querySelector('.pd-module #loanList').textContent,/No hay préstamos registrados\./);
  assert(!s.calls.some(c=>['POST','PATCH','PUT','DELETE'].includes(c.options.method)));s.dom.window.close();
  for(const failure of ['network','server']){
   const s=await setup('owner',false,false,{request:async p=>{

@@ -1,3 +1,28 @@
+function renderEmptyState(container, message, label, action) {
+  container.replaceChildren();
+  const text = document.createElement("p");
+  text.className = "notice";
+  text.textContent = message;
+  container.append(text);
+  if (label && action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.dataset.emptyAction = "true";
+    button.textContent = label;
+    button.addEventListener("click", action);
+    container.append(button);
+  }
+}
+function emptyCreateForm(id) {
+  if (!canManageLoans()) return;
+  if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || paymentSubmitting || paymentNeedsReview) {
+    showError("Confirme el resultado de la operación pendiente antes de abrir otro formulario."); return;
+  }
+  // Reuse the guarded form action and preserve every existing draft.
+  document.querySelector('[data-loan-form="' + id + '"]')?.click();
+  document.getElementById(id).scrollIntoView?.({behavior:"instant", block:"start"});
+}
 function pdDateOnly(value, fallback = "—") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
   if (!match) return fallback;
@@ -574,7 +599,7 @@ function renderApplications() {
   if (applications.length === 0) {
     applicationList.innerHTML = `
       <p class="notice">
-        No hay solicitudes de préstamo.
+        No hay solicitudes de préstamo. Las solicitudes recibidas aparecerán aquí para su revisión.
       </p>
     `;
     return;
@@ -751,13 +776,14 @@ function renderBorrowers() {
   ).textContent = String(matches.length);
 
   if (borrowers.length === 0) {
-    borrowerList.innerHTML =
-      '<p>No hay prestatarios registrados.</p>';
+    renderEmptyState(borrowerList, "No hay prestatarios registrados. Registre el primero para preparar un préstamo.",
+      canManageLoans() ? "Crear prestatario" : null, () => emptyCreateForm("compactBorrowerForm"));
     return;
   }
 
   if (matches.length === 0) {
-    borrowerList.innerHTML = '<p>No hay prestatarios que coincidan con los filtros.</p>';
+    renderEmptyState(borrowerList, "No hay prestatarios que coincidan con los filtros. Pruebe otro nombre o documento.",
+      "Limpiar filtros", () => document.getElementById("borrowerFilterClear").click());
     return;
   }
   borrowerList.innerHTML = matches
@@ -1068,7 +1094,7 @@ function renderProspects() {
 
   if (prospects.length === 0) {
     prospectList.innerHTML =
-      "<p>No hay prospectos registrados.</p>";
+      prospectPage ? "<p>No hay prospectos registrados. Comparta el enlace de Abrir página pública para recibir solicitudes preliminares.</p>" : "<p>No hay prospectos registrados.</p>";
     return;
   }
 
@@ -1227,8 +1253,17 @@ function renderLoans() {
   ).textContent = String(activeLoans.length);
 
   if (visibleLoans.length === 0) {
-    loanList.innerHTML =
-      loans.length === 0 ? '<p>No hay préstamos registrados.</p>' : '<p>No hay préstamos que coincidan con los filtros.</p>';
+    if (loans.length === 0) {
+      const hasActiveBorrower = borrowers.some(item => item.status === "active");
+      renderEmptyState(loanList, canManageLoans()
+        ? (hasActiveBorrower ? "No hay préstamos registrados. Prepare el primer préstamo para un prestatario activo." : "No hay préstamos registrados. Registre un prestatario activo para comenzar.")
+        : "No hay préstamos registrados. Cuando el propietario o administrador cree uno, podrá consultarlo aquí.",
+        canManageLoans() ? (hasActiveBorrower ? "Crear préstamo" : "Crear prestatario") : null,
+        () => emptyCreateForm(hasActiveBorrower ? "compactLoanForm" : "compactBorrowerForm"));
+    } else {
+      renderEmptyState(loanList, "No hay préstamos que coincidan con los filtros. Pruebe otro nombre, documento o número de préstamo.",
+        "Limpiar filtros", () => document.getElementById("loanFilterClear").click());
+    }
     return;
   }
 
