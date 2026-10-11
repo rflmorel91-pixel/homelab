@@ -4,6 +4,7 @@
   const list = document.getElementById("paymentCorrectionList");
   const message = document.getElementById("paymentCorrectionMessage");
   let generation = 0;
+  let receiptGeneration = 0;
   let busy = false;
   const currency = new Intl.NumberFormat("es-DO", {style: "currency", currency: "DOP"});
   const text = (tag, contents) => { const node = document.createElement(tag); node.textContent = contents; return node; };
@@ -19,9 +20,10 @@
     message.className = "message " + (failed ? "error" : "success");
     message.hidden = false;
   }
-  function clear() { generation++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
+  function clear() { generation++; receiptGeneration++; panel.hidden = true; list.replaceChildren(); message.hidden = true; }
   async function load(loanId, role) {
     const request = ++generation;
+    receiptGeneration++;
     list.replaceChildren();
     message.hidden = true;
     panel.hidden = !["owner", "administrator"].includes(role);
@@ -35,6 +37,28 @@
         const row = document.createElement("article");
         row.append(text("h4", `PM-${String(payment.id).padStart(8, "0")} · ${currency.format(Number(payment.amount))}`));
         row.append(text("p", `Registrado por usuario #${payment.recorded_by_user_id} · ${payment.paid_at}`));
+        const receiptButton = text("button", "Ver recibo");
+        receiptButton.type = "button";
+        receiptButton.className = "secondary";
+        receiptButton.addEventListener("click", async () => {
+          if (busy || paymentSubmitting || paymentNeedsReview) return;
+          const receiptRequest = ++receiptGeneration;
+          receiptButton.disabled = true;
+          try {
+            const result = await apiRequest(`${PRODUCT_BASE}/payments/${payment.id}/receipt`);
+            if (request !== generation || receiptRequest !== receiptGeneration || paymentSubmitting || paymentNeedsReview) return;
+            receiptContent.innerHTML = pdReceiptMarkup(result.receipt, {
+              loanId, borrower: result.borrower_name, business: result.business_name,
+              historical: true, snapshotAvailable: result.snapshot_available
+            });
+            receiptPanel.hidden = false;
+            receiptPanel.scrollIntoView({block: "start", behavior: "smooth"});
+            document.getElementById("printReceiptButton").focus();
+          } catch (cause) {
+            if (request === generation && receiptRequest === receiptGeneration) notify("No se pudo recuperar el recibo. Intente abrirlo de nuevo; esta consulta no registra otro pago.", true);
+          } finally { receiptButton.disabled = false; }
+        });
+        row.append(receiptButton);
         if (payment.voided_at) {
           row.append(text("p", `Anulado · ${payment.void_reason} · Usuario #${payment.voided_by_user_id}`));
         } else if (payment.cash_closing_id) {
