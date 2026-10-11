@@ -1,0 +1,26 @@
+#receiptPanel { max-width:700px; }
+#receiptContent { overflow-wrap:anywhere; }
+.pd-receipt-heading p { margin:4px 0; }
+.pd-receipt-number { font-weight:750; font-size:18px; }
+.pd-receipt-amount { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px; background:#edf5ef; border-radius:8px; }
+.pd-receipt-amount span { font-size:13px; }
+.pd-receipt-amount strong { font-size:24px; white-space:nowrap; }
+.pd-receipt-details { margin:12px 0; }
+.pd-receipt-details > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; padding:7px 0; border-bottom:1px solid #e2e8e3; }
+.pd-receipt-details dt { color:#4c6156; }
+.pd-receipt-details dd { margin:0; text-align:right; font-weight:600; }
+.pd-receipt-note { color:#4c6156; font-size:12px; line-height:1.5; }
+@media screen and (max-width:400px) { .pd-receipt-amount {flex-direction:column; align-items:flex-start;} .pd-receipt-details > div {grid-template-columns:1fr; gap:3px;} .pd-receipt-details dd {text-align:left;} }
+@media print {
+  body.pd-payment-receipt-print { background:#fff; }
+  body.pd-payment-receipt-print main > :not(#workspace):not(#cashierWorkspace),
+  body.pd-payment-receipt-print #workspace > :not(#receiptPanel),
+  body.pd-payment-receipt-print #cashierWorkspace > :not(#receiptPanel) {display:none!important;}
+  body.pd-payment-receipt-print main, body.pd-payment-receipt-print #workspace, body.pd-payment-receipt-print #cashierWorkspace { display:block!important; margin:0; padding:0; width:100%; }
+  body.pd-payment-receipt-print #receiptPanel { position:static; max-width:175mm; margin:0 auto; padding:8mm; border:0; box-shadow:none; color:#000; background:#fff; font-size:10pt; }
+  body.pd-payment-receipt-print #receiptContent h3 {font-size:11pt; margin:14px 0 5px;}
+  body.pd-payment-receipt-print .pd-receipt-amount {background:#fff; border:1px solid #999;}
+  body.pd-payment-receipt-print .pd-receipt-amount strong {font-size:18pt;}
+  body.pd-payment-receipt-print .pd-receipt-details > div {break-inside:avoid;}
+  body.pd-payment-receipt-print .pd-receipt-note {font-size:9pt; color:#333;}
+}
