@@ -26,7 +26,7 @@
     if(mounted?.guard&&!mounted.guard.canLeave()&&!mounted.guard.confirmLeave?.()){note(mounted.guard.leaveMessage?.()||"Revise el resultado del pago en Caja antes de cambiar de sección.");return false;}
     return !dirty||window.confirm("Hay datos sin guardar. ¿Desea cambiar de sección y descartarlos?");
   }
-  function teardown(){$("pdSummaryActions").hidden=true;generation++;mounted?.dispose();mounted=null;current=null;dirty=false;$("pdHost").replaceChildren();}
+  function teardown(){$("pdReadState").hidden=true;$("pdReadState").textContent="";$("pdSummaryActions").hidden=true;generation++;mounted?.dispose();mounted=null;current=null;dirty=false;$("pdHost").replaceChildren();}
   function updateAccess(){
     for(const button of document.querySelectorAll('[data-pd-view]'))button.hidden=!allowed(button.dataset.pdView);
     for(const button of document.querySelectorAll("[data-pd-summary-view]"))button.hidden=!allowed(button.dataset.pdSummaryView);
@@ -70,6 +70,13 @@
       const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;
     },set(target,key,value){local[key]=value;return true;}});
     const scopedStorage={getItem(key){return storageKeys.includes(key)?String(tenant.tenant_id):localStorage.getItem(key);},setItem(key,value){if(!storageKeys.includes(key))localStorage.setItem(key,value);},removeItem(key){if(!storageKeys.includes(key))localStorage.removeItem(key);}};
+    let reads=0,readFailed=false;
+    function readState(){
+      if(epoch!==generation)return;
+      const status=$("pdReadState");
+      status.hidden=!reads&&!readFailed;
+      status.textContent=reads?"Cargando datos de la sección…":readFailed?"No se pudieron cargar todos los datos. Puede volver a intentar con Actualizar acceso.":"";
+    }
     async function scopedFetch(input,options={}){
       if(epoch!==generation)throw new DOMException("Sección cerrada","AbortError");
       const url=new URL(input,location.origin);if(url.origin!==location.origin||!url.pathname.startsWith('/api/v1/'))throw new Error("Destino no permitido.");
@@ -84,13 +91,24 @@
       const readOnlyPreview=method==='POST'&&url.pathname==='/api/v1/products/prestamodesk/loans/preview';
       const mutating=!['GET','HEAD'].includes(method)&&!readOnlyPreview;
       if(mutating){writes++;controls();}
+      const reading=['GET','HEAD'].includes(method)&&url.pathname.startsWith('/api/v1/products/prestamodesk/');
+      if(reading){reads++;readState();}
+
       try{
         const response=await fetch(url,{...options,headers,credentials:'same-origin',signal:controller.signal});
         if(mutating && response.ok && epoch===generation && !/\/borrowers\/\d+\/contact$/.test(url.pathname))dirty=false;
         if(response.status===401&&epoch===generation){teardown();selected=null;updateAccess();note("Su sesión venció. Inicie sesión para continuar.");}
         else if(response.status===403&&epoch===generation)note("Revise sus permisos. Puede actualizar el acceso desde el menú.");
+        const expectedMissingPolicy=response.status===404&&url.pathname==='/api/v1/products/prestamodesk/late-fee-policy';
+        if(reading&&!response.ok&&!expectedMissingPolicy)readFailed=true;
         return response;
-      }finally{if(mutating){writes--;controls();}}
+      }catch(error){
+        if(reading&&error.name!=='AbortError')readFailed=true;
+        throw error;
+      }finally{
+        if(reading){reads--;readState();}
+        if(mutating){writes--;controls();}
+      }
     }
     return {document:scopedDocument,window:scopedWindow,fetch:scopedFetch,storage:scopedStorage,location:scopedLocation,delay,
       dispose(){controller.abort();for(const timer of timers)clearTimeout(timer);events.dispatchEvent(new Event('pd-dispose'));}};
