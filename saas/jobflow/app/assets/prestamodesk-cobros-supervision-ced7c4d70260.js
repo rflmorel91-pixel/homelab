@@ -1,3 +1,20 @@
+function pdDateOnly(value, fallback = "—") {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const date = new Date(value + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return fallback;
+  return match[3] + "/" + match[2] + "/" + match[1];
+}
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("day") + "/" + part("month") + "/" + part("year") + ", " + new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",hour:"numeric",minute:"2-digit"}).format(date);
+}
 function pdBusinessDate(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
   const part = type => parts.find(item => item.type === type).value;

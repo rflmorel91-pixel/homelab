@@ -1,11 +1,21 @@
+function pdDateOnly(value, fallback = "—") {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const date = new Date(value + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return fallback;
+  return match[3] + "/" + match[2] + "/" + match[1];
+}
 function pdDateTime(value, fallback = "—") {
   if (!value) return fallback;
   const raw = String(value).trim();
   const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
   const date = new Date(normalized);
   if (!Number.isFinite(date.getTime())) return fallback;
-  return new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",dateStyle:"medium",timeStyle:"short"}).format(date);
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("day") + "/" + part("month") + "/" + part("year") + ", " + new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",hour:"numeric",minute:"2-digit"}).format(date);
 }
+
 const API_BASE = "/api/v1";
 const PRODUCT_BASE = "/products/prestamodesk";
 const TENANT_STORAGE_KEY =
@@ -597,7 +607,7 @@ function renderInstallments(installments) {
         ${installments.map(item => `
           <tr>
             <td>${item.sequence_number}</td>
-            <td>${escapeHtml(item.due_date)}</td>
+            <td>${escapeHtml(pdDateOnly(item.due_date))}</td>
             <td>${formatMoney(item.total_due)}</td>
             <td>${formatMoney(item.paid_amount)}</td>
             <td>${formatMoney(item.ordinary_balance)}</td>
@@ -644,7 +654,7 @@ function renderPaymentOptions(installments) {
         data-balance="${installmentBalance(item)}"
       >
         Cuota ${item.sequence_number}
-        · vence ${escapeHtml(item.due_date)}
+        · vence ${escapeHtml(pdDateOnly(item.due_date))}
         · ${formatMoney(installmentBalance(item))}
       </option>
     `)
