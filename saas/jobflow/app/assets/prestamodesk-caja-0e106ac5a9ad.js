@@ -1,3 +1,33 @@
+function pdReceiptMarkup(receipt, context) {
+  const text = value => escapeHtml(value == null || value === "" ? "—" : String(value));
+  const money = value => value == null ? "—" : formatMoney(value);
+  const methods = {cash:"Efectivo",bank_transfer:"Transferencia bancaria",card:"Tarjeta",other:"Otro"};
+  const row = (label, value) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
+  const date = receipt.paid_at ? pdDateTime(receipt.paid_at) : pdDateOnly(context.date);
+  return `<div class="pd-receipt-heading"><p>PréstamoDesk · by FieldLookers</p><p>${text(context.business)}</p>
+    <p class="pd-receipt-number">${text(receipt.receipt_number)}</p></div>
+    <p class="pd-receipt-amount"><span>Monto pagado (DOP)</span><strong>${text(money(receipt.amount))}</strong></p>
+    <dl class="pd-receipt-details">
+      ${row("Préstamo", text("#" + (receipt.loan_id ?? context.loanId)))}
+      ${row("Prestatario", text(context.borrower))}
+      ${row("Fecha del pago · República Dominicana", text(date))}
+      ${row("Método", text(methods[receipt.payment_method ?? context.method] || "—"))}
+      ${row("Referencia", text(receipt.reference ?? context.reference))}
+    </dl>
+    <h3>Aplicación del pago</h3><dl class="pd-receipt-details">
+      ${row("Mora", text(money(receipt.late_fee_amount)))}
+      ${row("Interés", text(money(receipt.interest_amount)))}
+      ${row("Principal", text(money(receipt.principal_amount)))}
+    </dl>
+    <h3>Saldos después del pago</h3><dl class="pd-receipt-details">
+      ${row("Saldo ordinario de cuota", text(money(receipt.installment_ordinary_balance)))}
+      ${row("Mora pendiente de cuota", text(money(receipt.installment_late_fee_balance)))}
+      ${row("Total pendiente de cuota", text(money(receipt.installment_balance)))}
+      ${row("Saldo total del préstamo", text(money(receipt.loan_balance)))}
+    </dl>
+    <p class="pd-receipt-note">Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes.</p>
+    <p class="pd-receipt-note">Registrado por usuario #${text(receipt.recorded_by_user_id)}</p>`;
+}
 function pdDateOnly(value, fallback = "—") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
   if (!match) return fallback;
@@ -916,78 +946,7 @@ paymentForm.addEventListener(
 
       paymentSaved = true;
       sessionStorage.removeItem(requestStorageKey);
-      receiptContent.innerHTML = `
-        <p>
-          <strong>${escapeHtml(
-            receipt.receipt_number
-          )}</strong>
-        </p>
-        <p>
-          Préstamo:
-          <strong>#${loanId}</strong>
-        </p>
-        <p>
-          Cliente:
-          <strong>${escapeHtml(
-            borrowerName
-          )}</strong>
-        </p>
-        <p>
-          Fecha:
-          ${escapeHtml(paidDate)}
-        </p>
-        <p>
-          Método:
-          ${escapeHtml(
-            formatPaymentMethod(paymentMethod)
-          )}
-        </p>
-        <p>
-          Referencia:
-          ${escapeHtml(reference || "—")}
-        </p>
-        <p>
-          Monto:
-          <strong>${formatMoney(receipt.amount)}</strong>
-        </p>
-        <p>
-          Aplicado a mora:
-          ${formatMoney(receipt.late_fee_amount)}
-        </p>
-        <p>
-          Aplicado a interés:
-          ${formatMoney(receipt.interest_amount)}
-        </p>
-        <p>
-          Aplicado a principal:
-          ${formatMoney(receipt.principal_amount)}
-        </p>
-        <p>
-          Saldo ordinario de cuota:
-          ${formatMoney(
-            receipt.installment_ordinary_balance
-          )}
-        </p>
-        <p>
-          Mora pendiente:
-          ${formatMoney(
-            receipt.installment_late_fee_balance
-          )}
-        </p>
-        <p>
-          Total pendiente de cuota:
-          ${formatMoney(receipt.installment_balance)}
-        </p>
-        <p>
-          Saldo total del préstamo:
-          ${formatMoney(receipt.loan_balance)}
-        </p>
-        <p>
-          Registrado por usuario #${
-            receipt.recorded_by_user_id
-          }
-        </p>
-      `;
+      receiptContent.innerHTML = pdReceiptMarkup(receipt, {loanId, borrower:borrowerName, business:clientContext.textContent, date:paidDate, method:paymentMethod, reference});
 
       receiptPanel.hidden = false;
       paymentForm.reset();
@@ -1032,8 +991,15 @@ document.getElementById(
   "printReceiptButton"
 ).addEventListener(
   "click",
-  () => window.print()
+  () => {
+    if (receiptPanel.hidden || !receiptContent.textContent.trim()) return;
+    document.body.classList.add("pd-payment-receipt-print");
+    try { window.print(); }
+    catch { showError("No se pudo abrir la impresión. El pago ya está registrado; conserve el recibo e intente imprimir de nuevo."); }
+    finally { document.body.classList.remove("pd-payment-receipt-print"); }
+  }
 );
+window.addEventListener("afterprint", () => document.body.classList.remove("pd-payment-receipt-print"));
 
 
 cashClosingForm.addEventListener(

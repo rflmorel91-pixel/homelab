@@ -17,10 +17,11 @@ function setup(request, refresh = async () => {}, stored = new Map()) {
     paymentInstallment:installment,paymentAmount:{value:'1000'},PRODUCT_BASE:'/products/prestamodesk',
     cashierWorkspace:{querySelectorAll:()=>[button,installment]},document:{getElementById:()=>({value:'cash'})},
     clearMessages:()=>{},apiRequest:request,receiptContent:{innerHTML:''},receiptPanel:{hidden:true},
-    escapeHtml:String,formatMoney:String,formatPaymentMethod:String,setDefaultPaymentDate:()=>{},
+    loans:[],borrowerNameForLoan:()=> 'Carmen',clientContext:{textContent:'Synthetic business'},escapeHtml:String,formatMoney:String,formatPaymentMethod:String,setDefaultPaymentDate:()=>{},
     openLoan:refresh,searchLoans:async()=>{},loadCashClosing:async()=>{},loanSearchQuery:{value:''},
     showSuccess:()=>{},showError:message=>errors.push(message)};
-  vm.createContext(context); vm.runInContext(block,context);
+  vm.createContext(context);
+  for (const name of ['pdDateOnly','pdDateTime','pdReceiptMarkup']) vm.runInContext(source.match(new RegExp('function '+name+'\\([^]*?\\n\\}'))[0],context); vm.runInContext(block,context);
   return {context,button,errors,stored,submit:()=>context.submit({preventDefault(){}})};
 }
 (async()=>{

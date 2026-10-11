@@ -315,6 +315,35 @@
 :where(.pd-module) #loanFilterForm button,:where(.pd-module) #borrowerFilterForm button{min-width:0; width:100%; box-sizing:border-box;}
 
 
+:where(.pd-module) #receiptPanel{ max-width:700px; }
+:where(.pd-module) #receiptContent{ overflow-wrap:anywhere; }
+:where(.pd-module) .pd-receipt-heading p{ margin:4px 0; }
+:where(.pd-module) .pd-receipt-number{ font-weight:750; font-size:18px; }
+:where(.pd-module) .pd-receipt-amount{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px; background:#edf5ef; border-radius:8px; }
+:where(.pd-module) .pd-receipt-amount span{ font-size:13px; }
+:where(.pd-module) .pd-receipt-amount strong{ font-size:24px; white-space:nowrap; }
+:where(.pd-module) .pd-receipt-details{ margin:12px 0; }
+:where(.pd-module) .pd-receipt-details > div{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; padding:7px 0; border-bottom:1px solid #e2e8e3; }
+:where(.pd-module) .pd-receipt-details dt{ color:#4c6156; }
+:where(.pd-module) .pd-receipt-details dd{ margin:0; text-align:right; font-weight:600; }
+:where(.pd-module) .pd-receipt-note{ color:#4c6156; font-size:12px; line-height:1.5; }
+@media screen and (max-width:400px){:where(.pd-module) .pd-receipt-amount{flex-direction:column; align-items:flex-start;}
+:where(.pd-module) .pd-receipt-details > div{grid-template-columns:1fr; gap:3px;}
+:where(.pd-module) .pd-receipt-details dd{text-align:left;}
+ }
+@media print{:where(.pd-module).pd-payment-receipt-print{ background:#fff; }
+:where(.pd-module).pd-payment-receipt-print main > :not(#workspace):not(#cashierWorkspace),:where(.pd-module).pd-payment-receipt-print #workspace > :not(#receiptPanel),:where(.pd-module).pd-payment-receipt-print #cashierWorkspace > :not(#receiptPanel){display:none!important;}
+:where(.pd-module).pd-payment-receipt-print main,:where(.pd-module).pd-payment-receipt-print #workspace,:where(.pd-module).pd-payment-receipt-print #cashierWorkspace{ display:block!important; margin:0; padding:0; width:100%; }
+:where(.pd-module).pd-payment-receipt-print #receiptPanel{ position:static; max-width:175mm; margin:0 auto; padding:8mm; border:0; box-shadow:none; color:#000; background:#fff; font-size:10pt; }
+:where(.pd-module).pd-payment-receipt-print #receiptContent h3{font-size:11pt; margin:14px 0 5px;}
+:where(.pd-module).pd-payment-receipt-print .pd-receipt-amount{background:#fff; border:1px solid #999;}
+:where(.pd-module).pd-payment-receipt-print .pd-receipt-amount strong{font-size:18pt;}
+:where(.pd-module).pd-payment-receipt-print .pd-receipt-details > div{break-inside:avoid;}
+:where(.pd-module).pd-payment-receipt-print .pd-receipt-note{font-size:9pt; color:#333;}
+
+}
+
+
 :where(.pd-module){
   color-scheme: light;
   font-family:
