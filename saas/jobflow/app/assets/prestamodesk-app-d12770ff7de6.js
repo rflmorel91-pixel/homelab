@@ -1718,8 +1718,11 @@ async function openLoan(loanId) {
     `${PRODUCT_BASE}/loans/${loanId}`
   );
 
+  const sameLoan = selectedLoanId === loanId;
   selectedLoanId = loanId;
+  if (!sameLoan) setLoanDetailView("installments", true);
   renderLoanDetail(detail);
+  configureLoanDetailViews();
   window.prestamodeskSchedulePrint?.capture(detail);
   await window.prestamodeskPaymentHistory?.load(loanId, window.prestamodeskAccess?.role);
   loanDetailPanel.scrollIntoView({
@@ -1729,10 +1732,12 @@ async function openLoan(loanId) {
 }
 
 
+let loanLateFeeSubmitting = false;
 loanLateFeeForm.addEventListener(
   "submit",
   async event => {
     event.preventDefault();
+    if (loanDetailBlocked()) {showError("Espere a resolver la operación pendiente."); return;}
     clearMessages();
 
     if (!selectedLoanId) {
@@ -1741,6 +1746,7 @@ loanLateFeeForm.addEventListener(
     }
 
     const loanId = selectedLoanId;
+    loanLateFeeSubmitting = true;
 
     try {
       await apiRequest(
@@ -1761,7 +1767,7 @@ loanLateFeeForm.addEventListener(
       );
     } catch (error) {
       showError(error.message);
-    }
+    } finally {loanLateFeeSubmitting = false;}
   }
 );
 
@@ -2051,6 +2057,7 @@ paymentForm.addEventListener(
         showError("Pago registrado. No se pudo actualizar la pantalla. Conserve el recibo y recargue para consultar el saldo antes de registrar otro pago.");
       } finally {
         receiptPanel.hidden = false;
+        setLoanDetailView("payments", true);
       }
     } catch (error) {
       if (paymentSaved || !error.status || error.status >= 500) {
@@ -2228,6 +2235,8 @@ document.getElementById(
 ).addEventListener(
   "click",
   () => {
+    if (loanDetailBlocked()) { showError("Espere a resolver la operación pendiente antes de cerrar el préstamo."); return; }
+    receiptPanel.hidden = true;
     selectedLoanId = null;
     loanDetailPanel.hidden = true;
     paymentPanel.hidden = true;
@@ -2517,3 +2526,27 @@ for (const button of document.querySelectorAll("[data-loan-close]")) button.addE
   window.prestamodeskSchedulePrint = {capture, clear};
   clear();
 })();
+
+function loanDetailBlocked() {
+  return loanLateFeeSubmitting || paymentSubmitting || paymentNeedsReview || window.prestamodeskPaymentHistory?.isBusy?.() || window.prestamodeskLoanCreation?.canLeave?.() === false;
+}
+function setLoanDetailView(view, internal = false) {
+  if (!internal && loanDetailBlocked()) {showError("Espere a resolver la operación pendiente antes de cambiar de vista."); return;}
+  if (!["installments", "payments", "late-fee"].includes(view)) return;
+  if (view === "late-fee" && !["owner", "administrator"].includes(window.prestamodeskAccess?.role)) return;
+  document.getElementById("workspace").dataset.loanDetailView = view;
+  for (const button of document.querySelectorAll("[data-loan-detail]")) button.setAttribute("aria-pressed", String(button.dataset.loanDetail === view));
+}
+function configureLoanDetailViews() {
+  const manager = ["owner", "administrator"].includes(window.prestamodeskAccess?.role);
+  document.querySelector('[data-loan-detail="late-fee"]').hidden = !manager;
+  document.getElementById("loanReceiptGuidance").hidden = manager;
+  const view = document.getElementById("workspace").dataset.loanDetailView;
+  setLoanDetailView(!view || (!manager && view === "late-fee") ? "installments" : view, true);
+}
+document.getElementById("loanDetailViews").addEventListener("click", event => {
+  const button = event.target.closest("[data-loan-detail]");
+  if (button && !button.hidden) setLoanDetailView(button.dataset.loanDetail);
+});
+window.prestamodeskLoanDetailViews = {canLeave: () => !loanDetailBlocked(), showReceipt: () => setLoanDetailView("payments", true)};
+setLoanDetailView("installments", true);

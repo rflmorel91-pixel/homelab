@@ -20,7 +20,7 @@ function setup(request, refresh = async () => {}, stored = new Map(), screen = '
     selectedLoanId:3,selectedLoan:{borrower_full_name:'Carmen'},paymentDate:{value:'2026-10-08'},
     paymentInstallment:installment,paymentAmount:{value:'1000'},PRODUCT_BASE:'/products/prestamodesk',
     workspace:{querySelectorAll:()=>[button,installment]},document:{getElementById:id=>({value:id==='paymentAmount'?'1000':id==='paymentMethod'?'cash':''})},
-    clearMessages:()=>{},apiRequest:request,receiptContent:{innerHTML:''},receiptPanel:{hidden:true},
+    setLoanDetailView:()=>{},clearMessages:()=>{},apiRequest:request,receiptContent:{innerHTML:''},receiptPanel:{hidden:true},
     loans:[],borrowerNameForLoan:()=> 'Carmen',clientContext:{textContent:'Synthetic business'},escapeHtml:String,formatMoney:String,formatPaymentMethod:String,setDefaultPaymentDate:()=>{},
     openLoan:refresh,loadDashboard:async()=>{},searchLoans:async()=>{},loadCashClosing:async()=>{},loanSearchQuery:{value:''},
     showSuccess:()=>{},showError:message=>errors.push(message)};
