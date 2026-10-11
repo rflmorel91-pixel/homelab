@@ -1713,12 +1713,14 @@ function renderLoanDetail(detail) {
 
 
 async function openLoan(loanId) {
+  window.prestamodeskSchedulePrint?.clear();
   const detail = await apiRequest(
     `${PRODUCT_BASE}/loans/${loanId}`
   );
 
   selectedLoanId = loanId;
   renderLoanDetail(detail);
+  window.prestamodeskSchedulePrint?.capture(detail);
   await window.prestamodeskPaymentHistory?.load(loanId, window.prestamodeskAccess?.role);
   loanDetailPanel.scrollIntoView({
     behavior: "smooth",
@@ -2445,3 +2447,73 @@ for (const button of document.querySelectorAll("[data-loan-close]")) button.addE
   document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.setAttribute("aria-expanded", "false");
   document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.focus();
 });
+
+(() => {
+  "use strict";
+  const button = document.getElementById("printLoanScheduleButton");
+  const panel = document.createElement("article");
+  panel.id = "loanSchedulePrintPanel";
+  panel.hidden = true;
+  document.querySelector("main").append(panel);
+  let snapshot = null;
+  function cleanup() {
+    document.body.classList.remove("pd-loan-schedule-print");
+    panel.hidden = true;
+    panel.replaceChildren();
+  }
+  function clear() { snapshot = null; button.disabled = true; cleanup(); }
+  function capture(detail) {
+    clear();
+    const table = installmentList.querySelector("table");
+    if (!table || !detail.installments?.length) return;
+    snapshot = {
+      id: detail.id, title: loanDetailTitle.textContent,
+      business: clientContext.textContent,
+      loaded: pdDateTime(new Date().toISOString()),
+      summary: loanDetailSummary.cloneNode(true), table: table.cloneNode(true)
+    };
+    snapshot.summary.removeAttribute("id");
+    const headings = snapshot.table.querySelectorAll("thead th");
+    headings[2].textContent = "Cuota original";
+    headings[3].textContent = "Pagado ordinario";
+    headings[4].textContent = "Saldo ordinario";
+    button.disabled = false;
+  }
+  function add(tag, value) {
+    const node = document.createElement(tag);
+    node.textContent = value;
+    panel.append(node);
+    return node;
+  }
+  function blocked() {
+    return paymentSubmitting || paymentNeedsReview
+      || (window.prestamodeskPaymentHistory?.isBusy?.() ?? false)
+      || (window.prestamodeskLoanCreation && !window.prestamodeskLoanCreation.canLeave());
+  }
+  button.addEventListener("click", () => {
+    if (!snapshot || blocked() || loanDetailPanel.hidden
+        || window.getComputedStyle(loanDetailPanel).display === "none"
+        || snapshot.id !== selectedLoanId) return;
+    cleanup();
+    add("h1", "Calendario de cuotas");
+    add("p", "PréstamoDesk · by FieldLookers");
+    add("p", snapshot.business);
+    add("h2", snapshot.title);
+    add("p", "Datos consultados: " + snapshot.loaded + " · República Dominicana");
+    panel.append(snapshot.summary.cloneNode(true));
+    add("p", "Importes en DOP. Pagado y saldo ordinario corresponden a principal e interés; no incluyen mora. Este calendario no es un recibo de pago ni una liquidación del préstamo. Consulte Caja para revisar la mora y el total exigible.");
+    panel.append(snapshot.table.cloneNode(true));
+    add("p", "Los movimientos posteriores a esta consulta pueden cambiar los saldos. El interés indicado es fijo total del préstamo; no representa una tasa APR.");
+    document.body.classList.remove("pd-payment-receipt-print", "pd-borrower-print", "pd-loan-preview-print");
+    panel.hidden = false;
+    document.body.classList.add("pd-loan-schedule-print");
+    try { window.print(); }
+    catch { showError("No se pudo abrir la impresión del calendario. Intente de nuevo."); }
+    finally { cleanup(); }
+  });
+  window.addEventListener("afterprint", cleanup);
+  document.getElementById("closeLoanDetail").addEventListener("click", () => {if (!blocked()) clear();});
+  document.getElementById("logoutButton").addEventListener("click", clear);
+  window.prestamodeskSchedulePrint = {capture, clear};
+  clear();
+})();

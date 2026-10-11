@@ -106,7 +106,7 @@
       notify(errors[cause.message] || cause.message, true);
     }
   }
-  window.prestamodeskPaymentHistory = {load, clear};
+  window.prestamodeskPaymentHistory = {load, clear, isBusy: () => busy};
   document.getElementById("logoutButton").addEventListener("click", clear);
   document.getElementById("closeLoanDetail").addEventListener("click", clear);
 })();
