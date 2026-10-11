@@ -1,3 +1,25 @@
+function pdDateOnly(value, fallback = "—") {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const date = new Date(value + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return fallback;
+  return match[3] + "/" + match[2] + "/" + match[1];
+}
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("day") + "/" + part("month") + "/" + part("year") + ", " + new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",hour:"numeric",minute:"2-digit"}).format(date);
+}
+function pdBusinessDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("year")+"-"+part("month")+"-"+part("day");
+}
 const API_BASE = "/api/v1";
 const PRODUCT_BASE = "/products/prestamodesk";
 
@@ -886,8 +908,8 @@ function buildBorrowerStatement() {
       <h3>${escape(borrower.full_name)}</h3>
       <p>Documento: ${escape(borrower.document_number||"No registrado")} · Teléfono: ${escape(borrower.phone||"No registrado")}</p>
       <p>Correo: ${escape(borrower.email||"No registrado")}</p>
-      <p>Fecha de consulta: ${escape(today)} · República Dominicana · DOP</p>
-      <p>Datos cargados: ${escape(borrowerStatementLoadedAt||"No disponible")} (UTC). Actualice la sección para consultar cambios posteriores.</p>
+      <p>Fecha de consulta: ${escape(pdDateOnly(today))} · República Dominicana · DOP</p>
+      <p>Datos cargados: ${escape(pdDateTime(borrowerStatementLoadedAt,"No disponible"))} (República Dominicana). Actualice la sección para consultar cambios posteriores.</p>
       <p><strong>Saldo ordinario pendiente (préstamos activos): ${money(statementSum(active.map(row=>row.balance)))}</strong></p>
       <p>Saldo ordinario vencido: ${money(statementSum(active.map(row=>row.overdue)))} · Pagado a cuotas (sin préstamos cancelados): ${money(statementSum(ordinary.map(row=>row.paid)))}</p>
       <p>Los importes no incluyen mora. Pagado a cuotas corresponde al capital e interés aplicado, no al total de recibos. Los préstamos cancelados se muestran como referencia y se excluyen de los totales.</p>
@@ -1343,7 +1365,7 @@ function setDefaultLateFeePolicy() {
 
   if (!lateFeeEffectiveDate.value) {
     lateFeeEffectiveDate.value =
-      new Date().toISOString().slice(0, 10);
+      pdBusinessDate();
   }
 
   lateFeePolicyStatus.textContent =
@@ -1362,7 +1384,7 @@ function renderLateFeePolicy(policy) {
   lateFeePolicyStatus.textContent = policy.enabled
     ? (
       "Mora activa desde "
-      + policy.effective_date
+      + pdDateOnly(policy.effective_date)
       + "."
     )
     : "Política guardada, pero la mora está desactivada.";
@@ -1571,7 +1593,7 @@ function renderLoanDetail(detail) {
         ${detail.installments.map(item => `
           <tr>
             <td>${item.sequence_number}</td>
-            <td>${escapeHtml(item.due_date)}</td>
+            <td>${escapeHtml(pdDateOnly(item.due_date))}</td>
             <td>${formatMoney(item.total_due)}</td>
             <td>${formatMoney(item.paid_amount)}</td>
             <td>${formatMoney(
@@ -1604,7 +1626,7 @@ function renderLoanDetail(detail) {
         }"
       >
         Cuota ${item.sequence_number}
-        · vence ${escapeHtml(item.due_date)}
+        · vence ${escapeHtml(pdDateOnly(item.due_date))}
         · ${formatMoney(
           Number(item.total_due)
           - Number(item.paid_amount)
@@ -1813,7 +1835,7 @@ loanPreviewButton.addEventListener("click", async () => {
     const add = (tag, text, parent=loanPreviewBox) => {const element=document.createElement(tag);element.textContent=text;parent.append(element);return element;};
     add("h3", "Vista previa del préstamo");
     add("p", preview.borrower_name);
-    add("p", `Tipo: ${payload.loan_type === "vehicle" ? "Vehículo" : "Personal"} · Frecuencia: ${{daily:"Diaria",weekly:"Semanal",biweekly:"Quincenal",monthly:"Mensual"}[payload.payment_frequency]} · Fecha del préstamo: ${payload.start_date}`);
+    add("p", `Tipo: ${payload.loan_type === "vehicle" ? "Vehículo" : "Personal"} · Frecuencia: ${{daily:"Diaria",weekly:"Semanal",biweekly:"Quincenal",monthly:"Mensual"}[payload.payment_frequency]} · Fecha del préstamo: ${pdDateOnly(payload.start_date)}`);
     if (payload.loan_type === "vehicle") add("p", `Precio: ${formatMoney(payload.vehicle_cash_price)} · Inicial: ${formatMoney(payload.vehicle_down_payment)} · ${payload.vehicle_make} ${payload.vehicle_model} ${payload.vehicle_year}`);
     add("p", `Financiado: ${formatMoney(preview.principal_amount)} · Interés total: ${formatMoney(preview.total_interest)} · Total: ${formatMoney(preview.total_due)}`);
     add("p", `Interés fijo total: ${payload.flat_interest_rate_percent}% · Mora: ${payload.late_fee_enabled ? "Activada según la política del negocio; no incluida en estos importes" : "No activada"}`);
@@ -1821,8 +1843,8 @@ loanPreviewButton.addEventListener("click", async () => {
     const table=add("table", ""), head=add("thead", "", table), row=add("tr", "", head);
     for (const label of ["Cuota", "Vence", "Principal", "Interés", "Total"]) {const th=add("th",label,row);th.scope="col";}
     const body=add("tbody", "", table);
-    for (const item of preview.installments) {const tr=add("tr", "", body);for (const value of [item.sequence_number,item.due_date,formatMoney(item.principal_due),formatMoney(item.interest_due),formatMoney(item.total_due)]) add("td",String(value),tr);}
-    loanPreviewPrintSnapshot={tenant:tenantId,payload:snapshot,calculatedAt:new Date().toLocaleString("es-DO",{timeZone:"America/Santo_Domingo"})};
+    for (const item of preview.installments) {const tr=add("tr", "", body);for (const value of [item.sequence_number,pdDateOnly(item.due_date),formatMoney(item.principal_due),formatMoney(item.interest_due),formatMoney(item.total_due)]) add("td",String(value),tr);}
+    loanPreviewPrintSnapshot={tenant:tenantId,payload:snapshot,calculatedAt:pdDateTime(new Date().toISOString())};
     const actions=add("div", "");actions.className="loan-preview-actions";
     const printButton=add("button", "Imprimir vista previa", actions);printButton.id="printLoanPreviewButton";printButton.type="button";printButton.addEventListener("click",printLoanPreview);
     loanPreviewBox.hidden=false;
@@ -2292,7 +2314,7 @@ logoutButton.addEventListener(
 async function initialize() {
   await checkHealth();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = pdBusinessDate();
   document.getElementById(
     "loanStartDate"
   ).value = today;
