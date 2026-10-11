@@ -652,6 +652,23 @@
 }
 :where(.pd-module) #cashierLoanList{max-width:100%; overflow-x:auto;}
 :where(.pd-module) #cashierLoanList button{min-width:72px; width:auto; padding:8px 10px; font-size:13px;}
+:where(.pd-module) .pd-cashier-cell-label{display:none;}
+@media screen and (max-width:600px){:where(.pd-module) #cashierLoanList{overflow-x:visible;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results{display:block; width:100%; min-width:0;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results thead{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results tbody{display:grid; gap:12px; width:100%;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results tbody tr{display:grid; min-width:0; border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fff;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:8px; min-width:0; padding:5px 0; border:0; white-space:normal; overflow-wrap:anywhere; font-size:14px;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results .pd-cashier-cell-label{display:block; color:#526777;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results .pd-cashier-cell-value{min-width:0; text-align:right;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td:nth-child(2){font-weight:600;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td:nth-child(7){font-weight:700; border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td:last-child{display:block; padding-top:10px;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td:last-child .pd-cashier-cell-label{display:none;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results td:last-child .pd-cashier-cell-value{display:block;}
+:where(.pd-module) #cashierLoanList .pd-cashier-results button{width:100%; min-height:44px; font-size:15px;}
+
+}
 
 
 :where(.pd-module) .collection-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}

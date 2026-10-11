@@ -3410,31 +3410,31 @@ function renderLoans(loans) {
   }
 
   cashierLoanList.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Préstamo</th>
-          <th>Cliente</th>
-          <th>Documento</th>
-          <th>Vehículo</th>
-          <th>Saldo ordinario</th>
-          <th>Mora</th>
-          <th>Total exigible</th>
-          <th>Estado</th>
-          <th>Acción</th>
+    <table class="pd-cashier-results" role="table" aria-label="Préstamos disponibles para cobrar">
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Préstamo</th>
+          <th scope="col" role="columnheader">Cliente</th>
+          <th scope="col" role="columnheader">Documento</th>
+          <th scope="col" role="columnheader">Vehículo</th>
+          <th scope="col" role="columnheader">Saldo ordinario</th>
+          <th scope="col" role="columnheader">Mora</th>
+          <th scope="col" role="columnheader">Total exigible</th>
+          <th scope="col" role="columnheader">Estado</th>
+          <th scope="col" role="columnheader">Acción</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody role="rowgroup">
         ${loans.map(loan => `
-          <tr>
-            <td>#${loan.id}</td>
-            <td>${escapeHtml(loan.borrower_full_name)}</td>
-            <td>
+          <tr role="row">
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Préstamo</span><span class="pd-cashier-cell-value">#${loan.id}</span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Cliente</span><span class="pd-cashier-cell-value">${escapeHtml(loan.borrower_full_name)}</span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Documento</span><span class="pd-cashier-cell-value">
               ${escapeHtml(
                 loan.borrower_document_number || "—"
               )}
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Vehículo</span><span class="pd-cashier-cell-value">
               ${escapeHtml(
                 [
                   loan.vehicle_make,
@@ -3442,23 +3442,23 @@ function renderLoans(loans) {
                   loan.vehicle_year
                 ].filter(Boolean).join(" ") || "—"
               )}
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Saldo ordinario</span><span class="pd-cashier-cell-value">
               ${formatMoney(loan.ordinary_balance_due)}
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Mora</span><span class="pd-cashier-cell-value">
               ${formatMoney(loan.late_fee_balance_due)}
-            </td>
-            <td>${formatMoney(loan.balance_due)}</td>
-            <td>${formatStatus(loan.status)}</td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Total exigible</span><span class="pd-cashier-cell-value">${formatMoney(loan.balance_due)}</span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Estado</span><span class="pd-cashier-cell-value">${formatStatus(loan.status)}</span></td>
+            <td role="cell"><span class="pd-cashier-cell-label" aria-hidden="true">Acción</span><span class="pd-cashier-cell-value">
               <button
                 type="button"
                 data-open-loan="${loan.id}"
               >
                 Cobrar
               </button>
-            </td>
+            </span></td>
           </tr>
         `).join("")}
       </tbody>
