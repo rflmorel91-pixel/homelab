@@ -67,6 +67,13 @@ def payment_fingerprint(payload: PaymentCreate) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def normalize_payment_timestamp(value: datetime) -> datetime:
+    """Normalize an API timestamp to naive UTC for database storage."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def ordinary_balance(
     installment: Installment,
 ) -> Decimal:
@@ -251,7 +258,9 @@ def record_payment(
     )
 
     now = datetime.now(timezone.utc)
-    paid_at = payload.paid_at or now
+    paid_at = normalize_payment_timestamp(
+        payload.paid_at or now
+    )
     payment_date = tenant_local_date(tenant, paid_at)
 
     if payment_date > tenant_local_date(tenant, now):
