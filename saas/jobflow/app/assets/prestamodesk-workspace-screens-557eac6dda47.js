@@ -4696,57 +4696,57 @@ function renderPortfolio(items) {
   }
 
   portfolioList.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Préstamo</th>
-          <th>Cliente</th>
-          <th>Contacto</th>
-          <th>Vencimiento más antiguo</th>
-          <th>Días vencidos</th>
-          <th>Cuotas</th>
-          <th>Saldo vencido</th>
-          <th>Cobrador asignado</th>
-          <th>Acción</th>
+    <table class="pd-collections-results" role="table" aria-label="Cartera vencida">
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Préstamo</th>
+          <th scope="col" role="columnheader">Cliente</th>
+          <th scope="col" role="columnheader">Contacto</th>
+          <th scope="col" role="columnheader">Vencimiento más antiguo</th>
+          <th scope="col" role="columnheader">Días vencidos</th>
+          <th scope="col" role="columnheader">Cuotas</th>
+          <th scope="col" role="columnheader">Saldo vencido</th>
+          <th scope="col" role="columnheader">Cobrador asignado</th>
+          <th scope="col" role="columnheader">Acción</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody role="rowgroup">
         ${items.map(item => `
-          <tr>
-            <td>#${item.loan_id}</td>
-            <td>
+          <tr role="row">
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Préstamo</span><span class="pd-collections-cell-value">#${item.loan_id}</span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Cliente</span><span class="pd-collections-cell-value">
               <strong>${escapeHtml(
                 item.borrower_full_name
               )}</strong><br>
               ${escapeHtml(
                 item.borrower_document_number || "—"
               )}
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Contacto</span><span class="pd-collections-cell-value">
               ${escapeHtml(
                 item.borrower_phone || "—"
               )}<br>
               ${escapeHtml(
                 item.borrower_email || "—"
               )}
-            </td>
-            <td>${formatDate(
+            </span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Vencimiento más antiguo</span><span class="pd-collections-cell-value">${formatDate(
               item.oldest_due_date
-            )}</td>
-            <td>${item.days_overdue}</td>
-            <td>${item.overdue_installment_count}</td>
-            <td>
+            )}</span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Días vencidos</span><span class="pd-collections-cell-value">${item.days_overdue}</span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Cuotas</span><span class="pd-collections-cell-value">${item.overdue_installment_count}</span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Saldo vencido</span><span class="pd-collections-cell-value">
               <strong>${formatMoney(
                 item.total_balance_due
               )}</strong>
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Cobrador asignado</span><span class="pd-collections-cell-value">
               ${escapeHtml(
                 item.assigned_collector_display_name
                 || "Sin asignar"
               )}
-            </td>
-            <td>
+            </span></td>
+            <td role="cell"><span class="pd-collections-cell-label" aria-hidden="true">Acción</span><span class="pd-collections-cell-value">
               <button
                 type="button"
                 class="secondary"
@@ -4754,7 +4754,7 @@ function renderPortfolio(items) {
               >
                 Gestionar
               </button>
-            </td>
+            </span></td>
           </tr>
         `).join("")}
       </tbody>

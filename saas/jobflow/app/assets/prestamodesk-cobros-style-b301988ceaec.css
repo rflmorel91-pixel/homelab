@@ -1,0 +1,39 @@
+/* Compact collection task views. Role visibility remains controlled by hidden. */
+.collection-toolbar {display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}
+.collection-toolbar button {width:auto;min-height:42px;}
+.collection-toolbar button[aria-pressed="false"] {background:#eef2f7;color:#24364b;}
+.collection-hint {font-size:.9rem;color:#526277;margin:6px 0;}
+#portfolioFilterForm {grid-template-columns:repeat(3,minmax(140px,1fr));align-items:end;}
+#collectionsWorkspace .table-wrap {max-width:100%;overflow-x:auto;}
+#collectionsWorkspace th,#collectionsWorkspace td {padding:8px 10px;font-size:.9rem;}
+@media screen {
+#collectionsWorkspace[data-collection-task="portfolio"] #collectionOverduePanel,
+#collectionsWorkspace[data-collection-task="overdue"] #collectionPortfolioPanel,
+#collectionsWorkspace[data-collection-task="overdue"] #collectionDetailPanel {display:none;}
+#collectionDetailPanel:not([data-collection-detail="activity"]) #collectionActivityPanel,
+#collectionDetailPanel:not([data-collection-detail="promise"]) #collectionPromisePanel,
+#collectionDetailPanel:not([data-collection-detail="assignment"]) #collectorAssignmentPanel,
+#collectionDetailPanel:not([data-collection-detail="history"]) #collectionActivityPanelHistory,
+#collectionDetailPanel:not([data-collection-detail="history"]) #collectionPromisePanelHistory {display:none;}
+}
+@media(max-width:600px) {#portfolioFilterForm {grid-template-columns:1fr;}.collection-toolbar button {flex:1;}}
+@media print {.collection-toolbar {display:none;}}
+
+/* One result and one Gestionar action per loan at every screen size. */
+.pd-collections-cell-label {display:none;}
+@media screen and (max-width:600px) {
+ #collectionsWorkspace #portfolioList {overflow-x:visible;}
+ #portfolioList .pd-collections-results {display:block; width:100%; min-width:0;}
+ #portfolioList .pd-collections-results thead {position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap;}
+ #portfolioList .pd-collections-results tbody {display:grid; gap:12px; width:100%;}
+ #portfolioList .pd-collections-results tbody tr {display:grid; min-width:0; border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fff;}
+ #portfolioList .pd-collections-results td {display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:8px; min-width:0; padding:5px 0; border:0; white-space:normal; overflow-wrap:anywhere; font-size:14px;}
+ #portfolioList .pd-collections-results .pd-collections-cell-label {display:block; color:#526777;}
+ #portfolioList .pd-collections-results .pd-collections-cell-value {min-width:0; text-align:right;}
+ #portfolioList .pd-collections-results td:nth-child(2) {font-weight:600;}
+ #portfolioList .pd-collections-results td:nth-child(7) {font-weight:700; border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;}
+ #portfolioList .pd-collections-results td:last-child {display:block; padding-top:10px;}
+ #portfolioList .pd-collections-results td:last-child .pd-collections-cell-label {display:none;}
+ #portfolioList .pd-collections-results td:last-child .pd-collections-cell-value {display:block;}
+ #portfolioList .pd-collections-results button {width:100%; min-height:44px; font-size:15px;}
+}
