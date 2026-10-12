@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,6 +10,7 @@ from app.models import Tenant
 from app.products.prestamodesk.authorization import (
     require_prestamodesk_payment_member,
 )
+from app.products.prestamodesk.business_time import tenant_local_date
 from app.products.prestamodesk.amortization import money
 from app.products.prestamodesk.cashier_schemas import (
     CashierInstallmentRead,
@@ -265,15 +266,12 @@ def get_cashier_loan(
 
 def projection_date(
     as_of: date | None,
+    tenant: Tenant,
 ) -> date:
-    selected = (
-        as_of
-        or datetime.now(timezone.utc).date()
-    )
+    today = tenant_local_date(tenant)
+    selected = as_of or today
 
-    if selected > datetime.now(
-        timezone.utc
-    ).date():
+    if selected > today:
         raise HTTPException(
             status_code=422,
             detail=(
@@ -297,7 +295,7 @@ def search_cashier_loans(
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
-    selected_date = projection_date(as_of)
+    selected_date = projection_date(as_of, tenant)
     policy = get_policy(db, tenant.id)
 
     statement = (
@@ -366,7 +364,7 @@ def get_cashier_loan_detail(
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
-    selected_date = projection_date(as_of)
+    selected_date = projection_date(as_of, tenant)
     loan, borrower = get_cashier_loan(
         loan_id,
         db,
