@@ -201,6 +201,22 @@ def promise_read(
     )
 
 
+def collection_as_of_date(
+    as_of: date | None,
+    tenant: Tenant,
+) -> date:
+    today = tenant_local_date(tenant)
+    selected = as_of or today
+
+    if selected > today:
+        raise HTTPException(
+            status_code=422,
+            detail="Collection date cannot be in the future",
+        )
+
+    return selected
+
+
 @router.get(
     "/portfolio",
     response_model=list[CollectionPortfolioItem],
@@ -215,7 +231,7 @@ def list_overdue_portfolio(
     ),
 ):
     require_collections_access(membership)
-    as_of = as_of or tenant_local_date(tenant)
+    as_of = collection_as_of_date(as_of, tenant)
 
     if assignment_status not in {
         "all",
@@ -640,7 +656,7 @@ def list_tenant_promises(
     ),
 ):
     require_collections_access(membership)
-    as_of = as_of or tenant_local_date(tenant)
+    as_of = collection_as_of_date(as_of, tenant)
 
     statement = select(PaymentPromise).where(
         PaymentPromise.tenant_id == tenant.id
@@ -961,7 +977,7 @@ def export_collections_supervision_csv(
     ),
 ):
     require_collections_owner(membership)
-    as_of = as_of or tenant_local_date(tenant)
+    as_of = collection_as_of_date(as_of, tenant)
 
     portfolio = list_overdue_portfolio(
         as_of=as_of,
@@ -1062,7 +1078,7 @@ def read_collections_supervision(
             detail="Owner role required",
         )
 
-    as_of = as_of or tenant_local_date(tenant)
+    as_of = collection_as_of_date(as_of, tenant)
 
     overdue_installments = db.scalars(
         select(Installment)

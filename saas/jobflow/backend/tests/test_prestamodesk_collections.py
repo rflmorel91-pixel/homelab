@@ -316,6 +316,41 @@ def test_collections_require_owner_or_collector(
     assert collector_response.status_code == 200
 
 
+def test_future_collection_cutoffs_are_rejected(
+    authenticated_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        client_number=821,
+        slug="collections-future-cutoff",
+    )
+    headers = role_headers(
+        authenticated_client,
+        db_session,
+        tenant,
+        "owner",
+    )
+
+    paths = (
+        "/collections/portfolio",
+        "/collections/promises",
+        "/collections/supervision",
+        "/collections/supervision/export.csv",
+    )
+    for path in paths:
+        response = authenticated_client.get(
+            f"{BASE_URL}{path}",
+            params={"as_of": "2999-12-31"},
+            headers=headers,
+        )
+        assert response.status_code == 422, (
+            path,
+            response.status_code,
+            response.text,
+        )
+
+
 def test_collector_records_activity_and_cannot_cross_tenants(
     authenticated_client,
     db_session,
