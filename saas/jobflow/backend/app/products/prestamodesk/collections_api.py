@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.products.prestamodesk.authorization import COLLECTIONS_MANAGEMENT_ROLES
+from app.products.prestamodesk.business_time import tenant_local_date
 from app.api.admin import add_admin_audit
 from app.database import get_db
 from app.models import (
@@ -158,11 +159,8 @@ def loan_outstanding_balance(
 def promise_read(
     promise: PaymentPromise,
     *,
-    as_of: date | None = None,
+    as_of: date,
 ) -> PaymentPromiseRead:
-    if as_of is None:
-        as_of = date.today()
-
     remaining = money(
         promise.promised_amount
         - promise.fulfilled_amount
@@ -197,7 +195,7 @@ def promise_read(
     response_model=list[CollectionPortfolioItem],
 )
 def list_overdue_portfolio(
-    as_of: date = Query(default_factory=date.today),
+    as_of: date | None = Query(default=None),
     assignment_status: str = Query(default="all"),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
@@ -206,6 +204,7 @@ def list_overdue_portfolio(
     ),
 ):
     require_collections_access(membership)
+    as_of = as_of or tenant_local_date(tenant)
 
     if assignment_status not in {
         "all",
@@ -556,7 +555,10 @@ def create_payment_promise(
         db.rollback()
         raise
 
-    return promise_read(promise)
+    return promise_read(
+        promise,
+        as_of=tenant_local_date(tenant),
+    )
 
 
 @router.get(
@@ -599,7 +601,7 @@ def list_payment_promises(
     ).all()
 
     return [
-        promise_read(promise)
+        promise_read(promise, as_of=tenant_local_date(tenant))
         for promise in promises
     ]
 
@@ -611,7 +613,7 @@ def list_payment_promises(
 def list_tenant_promises(
     status: str | None = None,
     overdue_only: bool = False,
-    as_of: date = Query(default_factory=date.today),
+    as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
     membership: TenantMembership = Depends(
@@ -619,6 +621,7 @@ def list_tenant_promises(
     ),
 ):
     require_collections_access(membership)
+    as_of = as_of or tenant_local_date(tenant)
 
     statement = select(PaymentPromise).where(
         PaymentPromise.tenant_id == tenant.id
@@ -749,7 +752,10 @@ def cancel_payment_promise(
         db.rollback()
         raise
 
-    return promise_read(promise)
+    return promise_read(
+        promise,
+        as_of=tenant_local_date(tenant),
+    )
 
 
 @router.get(
@@ -928,7 +934,7 @@ def spreadsheet_safe_value(
 
 @router.get("/supervision/export.csv")
 def export_collections_supervision_csv(
-    as_of: date = Query(default_factory=date.today),
+    as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
     membership: TenantMembership = Depends(
@@ -936,6 +942,7 @@ def export_collections_supervision_csv(
     ),
 ):
     require_collections_owner(membership)
+    as_of = as_of or tenant_local_date(tenant)
 
     portfolio = list_overdue_portfolio(
         as_of=as_of,
@@ -1023,7 +1030,7 @@ def export_collections_supervision_csv(
     response_model=CollectionsSupervisionRead,
 )
 def read_collections_supervision(
-    as_of: date = Query(default_factory=date.today),
+    as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
     membership: TenantMembership = Depends(
@@ -1035,6 +1042,8 @@ def read_collections_supervision(
             status_code=403,
             detail="Owner role required",
         )
+
+    as_of = as_of or tenant_local_date(tenant)
 
     overdue_installments = db.scalars(
         select(Installment)
@@ -1250,12 +1259,18 @@ def read_collections_supervision(
     )
     follow_ups_due_today_count = sum(
         activity.next_follow_up_at is not None
-        and activity.next_follow_up_at.date() == as_of
+        and tenant_local_date(
+            tenant,
+            activity.next_follow_up_at,
+        ) == as_of
         for activity in activities
     )
     overdue_follow_up_count = sum(
         activity.next_follow_up_at is not None
-        and activity.next_follow_up_at.date() < as_of
+        and tenant_local_date(
+            tenant,
+            activity.next_follow_up_at,
+        ) < as_of
         for activity in activities
     )
 

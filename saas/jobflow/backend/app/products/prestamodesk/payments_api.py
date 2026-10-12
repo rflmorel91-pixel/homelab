@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.products.prestamodesk.payment_corrections import lock_financial_actor, installment_snapshot
+from app.products.prestamodesk.business_time import tenant_local_date
 from app.models import Tenant, TenantMembership
 from app.products.prestamodesk.authorization import (
     require_prestamodesk_payment_member,
@@ -249,15 +250,11 @@ def record_payment(
         .with_for_update()
     )
 
-    paid_at = (
-        payload.paid_at
-        or datetime.now(timezone.utc)
-    )
-    payment_date = paid_at.date()
+    now = datetime.now(timezone.utc)
+    paid_at = payload.paid_at or now
+    payment_date = tenant_local_date(tenant, paid_at)
 
-    if payment_date > datetime.now(
-        timezone.utc
-    ).date():
+    if payment_date > tenant_local_date(tenant, now):
         raise HTTPException(
             status_code=422,
             detail="Payment date cannot be in the future",
