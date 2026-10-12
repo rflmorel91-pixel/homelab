@@ -85,6 +85,17 @@ def require_collections_access(
         )
 
 
+def normalize_activity_timestamp(value: datetime) -> datetime:
+    """Normalize an API timestamp to naive UTC for database storage.
+
+    Naive API timestamps retain the established interpretation as UTC.
+    """
+    if value.tzinfo is None or value.utcoffset() is None:
+        value = value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def get_tenant_loan(
     *,
     db: Session,
@@ -401,10 +412,20 @@ def create_collection_activity(
         membership=membership,
     )
 
+    contacted_at = normalize_activity_timestamp(
+        payload.contacted_at
+    )
+    next_follow_up_at = (
+        normalize_activity_timestamp(
+            payload.next_follow_up_at
+        )
+        if payload.next_follow_up_at is not None
+        else None
+    )
+
     if (
-        payload.next_follow_up_at is not None
-        and payload.next_follow_up_at
-        <= payload.contacted_at
+        next_follow_up_at is not None
+        and next_follow_up_at <= contacted_at
     ):
         raise HTTPException(
             status_code=422,
@@ -421,10 +442,8 @@ def create_collection_activity(
         channel=payload.channel,
         outcome=payload.outcome,
         notes=payload.notes,
-        contacted_at=payload.contacted_at,
-        next_follow_up_at=(
-            payload.next_follow_up_at
-        ),
+        contacted_at=contacted_at,
+        next_follow_up_at=next_follow_up_at,
     )
 
     try:

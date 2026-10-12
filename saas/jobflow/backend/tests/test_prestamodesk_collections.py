@@ -380,6 +380,50 @@ def test_collector_records_activity_and_cannot_cross_tenants(
         authenticated_client.auth_user.id
     )
 
+    mixed_timezone = authenticated_client.post(
+        (
+            f"{BASE_URL}/collections/loans/"
+            f"{loan.id}/activities"
+        ),
+        headers=headers,
+        json={
+            "channel": "phone",
+            "outcome": "Seguimiento confirmado",
+            "contacted_at": "2026-10-02T14:00:00",
+            "next_follow_up_at": (
+                "2026-10-02T11:00:00-04:00"
+            ),
+        },
+    )
+    assert mixed_timezone.status_code == 201
+
+    normalized_activity = db_session.scalar(
+        select(CollectionActivity)
+        .where(CollectionActivity.loan_id == loan.id)
+        .order_by(CollectionActivity.id.desc())
+    )
+    assert normalized_activity.contacted_at == datetime(
+        2026, 10, 2, 14, 0
+    )
+    assert normalized_activity.next_follow_up_at == datetime(
+        2026, 10, 2, 15, 0
+    )
+
+    invalid_order = authenticated_client.post(
+        (
+            f"{BASE_URL}/collections/loans/"
+            f"{loan.id}/activities"
+        ),
+        headers=headers,
+        json={
+            "channel": "phone",
+            "outcome": "Orden temporal inválido",
+            "contacted_at": "2026-10-02T14:00:00Z",
+            "next_follow_up_at": "2026-10-02T13:00:00",
+        },
+    )
+    assert invalid_order.status_code == 422
+
     listed = authenticated_client.get(
         (
             f"{BASE_URL}/collections/loans/"
@@ -388,7 +432,7 @@ def test_collector_records_activity_and_cannot_cross_tenants(
         headers=headers,
     )
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()) == 2
     assert listed.json()[0]["channel"] == "phone"
 
     activity = db_session.scalar(
