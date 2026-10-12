@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -609,3 +609,56 @@ def test_active_policy_does_not_charge_unselected_loan(
     assert installment.late_fee_accrued == Decimal("0.00")
     assert installment.late_fee_paid == Decimal("0.00")
     assert installment.late_fee_assessed_through is None
+
+
+def test_payment_timestamp_with_offset_is_normalized_to_utc(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(
+        db_session,
+        product,
+        "Offset Payment Timestamp Tenant",
+        "offset-payment-timestamp-tenant",
+    )
+    tenant.timezone_name = "America/Santo_Domingo"
+    db_session.commit()
+    borrower = create_borrower(
+        db_session,
+        tenant,
+        "Cliente Fecha UTC",
+    )
+    loan = create_two_installment_loan(
+        client,
+        tenant,
+        borrower,
+    )
+    installment_id = loan["installments"][0]["id"]
+
+    response = client.post(
+        PAYMENTS_URL,
+        headers=client.auth_headers(tenant),
+        json={
+            "installment_id": installment_id,
+            "amount": "1.00",
+            "paid_at": "2026-09-30T23:30:00-04:00",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["paid_at"] == "2026-10-01T03:30:00"
+
+    stored = db_session.scalar(
+        select(Payment).where(Payment.loan_id == loan["id"])
+    )
+    assert stored is not None
+    assert stored.paid_at == datetime(2026, 10, 1, 3, 30)
+
+    history = client.get(
+        f"{PAYMENTS_URL}/loan/{loan['id']}",
+        headers=client.auth_headers(tenant),
+    )
+    assert history.status_code == 200
+    assert history.json()[0]["paid_at"] == "2026-10-01T03:30:00"
