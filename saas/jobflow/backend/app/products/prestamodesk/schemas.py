@@ -37,6 +37,14 @@ class BorrowerBase(BaseModel):
     status: BorrowerStatus = "active"
     notes: str | None = None
 
+    @field_validator("full_name")
+    @classmethod
+    def normalize_full_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Full name cannot be blank")
+        return normalized
+
 
 class BorrowerCreate(BorrowerBase):
     model_config = ConfigDict(extra="forbid")
