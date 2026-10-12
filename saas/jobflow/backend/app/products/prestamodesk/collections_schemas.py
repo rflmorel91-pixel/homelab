@@ -2,7 +2,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 
 CollectionChannel = Literal[
@@ -54,6 +59,11 @@ class CollectionActivityCreate(BaseModel):
     next_follow_up_at: datetime | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("outcome", mode="before")
+    @classmethod
+    def trim_outcome(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class CollectionActivityRead(BaseModel):
