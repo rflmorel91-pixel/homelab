@@ -40,23 +40,27 @@ docker exec -i jobflow-db pg_restore \
   --list \
   < "$BACKUP_FILE" \
   > /dev/null
+PRIVATE_FILE="$BACKUP_FILE.private.tar"
+BACKUP_FILES=("$BACKUP_FILE" "$BACKUP_FILE.manifest.json")
+if [[ -f "$PRIVATE_FILE" ]]; then
+  BACKUP_FILES+=("$PRIVATE_FILE")
+fi
 scp \
   -i "$OMV_KEY" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
-  "$BACKUP_FILE" \
-  "$BACKUP_FILE.manifest.json" \
+  "${BACKUP_FILES[@]}" \
   "$OMV_USER@$OMV_HOST:$OMV_BACKUP_DIR/"
 ssh \
   -i "$OMV_KEY" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   "$OMV_USER@$OMV_HOST" \
-  "find '$OMV_BACKUP_DIR' -type f \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' \) -mtime +7 -delete"
+  "find '$OMV_BACKUP_DIR' -type f \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' -o -name 'jobflow-*.dump.private.tar' \) -mtime +7 -delete"
 
 find "$BACKUP_DIR" \
   -type f \
-  \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' \) \
+  \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' -o -name 'jobflow-*.dump.private.tar' \) \
   -mtime +7 \
   -delete
 

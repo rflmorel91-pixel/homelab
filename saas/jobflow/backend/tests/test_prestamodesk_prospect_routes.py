@@ -111,6 +111,24 @@ def test_prospect_route_review_approval_conversion(db_session, authenticated_cli
             "checked_at": "2026-10-01T10:00:00Z",
         })
 
+    synthetic_pdf = b"%PDF-1.4\\nSynthetic private test document\\n"
+    for document in packet["documents"]:
+        uploaded = client.put(
+            f"{url}/documents/{document['document_type']}",
+            headers={**headers, "Content-Type": "application/pdf"},
+            content=synthetic_pdf,
+        )
+        assert uploaded.status_code == 201, uploaded.text
+        document["storage_ref"] = uploaded.json()["storage_ref"]
+
+    contract_upload = client.put(
+        f"{url}/documents/contract",
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=synthetic_pdf,
+    )
+    assert contract_upload.status_code == 201, contract_upload.text
+    packet["contract"]["signed_copy_ref"] = contract_upload.json()["storage_ref"]
+
     saved_packet = client.put(
         f"{url}/review-packet", headers=headers, json=packet
     )

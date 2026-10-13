@@ -145,7 +145,8 @@ def atomic_json(path, value):
 def encrypted_copy(source, spool, recipient):
     data = source.read_bytes()
     require(0 < len(data) <= MAX_BYTES, "source-size")
-    require(data.startswith(b"PGDMP"), "postgres-archive-magic")
+    require(data.startswith(b"PGDMP") or data[257:262] == b"ustar",
+            "backup-archive-magic")
     digest = hashlib.sha256(data).hexdigest()
     target = spool / (source.name + "." + digest + ".age")
     if not target.exists():
@@ -161,23 +162,62 @@ def encrypted_copy(source, spool, recipient):
     return ciphertext, digest
 
 
+def paired_sources(source, project, now):
+    """Return dump and any manifest-required private archive as one set."""
+    manifest_path = source.with_name(source.name + ".manifest.json")
+    if not manifest_path.exists():
+        return [source]
+    require(not manifest_path.is_symlink(), "manifest-symlink")
+    manifest_info = manifest_path.stat()
+    require(stat.S_ISREG(manifest_info.st_mode) and manifest_info.st_uid == os.getuid()
+            and stat.S_IMODE(manifest_info.st_mode) == 0o600
+            and manifest_info.st_size <= 16 * 1024 * 1024, "manifest-permissions")
+    metadata = json.loads(manifest_path.read_text())
+    private = metadata.get("private_documents")
+    sidecar = source.with_name(source.name + ".private.tar")
+    if private is None:
+        require(not sidecar.exists(), "unexpected-private-archive")
+        return [source]
+    require(private.get("archive") == sidecar.name, "private-archive-name")
+    require(not sidecar.is_symlink() and sidecar.is_file(), "private-archive-missing")
+    info = sidecar.stat()
+    require(info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o600,
+            "private-archive-permissions")
+    require(type(private.get("bytes")) is int and info.st_size == private["bytes"]
+            and 0 < info.st_size <= MAX_BYTES, "private-archive-size")
+    digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
+    require(private.get("sha256") == digest, "private-archive-hash")
+    require(0 <= now - info.st_mtime <= MAX_AGE, "private-archive-freshness")
+    return [source, sidecar]
+
+
 def replicate(source, project, config, now):
     tiers = plan(source, project / "backups", now)
+    artifacts = paired_sources(source, project, now)
     spool = project / "runtime/b2-spool"
     spool.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(spool, 0o700)
-    data, source_hash = encrypted_copy(source, spool, config / "backup-recipient.txt")
+    encrypted_artifacts = [
+        (artifact, *encrypted_copy(artifact, spool, config / "backup-recipient.txt"))
+        for artifact in artifacts
+    ]
     b2 = B2(config / "b2-upload.json")
-    suffix = hashlib.sha256(data).hexdigest()
-    copies = []
-    for tier in tiers:
-        name = f"{PREFIX}{tier['tier']}/{tier['date']}/{source.name}.{suffix}.age"
-        item = b2.ensure_copy(name, data, tier["retain_until_ms"])
-        item["tier"] = tier["tier"]
-        copies.append(item)
+    artifact_results = []
+    for artifact, data, source_hash in encrypted_artifacts:
+        suffix = hashlib.sha256(data).hexdigest()
+        copies = []
+        for tier in tiers:
+            name = f"{PREFIX}{tier['tier']}/{tier['date']}/{artifact.name}.{suffix}.age"
+            item = b2.ensure_copy(name, data, tier["retain_until_ms"])
+            item["tier"] = tier["tier"]
+            copies.append(item)
+        artifact_results.append({"source": artifact.name, "source_sha256": source_hash,
+                                 "objects": copies})
+    dump_result = artifact_results[0]
     result = {"status": "verified", "completed_at": time.time(),
               "source_mtime": source.stat().st_mtime, "source": source.name,
-              "source_sha256": source_hash, "objects": copies}
+              "source_sha256": dump_result["source_sha256"],
+              "objects": dump_result["objects"], "artifacts": artifact_results}
     atomic_json(project / "runtime/last-offsite-success.json", result)
     atomic_json(project / "runtime/last-offsite-attempt.json", result)
     # Cache only: remote lifecycle cleanup must be configured separately.

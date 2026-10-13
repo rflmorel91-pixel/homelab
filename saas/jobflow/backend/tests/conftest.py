@@ -75,6 +75,14 @@ def clean_test_database():
         )
 
 
+@pytest.fixture(autouse=True)
+def private_document_storage(tmp_path, monkeypatch):
+    monkeypatch.setenv(
+        "PRESTAMODESK_PRIVATE_STORAGE_PATH",
+        str(tmp_path / "prestamodesk-private"),
+    )
+
+
 @pytest.fixture
 def db_session() -> Generator[Session, None, None]:
     session = TestingSessionLocal()

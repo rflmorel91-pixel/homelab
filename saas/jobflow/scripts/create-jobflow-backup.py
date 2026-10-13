@@ -12,14 +12,22 @@ import selectors
 import subprocess
 import sys
 import tempfile
+import tarfile
 import time
+import uuid
 
 CORE_TABLES = {"alembic_version", "users", "tenants", "tenant_memberships", "products"}
 MAX_DUMP_BYTES = 256 * 1024 * 1024
+MAX_PRIVATE_ARCHIVE_BYTES = 256 * 1024 * 1024
+PRIVATE_STORAGE_PATH = "/var/lib/jobflow-private/prestamodesk"
+DB_CONTAINER = os.environ.get("JOBFLOW_DB_CONTAINER", "jobflow-db")
+API_CONTAINER = os.environ.get("JOBFLOW_API_CONTAINER", "jobflow-api")
+DB_USER = os.environ.get("JOBFLOW_DB_USER", "jobflow")
+DB_NAME = os.environ.get("JOBFLOW_DATABASE_NAME", "jobflow")
 PSQL = ["docker", "exec", "-i", "-e",
         "PGOPTIONS=-c statement_timeout=60000 -c lock_timeout=5000 -c idle_in_transaction_session_timeout=600000",
-        "jobflow-db", "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
-        "-U", "jobflow", "-d", "jobflow"]
+        DB_CONTAINER, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+        "-U", DB_USER, "-d", DB_NAME]
 SNAPSHOT_SQL = """SELECT json_build_object(
   'snapshot', pg_export_snapshot(),
   'revisions', (SELECT json_agg(version_num ORDER BY version_num) FROM public.alembic_version),
@@ -52,6 +60,93 @@ def validate_snapshot(value):
     require(len(tables) == len(set(tables)), "duplicate-tables")
     require(CORE_TABLES.issubset(tables), "missing-core-tables")
     return value
+
+
+def private_document_records(session, tables):
+    if "prestamodesk_application_review_documents" not in tables:
+        return None
+    records = session.query("""SELECT COALESCE(json_agg(json_build_object(
+      'file_key', file_key, 'byte_size', byte_size, 'sha256', sha256
+    ) ORDER BY file_key), '[]'::json)::text
+    FROM public.prestamodesk_application_review_documents;""")
+    require(isinstance(records, list), "private-document-records")
+    require(len(records) <= 100000, "private-document-record-limit")
+    for record in records:
+        key = record.get("file_key", "")
+        match = re.fullmatch(
+            r"[1-9][0-9]*/[1-9][0-9]*/"
+            r"[0-9a-fA-F-]{36}\.(?:pdf|jpg|png)", key
+        )
+        require(match is not None and str(uuid.UUID(key.split("/")[-1].rsplit(".", 1)[0]))
+                == key.split("/")[-1].rsplit(".", 1)[0].lower(),
+                "private-document-key")
+        require(type(record.get("byte_size")) is int
+                and 0 < record["byte_size"] <= 8 * 1024 * 1024,
+                "private-document-size")
+        require(re.fullmatch(r"[0-9a-f]{64}", record.get("sha256", "")),
+                "private-document-digest")
+    require(len({item["file_key"] for item in records}) == len(records),
+            "duplicate-private-document-key")
+    return records
+
+
+def validate_private_archive(path, records):
+    expected = {item["file_key"]: item for item in records}
+    actual = set()
+    directories = set()
+    with tarfile.open(path, "r:") as archive:
+        for member in archive:
+            name = member.name
+            require(not name.startswith("/"), "private-archive-absolute-path")
+            while name.startswith("./"):
+                name = name[2:]
+            name = name.rstrip("/")
+            require(name in ("", ".") or all(part not in ("", ".", "..")
+                    for part in name.split("/")), "private-archive-path")
+            if member.isdir():
+                if name not in ("", "."):
+                    directories.add(name)
+                continue
+            require(member.isfile() and name in expected, "private-archive-entry")
+            require(name not in actual, "duplicate-private-archive-entry")
+            stream = archive.extractfile(member)
+            require(stream is not None, "private-archive-read")
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            require(member.size == expected[name]["byte_size"], "private-archive-size")
+            require(digest == expected[name]["sha256"], "private-archive-digest")
+            actual.add(name)
+    require(actual == set(expected), "private-archive-inventory")
+    for name in directories:
+        require(any(key.startswith(name + "/") for key in expected),
+                "private-archive-unexpected-directory")
+
+
+def create_private_archive(path, records, image):
+    if not records:
+        # The table exists even when no documents have been uploaded; the
+        # archive still records that the private volume was included.
+        pass
+    mounts = json.loads(subprocess.run(
+        ["docker", "inspect", API_CONTAINER, "--format", "{{json .Mounts}}"],
+        check=True, capture_output=True, text=True, timeout=30,
+    ).stdout)
+    matches = [m for m in mounts if m.get("Destination") == PRIVATE_STORAGE_PATH]
+    require(len(matches) == 1 and matches[0].get("Type") == "volume"
+            and re.fullmatch(r"[A-Za-z0-9_.-]+", matches[0].get("Name", "")),
+            "private-volume-mount")
+    volume = matches[0]["Name"]
+    with path.open("xb") as stream:
+        subprocess.run([
+            "docker", "run", "--rm", "--network", "none", "--user", "0",
+            "--mount", f"type=volume,source={volume},target=/data,readonly",
+            "--entrypoint", "tar", image, "--xattrs", "--acls", "--numeric-owner",
+            "-cpf", "-", "-C", "/data", ".",
+        ], stdout=stream, stderr=subprocess.DEVNULL, check=True, timeout=300)
+        stream.flush()
+        os.fsync(stream.fileno())
+    require(0 < path.stat().st_size <= MAX_PRIVATE_ARCHIVE_BYTES,
+            "private-archive-size-limit")
+    validate_private_archive(path, records)
 
 
 class SnapshotSession:
@@ -112,15 +207,21 @@ def capture(output, project, session_factory=SnapshotSession):
     require(re.fullmatch(r"jobflow-\d{8}-\d{6}\.dump", output.name), "output-name")
     require(backup_dir.is_dir(), "backup-directory-missing")
     manifest_path = output.with_name(output.name + ".manifest.json")
+    private_path = output.with_name(output.name + ".private.tar")
     require(not output.exists() and not output.is_symlink(), "dump-already-exists")
     require(not manifest_path.exists() and not manifest_path.is_symlink(), "manifest-already-exists")
-    image = subprocess.run(["docker", "inspect", "jobflow-db", "--format", "{{.Image}}"],
+    require(not private_path.exists() and not private_path.is_symlink(), "private-archive-already-exists")
+    for value in (DB_CONTAINER, API_CONTAINER, DB_USER, DB_NAME):
+        require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value) is not None,
+                "database-target-config")
+    image = subprocess.run(["docker", "inspect", DB_CONTAINER, "--format", "{{.Image}}"],
                            check=True, capture_output=True, text=True, timeout=30).stdout.strip()
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image), "postgres-image-id")
     started = time.time()
     with tempfile.TemporaryDirectory(prefix=".snapshot-", dir=backup_dir) as directory:
         temporary_dump = Path(directory) / "backup.dump"
         temporary_manifest = Path(directory) / "manifest.json"
+        temporary_private = Path(directory) / "private.tar"
         with session_factory() as session:
             snapshot = validate_snapshot(session.query(SNAPSHOT_SQL))
             counts = {}
@@ -130,19 +231,22 @@ def capture(output, project, session_factory=SnapshotSession):
                 counts[table] = count
             with temporary_dump.open("xb") as stream:
                 subprocess.run([
-                    "docker", "exec", "jobflow-db", "pg_dump", "-w", "-U", "jobflow",
-                    "-d", "jobflow", "-Fc", "--lock-wait-timeout=5s",
+                    "docker", "exec", DB_CONTAINER, "pg_dump", "-w", "-U", DB_USER,
+                    "-d", DB_NAME, "-Fc", "--lock-wait-timeout=5s",
                     "--snapshot=" + snapshot["snapshot"],
                 ], stdout=stream, stderr=subprocess.DEVNULL, check=True, timeout=300)
                 stream.flush()
                 os.fsync(stream.fileno())
+            documents = private_document_records(session, snapshot["tables"])
+            if documents is not None:
+                create_private_archive(temporary_private, documents, image)
         require(0 < temporary_dump.stat().st_size <= MAX_DUMP_BYTES, "dump-size-limit")
         with temporary_dump.open("rb") as stream:
             require(stream.read(5) == b"PGDMP", "dump-format")
             stream.seek(0)
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
             stream.seek(0)
-            subprocess.run(["docker", "exec", "-i", "jobflow-db", "pg_restore", "--list"],
+            subprocess.run(["docker", "exec", "-i", DB_CONTAINER, "pg_restore", "--list"],
                            stdin=stream, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                            check=True, timeout=60)
         manifest = {
@@ -153,6 +257,15 @@ def capture(output, project, session_factory=SnapshotSession):
             "schema": "public", "table_counts": counts,
             "count_basis": "same-exported-snapshot-as-pg-dump",
         }
+        if documents is not None:
+            with temporary_private.open("rb") as stream:
+                private_digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            manifest["private_documents"] = {
+                "archive": output.name + ".private.tar",
+                "bytes": temporary_private.stat().st_size,
+                "sha256": private_digest,
+                "documents": documents,
+            }
         with temporary_manifest.open("x") as stream:
             json.dump(manifest, stream, indent=2, sort_keys=True)
             stream.write("\n")
@@ -160,12 +273,20 @@ def capture(output, project, session_factory=SnapshotSession):
             os.fsync(stream.fileno())
         temporary_dump.chmod(0o600)
         temporary_manifest.chmod(0o600)
+        if documents is not None:
+            temporary_private.chmod(0o600)
         # Hard links publish without replacing a pre-existing destination.
         os.link(temporary_dump, output)
+        private_published = False
         try:
+            if documents is not None:
+                os.link(temporary_private, private_path)
+                private_published = True
             os.link(temporary_manifest, manifest_path)
         except BaseException:
             output.unlink()
+            if private_published:
+                private_path.unlink()
             raise
     return manifest
 

@@ -7,7 +7,10 @@ services:
       context: ./backend
     container_name: jobflow-api
     restart: unless-stopped
+    volumes:
+      - jobflow_prestamodesk_private_documents:/var/lib/jobflow-private/prestamodesk
     environment:
+      PRESTAMODESK_PRIVATE_STORAGE_PATH: /var/lib/jobflow-private/prestamodesk
       DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
       JWT_SECRET: ${JWT_SECRET}
       PLATFORM_PUBLIC_BASE_URL: ${PLATFORM_PUBLIC_BASE_URL:-https://jobflow.fieldlookers.com}
@@ -103,3 +106,4 @@ services:
 
 volumes:
   jobflow_postgres_data:
+  jobflow_prestamodesk_private_documents:

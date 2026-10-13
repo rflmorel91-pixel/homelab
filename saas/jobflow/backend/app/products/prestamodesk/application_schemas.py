@@ -410,4 +410,15 @@ class ApplicationReviewEventRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PrivateReviewDocumentRead(BaseModel):
+    storage_ref: UUID
+    document_type: Literal["identity", "income", "vehicle_registration", "contract"]
+    content_type: Literal["application/pdf", "image/jpeg", "image/png"]
+    byte_size: int
+    sha256: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 ApplicationRead.model_rebuild()
