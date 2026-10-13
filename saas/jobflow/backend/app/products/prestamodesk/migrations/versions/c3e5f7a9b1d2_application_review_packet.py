@@ -29,11 +29,10 @@ def upgrade():
         ),
         sa.Column("packet", sa.JSON(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.UniqueConstraint("application_id", name="uq_prestamodesk_application_review_application"),
     )
     op.create_index(
         "ix_prestamodesk_application_reviews_application_id",
-        "prestamodesk_application_reviews", ["application_id"],
+        "prestamodesk_application_reviews", ["application_id"], unique=True,
     )
     op.create_index(
         "ix_prestamodesk_application_reviews_tenant_id",
