@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+from typing import Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,6 +25,7 @@ from app.products.prestamodesk.application_schemas import (
     ApplicationUpdate,
     ApplicationReviewPacketRead,
     ApplicationReviewEventRead,
+    PrivateReviewDocumentRead,
 )
 from app.products.prestamodesk.models import (
     Borrower,
@@ -31,6 +35,14 @@ from app.products.prestamodesk.models import (
     LoanApplication,
     ApplicationReview,
     ApplicationReviewEvent,
+    ApplicationReviewDocument,
+)
+from app.products.prestamodesk.private_documents import (
+    MAX_PRIVATE_DOCUMENT_BYTES,
+    detect_document,
+    private_document_path,
+    remove_private_document,
+    store_private_document,
 )
 from app.tenant_context import (
     get_current_tenant,
@@ -75,7 +87,12 @@ def get_tenant_application(
     return application
 
 
-def approval_gaps(application: LoanApplication, packet: ApplicationReviewPacketRead) -> list[str]:
+def approval_gaps(
+    db: Session,
+    tenant_id: int,
+    application: LoanApplication,
+    packet: ApplicationReviewPacketRead,
+) -> list[str]:
     gaps = []
     if application.loan_type == "vehicle":
         if packet.inspection.status != "passed":
@@ -89,9 +106,22 @@ def approval_gaps(application: LoanApplication, packet: ApplicationReviewPacketR
     if application.loan_type == "vehicle":
         required_documents.add("vehicle_registration")
     documents = {item.document_type: item for item in packet.documents}
+    stored = {
+        item.storage_ref: item
+        for item in db.scalars(
+            select(ApplicationReviewDocument).where(
+                ApplicationReviewDocument.tenant_id == tenant_id,
+                ApplicationReviewDocument.application_id == application.id,
+            )
+        )
+    }
     for document_type in sorted(required_documents):
         item = documents.get(document_type)
-        if item is None or item.status != "verified" or item.storage_ref is None:
+        record = stored.get(str(item.storage_ref)) if item and item.storage_ref else None
+        if (
+            item is None or item.status != "verified" or record is None
+            or record.document_type != document_type
+        ):
             gaps.append(f"{document_type} document must be verified")
 
     if not any(
@@ -106,6 +136,98 @@ def approval_gaps(application: LoanApplication, packet: ApplicationReviewPacketR
         gaps.append("credit assessment must recommend approval")
 
     return gaps
+
+
+DocumentUploadType = Literal["identity", "income", "vehicle_registration", "contract"]
+
+
+@router.put(
+    "/{application_id}/documents/{document_type}",
+    response_model=PrivateReviewDocumentRead,
+    status_code=201,
+)
+async def upload_application_document(
+    application_id: int,
+    document_type: DocumentUploadType,
+    request: Request,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    application = get_tenant_application(db, tenant.id, application_id, lock=True)
+    if application.status in {"rejected", "converted"}:
+        raise HTTPException(status_code=409, detail="This application can no longer be reviewed")
+    if application.status == "approved" and document_type != "contract":
+        raise HTTPException(status_code=409, detail="Approved review evidence is read-only")
+
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_PRIVATE_DOCUMENT_BYTES:
+        raise HTTPException(status_code=413, detail="Document exceeds the 8 MiB limit")
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > MAX_PRIVATE_DOCUMENT_BYTES:
+            raise HTTPException(status_code=413, detail="Document exceeds the 8 MiB limit")
+    extension, content_type = detect_document(request.headers.get("content-type", ""), bytes(data))
+    storage_ref, file_key, digest = store_private_document(
+        tenant.id, application.id, bytes(data), extension,
+    )
+    record = ApplicationReviewDocument(
+        storage_ref=str(storage_ref),
+        tenant_id=tenant.id,
+        application_id=application.id,
+        document_type=document_type,
+        content_type=content_type,
+        byte_size=len(data),
+        sha256=digest,
+        file_key=file_key,
+    )
+    db.add(record)
+    write_review_event(db, application, tenant.id, "document_uploaded", {
+        "document_type": document_type,
+        "storage_ref": str(storage_ref),
+        "byte_size": len(data),
+        "sha256": digest,
+    })
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        remove_private_document(file_key)
+        raise
+    db.refresh(record)
+    return record
+
+
+@router.get(
+    "/{application_id}/documents/{document_type}/{storage_ref}",
+)
+def download_application_document(
+    application_id: int,
+    document_type: DocumentUploadType,
+    storage_ref: UUID,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    application = get_tenant_application(db, tenant.id, application_id)
+    record = db.scalar(select(ApplicationReviewDocument).where(
+        ApplicationReviewDocument.storage_ref == str(storage_ref),
+        ApplicationReviewDocument.tenant_id == tenant.id,
+        ApplicationReviewDocument.application_id == application.id,
+        ApplicationReviewDocument.document_type == document_type,
+    ))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    try:
+        path = private_document_path(record.file_key)
+    except (FileNotFoundError, OSError):
+        raise HTTPException(status_code=404, detail="Document not found") from None
+    extension = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png"}[record.content_type]
+    return FileResponse(
+        path,
+        media_type=record.content_type,
+        filename=f"{document_type}-{storage_ref}.{extension}",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 def write_review_event(db: Session, application: LoanApplication, tenant_id: int, event_type: str, details: dict):
@@ -299,7 +421,7 @@ def update_application(
         packet = ApplicationReviewPacketRead.model_validate(
             application.review_packet.packet if application.review_packet else {}
         )
-        gaps = approval_gaps(application, packet)
+        gaps = approval_gaps(db, tenant.id, application, packet)
         if gaps:
             raise HTTPException(
                 status_code=409,
@@ -349,7 +471,6 @@ def convert_application(
             status_code=409,
             detail="Application has already been converted",
         )
-
     if application.status != "approved":
         raise HTTPException(
             status_code=409,
@@ -371,6 +492,17 @@ def convert_application(
         raise HTTPException(
             status_code=409,
             detail="A signed contract and private copy reference are required before conversion",
+        )
+    contract_document = db.scalar(select(ApplicationReviewDocument.id).where(
+        ApplicationReviewDocument.storage_ref == str(packet.contract.signed_copy_ref),
+        ApplicationReviewDocument.tenant_id == tenant.id,
+        ApplicationReviewDocument.application_id == application.id,
+        ApplicationReviewDocument.document_type == "contract",
+    ))
+    if contract_document is None:
+        raise HTTPException(
+            status_code=409,
+            detail="The signed contract copy must be uploaded to private storage before conversion",
         )
 
     prospect = None

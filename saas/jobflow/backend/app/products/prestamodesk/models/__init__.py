@@ -12,6 +12,7 @@ from app.products.prestamodesk.models.application import LoanApplication
 from app.products.prestamodesk.models.application_review import (
     ApplicationReview,
     ApplicationReviewEvent,
+    ApplicationReviewDocument,
 )
 from app.products.prestamodesk.models.borrower import Borrower
 from app.products.prestamodesk.models.late_fee_policy import LateFeePolicy
@@ -32,6 +33,7 @@ __all__ = [
     "LoanApplication",
     "ApplicationReview",
     "ApplicationReviewEvent",
+    "ApplicationReviewDocument",
     "Payment",
     "Prospect",
 ]

@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from app.models import Product, Tenant
 from app.products.prestamodesk.models import (
     ApplicationReview,
+    ApplicationReviewDocument,
     Borrower,
     Installment,
     Loan,
@@ -16,6 +17,16 @@ from app.products.prestamodesk.models import (
 APPLICATIONS_URL = (
     "/api/v1/products/prestamodesk/applications"
 )
+
+
+def upload_document(client, headers, application, document_type):
+    response = client.put(
+        f"{APPLICATIONS_URL}/{application.id}/documents/{document_type}",
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=b"%PDF-1.4\nSynthetic private test document\n",
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["storage_ref"]
 
 
 def complete_packet(*, signed_contract=True):
@@ -137,10 +148,25 @@ def create_application(
     db_session.refresh(application)
     if status == "approved":
         application.decision_reason = "Expediente revisado y aprobado para piloto."
+        packet = complete_packet()
         application.review_packet = ApplicationReview(
             tenant_id=tenant.id,
-            packet=complete_packet(),
+            packet=packet,
         )
+        for item in packet["documents"] + [{
+            "document_type": "contract",
+            "storage_ref": packet["contract"]["signed_copy_ref"],
+        }]:
+            db_session.add(ApplicationReviewDocument(
+                storage_ref=item["storage_ref"],
+                tenant_id=tenant.id,
+                application_id=application.id,
+                document_type=item["document_type"],
+                content_type="application/pdf",
+                byte_size=32,
+                sha256="0" * 64,
+                file_key=f"{tenant.id}/{application.id}/{item['storage_ref']}.pdf",
+            ))
         db_session.commit()
     return application
 
@@ -245,10 +271,15 @@ def test_application_follows_review_and_approval_flow(
     assert reviewing.json()["status"] == "reviewing"
     assert reviewing.json()["reviewed_at"] is not None
 
+    packet_data = complete_packet(signed_contract=False)
+    for item in packet_data["documents"]:
+        item["storage_ref"] = upload_document(
+            client, headers, application, item["document_type"]
+        )
     packet = client.put(
         f"{url}/review-packet",
         headers=headers,
-        json=complete_packet(signed_contract=False),
+        json=packet_data,
     )
     assert packet.status_code == 200
     assert packet.json()["assessment"]["recommendation"] == "approve"
@@ -315,6 +346,10 @@ def test_approval_requires_complete_review_packet_and_reason(
 
     incomplete = complete_packet()
     incomplete["documents"] = [item for item in incomplete["documents"] if item["document_type"] != "income"]
+    for item in incomplete["documents"]:
+        item["storage_ref"] = upload_document(
+            client, headers, application, item["document_type"]
+        )
     saved = client.put(
         f"{APPLICATIONS_URL}/{application.id}/review-packet",
         headers=headers,
@@ -341,7 +376,12 @@ def test_conversion_waits_for_signed_contract_and_review_is_audited(
     headers = client.owner_headers(tenant)
     url = f"{APPLICATIONS_URL}/{application.id}"
 
-    saved = client.put(f"{url}/review-packet", headers=headers, json=complete_packet(signed_contract=False))
+    initial_packet = complete_packet(signed_contract=False)
+    for item in initial_packet["documents"]:
+        item["storage_ref"] = upload_document(
+            client, headers, application, item["document_type"]
+        )
+    saved = client.put(f"{url}/review-packet", headers=headers, json=initial_packet)
     assert saved.status_code == 200
     approved = client.put(url, headers=headers, json={
         "status": "approved", "decision_reason": "Evaluación favorable documentada.",
@@ -353,8 +393,11 @@ def test_conversion_waits_for_signed_contract_and_review_is_audited(
     assert "signed contract" in blocked.json()["detail"]
 
     signed = complete_packet()
+    signed["contract"]["signed_copy_ref"] = upload_document(
+        client, headers, application, "contract"
+    )
     signed["inspection"] = complete_packet(signed_contract=False)["inspection"]
-    signed["documents"] = complete_packet(signed_contract=False)["documents"]
+    signed["documents"] = initial_packet["documents"]
     signed["references"] = complete_packet(signed_contract=False)["references"]
     signed["assessment"] = complete_packet(signed_contract=False)["assessment"]
     updated = client.put(f"{url}/review-packet", headers=headers, json=signed)
@@ -365,7 +408,9 @@ def test_conversion_waits_for_signed_contract_and_review_is_audited(
     events = client.get(f"{url}/review-events", headers=headers)
     assert events.status_code == 200
     assert [event["event_type"] for event in events.json()] == [
-        "packet_updated", "approved", "packet_updated", "converted",
+        "document_uploaded", "document_uploaded", "document_uploaded",
+        "packet_updated", "approved", "document_uploaded",
+        "packet_updated", "converted",
     ]
 
 
@@ -581,3 +626,57 @@ def test_application_conversion_cannot_cross_tenant(
             Loan.tenant_id == tenant_b.id
         )
     ) is None
+
+
+def test_private_application_document_upload_and_tenant_scoped_download(
+    authenticated_client, db_session, monkeypatch, tmp_path,
+):
+    from app.products.prestamodesk.private_documents import MAX_PRIVATE_DOCUMENT_BYTES
+
+    monkeypatch.setenv("PRESTAMODESK_PRIVATE_STORAGE_PATH", str(tmp_path))
+    product = get_product(db_session)
+    tenant_a = create_tenant(db_session, product, "Private Docs A", "private-docs-a")
+    tenant_b = create_tenant(db_session, product, "Private Docs B", "private-docs-b")
+    application = create_application(db_session, tenant_a, status="reviewing")
+    headers = authenticated_client.owner_headers(tenant_a)
+    upload_url = f"{APPLICATIONS_URL}/{application.id}/documents/identity"
+    data = b"%PDF-1.7\nsynthetic private identity\n"
+
+    uploaded = authenticated_client.put(
+        upload_url,
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=data,
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    metadata = uploaded.json()
+    assert metadata["document_type"] == "identity"
+    assert metadata["byte_size"] == len(data)
+    assert metadata["sha256"]
+    assert "/" not in metadata["storage_ref"]
+
+    download_url = f"{upload_url}/{metadata['storage_ref']}"
+    downloaded = authenticated_client.get(download_url, headers=headers)
+    assert downloaded.status_code == 200
+    assert downloaded.content == data
+    assert downloaded.headers["cache-control"] == "private, no-store"
+    assert downloaded.headers["x-content-type-options"] == "nosniff"
+    assert "attachment" in downloaded.headers["content-disposition"]
+
+    cross_tenant = authenticated_client.get(
+        download_url, headers=authenticated_client.owner_headers(tenant_b)
+    )
+    assert cross_tenant.status_code == 404
+
+    invalid = authenticated_client.put(
+        upload_url,
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=b"not a pdf",
+    )
+    assert invalid.status_code == 415
+
+    oversized = authenticated_client.put(
+        upload_url,
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=b"%PDF-1.7\n" + b"x" * MAX_PRIVATE_DOCUMENT_BYTES,
+    )
+    assert oversized.status_code == 413
