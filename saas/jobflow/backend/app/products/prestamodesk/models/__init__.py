@@ -9,6 +9,10 @@ from app.products.prestamodesk.models.collection import (
 )
 from app.products.prestamodesk.models.cash_closing import CashClosing
 from app.products.prestamodesk.models.application import LoanApplication
+from app.products.prestamodesk.models.application_review import (
+    ApplicationReview,
+    ApplicationReviewEvent,
+)
 from app.products.prestamodesk.models.borrower import Borrower
 from app.products.prestamodesk.models.late_fee_policy import LateFeePolicy
 from app.products.prestamodesk.models.loan import Installment, Loan
@@ -26,6 +30,8 @@ __all__ = [
     "LateFeePolicy",
     "Loan",
     "LoanApplication",
+    "ApplicationReview",
+    "ApplicationReviewEvent",
     "Payment",
     "Prospect",
 ]

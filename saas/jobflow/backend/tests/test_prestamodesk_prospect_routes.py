@@ -55,8 +55,72 @@ def test_prospect_route_review_approval_conversion(db_session, authenticated_cli
     url = f"{BASE}/applications/{body['id']}"
     assert client.post(url + "/convert", headers=headers).status_code == 409
     assert client.put(url, headers=headers, json={"status":"approved"}).status_code == 409
-    for status in ["reviewing", "approved"]:
-        assert client.put(url, headers=headers, json={"status":status}).status_code == 200
+    reviewing = client.put(
+        url, headers=headers, json={"status": "reviewing"}
+    )
+    assert reviewing.status_code == 200, reviewing.text
+
+    packet = {
+        "inspection": {
+            "status": "passed",
+            "inspector_name": "Inspector Sintético",
+            "inspected_at": "2026-10-01T10:00:00Z",
+            "findings": "Inspección documentada",
+        },
+        "documents": [
+            {
+                "document_type": "identity",
+                "status": "verified",
+                "storage_ref": "11111111-1111-4111-8111-111111111111",
+                "checked_at": "2026-10-01T10:00:00Z",
+            },
+            {
+                "document_type": "income",
+                "status": "verified",
+                "storage_ref": "22222222-2222-4222-8222-222222222222",
+                "checked_at": "2026-10-01T10:00:00Z",
+            },
+        ],
+        "references": [{
+            "full_name": "Referencia Sintética",
+            "relationship": "Familiar",
+            "phone": "809-555-0199",
+            "status": "contacted",
+            "outcome_notes": "Identidad confirmada; referencia positiva.",
+        }],
+        "assessment": {
+            "income_source": "Empleo",
+            "monthly_net_income": "95000.00",
+            "monthly_obligations": "12000.00",
+            "affordability_summary":
+                "Capacidad revisada contra obligaciones declaradas.",
+            "recommendation": "approve",
+        },
+        "contract": {
+            "status": "signed",
+            "template_version": "pilot-v1",
+            "signed_at": "2026-10-02T12:00:00Z",
+            "signed_copy_ref": "44444444-4444-4444-8444-444444444444",
+        },
+    }
+    if kind == "vehicle":
+        packet["documents"].append({
+            "document_type": "vehicle_registration",
+            "status": "verified",
+            "storage_ref": "33333333-3333-4333-8333-333333333333",
+            "checked_at": "2026-10-01T10:00:00Z",
+        })
+
+    saved_packet = client.put(
+        f"{url}/review-packet", headers=headers, json=packet
+    )
+    assert saved_packet.status_code == 200, saved_packet.text
+
+    approved = client.put(url, headers=headers, json={
+        "status": "approved",
+        "decision_reason": "Evaluación favorable documentada.",
+    })
+    assert approved.status_code == 200, approved.text
     result = client.post(url + "/convert", headers=headers)
     assert result.status_code == 201, result.text
     db.expire_all()
@@ -135,7 +199,13 @@ def test_rejected_application_does_not_create_loan(db_session, authenticated_cli
     body = client.post(f"{BASE}/prospects/{prospect.id}/application", headers=headers, json=terms()).json()
     url = f"{BASE}/applications/{body['id']}"
     assert client.put(url, headers=headers, json={"status":"reviewing"}).status_code == 200
-    assert client.put(url, headers=headers, json={"status":"rejected"}).status_code == 200
+    assert client.put(
+        url, headers=headers,
+        json={
+            "status": "rejected",
+            "decision_reason": "Rechazo documentado tras revisión.",
+        },
+    ).status_code == 200
     assert client.post(url + "/convert", headers=headers).status_code == 409
     assert db.scalar(select(func.count()).select_from(Loan)) == 0
 

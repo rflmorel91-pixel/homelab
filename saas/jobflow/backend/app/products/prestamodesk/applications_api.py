@@ -20,6 +20,8 @@ from app.products.prestamodesk.application_schemas import (
     ApplicationConversionRead,
     ApplicationRead,
     ApplicationUpdate,
+    ApplicationReviewPacketRead,
+    ApplicationReviewEventRead,
 )
 from app.products.prestamodesk.models import (
     Borrower,
@@ -27,6 +29,8 @@ from app.products.prestamodesk.models import (
     Loan,
     Prospect,
     LoanApplication,
+    ApplicationReview,
+    ApplicationReviewEvent,
 )
 from app.tenant_context import (
     get_current_tenant,
@@ -69,6 +73,48 @@ def get_tenant_application(
         )
 
     return application
+
+
+def approval_gaps(application: LoanApplication, packet: ApplicationReviewPacketRead) -> list[str]:
+    gaps = []
+    if application.loan_type == "vehicle":
+        if packet.inspection.status != "passed":
+            gaps.append("vehicle inspection must pass")
+        if not packet.inspection.inspector_name or not packet.inspection.inspected_at:
+            gaps.append("vehicle inspection must identify inspector and date")
+        if not packet.inspection.findings:
+            gaps.append("vehicle inspection findings must be recorded")
+
+    required_documents = {"identity", "income"}
+    if application.loan_type == "vehicle":
+        required_documents.add("vehicle_registration")
+    documents = {item.document_type: item for item in packet.documents}
+    for document_type in sorted(required_documents):
+        item = documents.get(document_type)
+        if item is None or item.status != "verified" or item.storage_ref is None:
+            gaps.append(f"{document_type} document must be verified")
+
+    if not any(
+        item.status == "contacted" and item.outcome_notes
+        for item in packet.references
+    ):
+        gaps.append("at least one reference must be contacted and documented")
+
+    if packet.assessment is None:
+        gaps.append("credit assessment is required")
+    elif packet.assessment.recommendation != "approve":
+        gaps.append("credit assessment must recommend approval")
+
+    return gaps
+
+
+def write_review_event(db: Session, application: LoanApplication, tenant_id: int, event_type: str, details: dict):
+    db.add(ApplicationReviewEvent(
+        application_id=application.id,
+        tenant_id=tenant_id,
+        event_type=event_type,
+        details=details,
+    ))
 
 
 def quote_terms(payload: InternalApplicationTerms) -> ApplicationQuoteRead:
@@ -136,6 +182,70 @@ def get_application(
 
 
 @router.put(
+    "/{application_id}/review-packet",
+    response_model=ApplicationReviewPacketRead,
+)
+def update_application_review_packet(
+    application_id: int,
+    payload: ApplicationReviewPacketRead,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    application = get_tenant_application(db, tenant.id, application_id, lock=True)
+    if application.status in {"rejected", "converted"}:
+        raise HTTPException(status_code=409, detail="This application can no longer be reviewed")
+
+    packet_data = payload.model_dump(mode="json")
+    if application.status == "approved" and application.review_packet is not None:
+        current = ApplicationReviewPacketRead.model_validate(
+            application.review_packet.packet if application.review_packet else {}
+        ).model_dump(mode="json")
+        current_evidence = {key: value for key, value in current.items() if key != "contract"}
+        new_evidence = {key: value for key, value in packet_data.items() if key != "contract"}
+        if current_evidence != new_evidence:
+            raise HTTPException(status_code=409, detail="Approved review evidence is read-only")
+
+    packet_was_missing = application.review_packet is None
+    if packet_was_missing:
+        application.review_packet = ApplicationReview(
+            tenant_id=tenant.id,
+            packet=packet_data,
+        )
+    else:
+        application.review_packet.packet = packet_data
+
+    if application.status == "new":
+        application.status = "reviewing"
+        application.reviewed_at = datetime.now(timezone.utc)
+    write_review_event(db, application, tenant.id, "packet_backfilled" if packet_was_missing and application.status == "approved" else "packet_updated", {
+        "status": application.status,
+    })
+    db.commit()
+    db.refresh(application)
+    return ApplicationReviewPacketRead.model_validate(packet_data)
+
+
+@router.get(
+    "/{application_id}/review-events",
+    response_model=list[ApplicationReviewEventRead],
+)
+def list_application_review_events(
+    application_id: int,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    application = get_tenant_application(db, tenant.id, application_id)
+    return db.scalars(
+        select(ApplicationReviewEvent)
+        .where(
+            ApplicationReviewEvent.application_id == application.id,
+            ApplicationReviewEvent.tenant_id == tenant.id,
+        )
+        .order_by(ApplicationReviewEvent.created_at, ApplicationReviewEvent.id)
+    ).all()
+
+
+@router.put(
     "/{application_id}",
     response_model=ApplicationRead,
 )
@@ -183,12 +293,29 @@ def update_application(
         )
 
     now = datetime.now(timezone.utc)
+    if payload.status in {"approved", "rejected"} and not payload.decision_reason:
+        raise HTTPException(status_code=422, detail="A written decision reason is required")
+    if payload.status == "approved":
+        packet = ApplicationReviewPacketRead.model_validate(
+            application.review_packet.packet if application.review_packet else {}
+        )
+        gaps = approval_gaps(application, packet)
+        if gaps:
+            raise HTTPException(
+                status_code=409,
+                detail={"message": "Review packet is incomplete", "gaps": gaps},
+            )
     application.status = payload.status
+    application.decision_reason = payload.decision_reason
 
     if payload.status == "reviewing":
         application.reviewed_at = now
     elif payload.status == "approved":
         application.approved_at = now
+
+    write_review_event(db, application, tenant.id, payload.status, {
+        "reason": payload.decision_reason,
+    })
 
     db.commit()
     db.refresh(application)
@@ -230,6 +357,20 @@ def convert_application(
                 "Application must be approved "
                 "before conversion"
             ),
+        )
+
+    packet = ApplicationReviewPacketRead.model_validate(
+        application.review_packet.packet if application.review_packet else {}
+    )
+    if (
+        packet.contract.status != "signed"
+        or packet.contract.signed_copy_ref is None
+        or packet.contract.signed_at is None
+        or packet.contract.template_version is None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="A signed contract and private copy reference are required before conversion",
         )
 
     prospect = None
@@ -332,6 +473,10 @@ def convert_application(
         application.converted_loan_id = loan.id
         application.status = "converted"
         application.converted_at = datetime.now(timezone.utc)
+        write_review_event(db, application, tenant.id, "converted", {
+            "borrower_id": borrower.id,
+            "loan_id": loan.id,
+        })
 
         db.commit()
         db.refresh(application)
