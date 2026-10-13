@@ -945,3 +945,18 @@
 :where(.pd-module[data-mode=administration]) #administrationPanel td:last-child{padding-top:8px;}
 
 }
+
+:where(.pd-module) .application-review-dialog { width:min(860px,calc(100vw - 2rem)); max-height:min(90vh,900px); overflow:auto; border:1px solid #d9e2ec; border-radius:16px; padding:1.25rem; color:#182a3a; background:#fff; box-shadow:0 24px 70px #10263b44 }
+:where(.pd-module) .application-review-dialog::backdrop { background:#10263b99 }
+:where(.pd-module) .application-review-heading,:where(.pd-module) .application-review-actions,:where(.pd-module) .review-document-row { display:flex; gap:.75rem; align-items:center; justify-content:space-between }
+:where(.pd-module) .application-review-heading h2 { margin:0 }
+:where(.pd-module) .application-review-dialog fieldset { margin:1rem 0; border:1px solid #d9e2ec; border-radius:12px; padding:1rem }
+:where(.pd-module) .application-review-dialog legend { padding:0 .35rem; font-weight:700 }
+:where(.pd-module) .application-review-dialog label { display:grid; gap:.35rem }
+:where(.pd-module) .application-review-dialog input,:where(.pd-module) .application-review-dialog select,:where(.pd-module) .application-review-dialog textarea { width:100%; min-height:2.6rem }
+:where(.pd-module) .application-review-dialog textarea { min-height:5rem }
+:where(.pd-module) .application-review-dialog .review-wide { grid-column:1/-1 }
+:where(.pd-module) .review-document-row { display:grid; grid-template-columns:1fr 1fr 1.5fr 1.5fr; gap:.75rem; padding:.75rem 0; border-bottom:1px solid #e7edf3 }
+:where(.pd-module) .review-document-row:last-child { border-bottom:0 }
+:where(.pd-module) .application-review-actions { justify-content:flex-start; flex-wrap:wrap }
+@media(max-width:700px){:where(.pd-module) .application-review-dialog{padding:.9rem}:where(.pd-module) .review-document-row{grid-template-columns:1fr}}

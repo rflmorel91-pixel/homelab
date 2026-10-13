@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -252,6 +253,10 @@ class ApplicationRead(BaseModel):
     first_payment_date: date
     currency: Literal["DOP"]
     status: ApplicationStatus
+    decision_reason: str | None
+    review_packet: "ApplicationReviewPacketRead | None" = Field(
+        default=None, validation_alias="review_packet_data"
+    )
     notes: str | None
     consented_at: datetime
     consent_notice_version: str
@@ -270,6 +275,17 @@ class ApplicationUpdate(BaseModel):
         "approved",
         "rejected",
     ]
+    decision_reason: str | None = Field(default=None, min_length=1, max_length=2000)
+
+    @field_validator("decision_reason")
+    @classmethod
+    def strip_decision_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("A decision reason cannot be blank")
+        return value
 
     model_config = ConfigDict(extra="forbid")
 
@@ -279,3 +295,119 @@ class ApplicationConversionRead(BaseModel):
     borrower_id: int
     loan_id: int
     status: Literal["converted"]
+
+
+class VehicleInspection(BaseModel):
+    status: Literal["pending", "passed", "failed"] = "pending"
+    inspector_name: str | None = Field(default=None, max_length=160)
+    inspected_at: datetime | None = None
+    findings: str | None = Field(default=None, max_length=4000)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SupportingDocument(BaseModel):
+    document_type: Literal["identity", "income", "vehicle_registration"]
+    status: Literal["pending", "received", "verified", "rejected"] = "pending"
+    # UUID references are opaque IDs from an approved private document store.
+    # Public URLs and filesystem paths are deliberately not accepted here.
+    storage_ref: UUID | None = None
+    checked_at: datetime | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def verified_document_has_private_reference(self):
+        if self.status in {"received", "verified"} and self.storage_ref is None:
+            raise ValueError("Received documents require a private storage reference")
+        if self.status == "verified" and self.checked_at is None:
+            raise ValueError("Verified documents require a check date")
+        return self
+
+
+class ApplicationReference(BaseModel):
+    full_name: str = Field(min_length=1, max_length=160)
+    relationship: str = Field(min_length=1, max_length=80)
+    phone: str = Field(min_length=1, max_length=40)
+    status: Literal["pending", "contacted", "unreachable"] = "pending"
+    outcome_notes: str | None = Field(default=None, max_length=2000)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("full_name", "relationship", "phone")
+    @classmethod
+    def strip_reference_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Reference fields cannot be blank")
+        return value
+
+
+class CreditAssessment(BaseModel):
+    income_source: str = Field(min_length=2, max_length=160)
+    monthly_net_income: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    monthly_obligations: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
+    affordability_summary: str = Field(min_length=10, max_length=4000)
+    recommendation: Literal["approve", "decline"]
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("income_source", "affordability_summary")
+    @classmethod
+    def strip_assessment_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Assessment fields cannot be blank")
+        return value
+
+
+class ContractFormalization(BaseModel):
+    status: Literal["draft", "prepared", "signed"] = "draft"
+    template_version: str | None = Field(default=None, max_length=80)
+    signed_at: datetime | None = None
+    signed_copy_ref: UUID | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("template_version")
+    @classmethod
+    def strip_template_version(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Template version cannot be blank")
+        return value
+
+    @model_validator(mode="after")
+    def signed_contract_has_evidence(self):
+        if self.status == "signed" and (
+            self.template_version is None
+            or self.signed_at is None
+            or self.signed_copy_ref is None
+        ):
+            raise ValueError("Signed contracts require version, date, and private copy reference")
+        return self
+
+
+class ApplicationReviewPacketRead(BaseModel):
+    inspection: VehicleInspection = Field(default_factory=VehicleInspection)
+    documents: list[SupportingDocument] = Field(default_factory=list)
+    references: list[ApplicationReference] = Field(default_factory=list)
+    assessment: CreditAssessment | None = None
+    contract: ContractFormalization = Field(default_factory=ContractFormalization)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ApplicationReviewEventRead(BaseModel):
+    id: int
+    event_type: str
+    details: dict
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+ApplicationRead.model_rebuild()

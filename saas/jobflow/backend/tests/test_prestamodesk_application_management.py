@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.models import Product, Tenant
 from app.products.prestamodesk.models import (
+    ApplicationReview,
     Borrower,
     Installment,
     Loan,
@@ -15,6 +16,51 @@ from app.products.prestamodesk.models import (
 APPLICATIONS_URL = (
     "/api/v1/products/prestamodesk/applications"
 )
+
+
+def complete_packet(*, signed_contract=True):
+    packet = {
+        "inspection": {
+            "status": "passed",
+            "inspector_name": "Inspector Sintético",
+            "inspected_at": "2026-10-01T10:00:00Z",
+            "findings": "Inspección documentada",
+        },
+        "documents": [
+            {
+                "document_type": kind,
+                "status": "verified",
+                "storage_ref": ref,
+                "checked_at": "2026-10-01T10:00:00Z",
+            }
+            for kind, ref in (
+                ("identity", "11111111-1111-4111-8111-111111111111"),
+                ("income", "22222222-2222-4222-8222-222222222222"),
+                ("vehicle_registration", "33333333-3333-4333-8333-333333333333"),
+            )
+        ],
+        "references": [{
+            "full_name": "Referencia Sintética",
+            "relationship": "Familiar",
+            "phone": "809-555-0199",
+            "status": "contacted",
+            "outcome_notes": "Identidad confirmada; referencia positiva.",
+        }],
+        "assessment": {
+            "income_source": "Empleo",
+            "monthly_net_income": "95000.00",
+            "monthly_obligations": "12000.00",
+            "affordability_summary": "Capacidad revisada contra obligaciones declaradas.",
+            "recommendation": "approve",
+        },
+        "contract": {
+            "status": "signed" if signed_contract else "prepared",
+            "template_version": "pilot-v1" if signed_contract else None,
+            "signed_at": "2026-10-02T12:00:00Z" if signed_contract else None,
+            "signed_copy_ref": "44444444-4444-4444-8444-444444444444" if signed_contract else None,
+        },
+    }
+    return packet
 
 
 def get_product(db_session):
@@ -89,6 +135,13 @@ def create_application(
     db_session.add(application)
     db_session.commit()
     db_session.refresh(application)
+    if status == "approved":
+        application.decision_reason = "Expediente revisado y aprobado para piloto."
+        application.review_packet = ApplicationReview(
+            tenant_id=tenant.id,
+            packet=complete_packet(),
+        )
+        db_session.commit()
     return application
 
 
@@ -192,10 +245,18 @@ def test_application_follows_review_and_approval_flow(
     assert reviewing.json()["status"] == "reviewing"
     assert reviewing.json()["reviewed_at"] is not None
 
+    packet = client.put(
+        f"{url}/review-packet",
+        headers=headers,
+        json=complete_packet(signed_contract=False),
+    )
+    assert packet.status_code == 200
+    assert packet.json()["assessment"]["recommendation"] == "approve"
+
     approved = client.put(
         url,
         headers=headers,
-        json={"status": "approved"},
+        json={"status": "approved", "decision_reason": "Capacidad documentada para el piloto."},
     )
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
@@ -232,6 +293,80 @@ def test_application_cannot_skip_review(
 
     db_session.refresh(application)
     assert application.status == "new"
+
+
+def test_approval_requires_complete_review_packet_and_reason(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(db_session, product, "Review Gate Tenant", "review-gate-tenant")
+    application = create_application(db_session, tenant, status="reviewing")
+    headers = client.owner_headers(tenant)
+
+    missing_packet = client.put(
+        f"{APPLICATIONS_URL}/{application.id}",
+        headers=headers,
+        json={"status": "approved", "decision_reason": "Revisión terminada."},
+    )
+    assert missing_packet.status_code == 409
+    assert "identity document must be verified" in missing_packet.json()["detail"]["gaps"]
+
+    incomplete = complete_packet()
+    incomplete["documents"] = [item for item in incomplete["documents"] if item["document_type"] != "income"]
+    saved = client.put(
+        f"{APPLICATIONS_URL}/{application.id}/review-packet",
+        headers=headers,
+        json=incomplete,
+    )
+    assert saved.status_code == 200
+    response = client.put(
+        f"{APPLICATIONS_URL}/{application.id}",
+        headers=headers,
+        json={"status": "approved", "decision_reason": "Revisión terminada."},
+    )
+    assert response.status_code == 409
+    assert "income document must be verified" in response.json()["detail"]["gaps"]
+
+
+def test_conversion_waits_for_signed_contract_and_review_is_audited(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session)
+    tenant = create_tenant(db_session, product, "Contract Gate Tenant", "contract-gate-tenant")
+    application = create_application(db_session, tenant, status="reviewing")
+    headers = client.owner_headers(tenant)
+    url = f"{APPLICATIONS_URL}/{application.id}"
+
+    saved = client.put(f"{url}/review-packet", headers=headers, json=complete_packet(signed_contract=False))
+    assert saved.status_code == 200
+    approved = client.put(url, headers=headers, json={
+        "status": "approved", "decision_reason": "Evaluación favorable documentada.",
+    })
+    assert approved.status_code == 200
+
+    blocked = client.post(f"{url}/convert", headers=headers)
+    assert blocked.status_code == 409
+    assert "signed contract" in blocked.json()["detail"]
+
+    signed = complete_packet()
+    signed["inspection"] = complete_packet(signed_contract=False)["inspection"]
+    signed["documents"] = complete_packet(signed_contract=False)["documents"]
+    signed["references"] = complete_packet(signed_contract=False)["references"]
+    signed["assessment"] = complete_packet(signed_contract=False)["assessment"]
+    updated = client.put(f"{url}/review-packet", headers=headers, json=signed)
+    assert updated.status_code == 200
+
+    converted = client.post(f"{url}/convert", headers=headers)
+    assert converted.status_code == 201
+    events = client.get(f"{url}/review-events", headers=headers)
+    assert events.status_code == 200
+    assert [event["event_type"] for event in events.json()] == [
+        "packet_updated", "approved", "packet_updated", "converted",
+    ]
 
 
 def test_unapproved_application_cannot_be_converted(

@@ -1,0 +1,31 @@
+.application-review-dialog {
+  width: min(860px, calc(100vw - 2rem));
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  padding: 1.25rem;
+  color: #182a3a;
+  background: #fff;
+  box-shadow: 0 24px 70px #10263b44;
+}
+.application-review-dialog::backdrop { background: #10263b99; }
+.application-review-heading,
+.application-review-actions,
+.review-document-row { display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; }
+.application-review-heading h2 { margin: 0; }
+.application-review-dialog fieldset { margin: 1rem 0; border: 1px solid #d9e2ec; border-radius: 12px; padding: 1rem; }
+.application-review-dialog legend { padding: 0 0.35rem; font-weight: 700; }
+.application-review-dialog label { display: grid; gap: 0.35rem; }
+.application-review-dialog input,
+.application-review-dialog select,
+.application-review-dialog textarea { width: 100%; min-height: 2.6rem; }
+.application-review-dialog textarea { min-height: 5rem; }
+.application-review-dialog .review-wide { grid-column: 1 / -1; }
+.review-document-row { display: grid; grid-template-columns: 1fr 1fr 1.5fr 1.5fr; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #e7edf3; }
+.review-document-row:last-child { border-bottom: 0; }
+.application-review-actions { justify-content: flex-start; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .application-review-dialog { padding: 0.9rem; }
+  .review-document-row { grid-template-columns: 1fr; }
+}

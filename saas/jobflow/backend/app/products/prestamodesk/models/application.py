@@ -10,7 +10,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -193,6 +193,10 @@ class LoanApplication(Base):
         index=True,
     )
 
+    decision_reason: Mapped[str | None] = mapped_column(
+        Text, nullable=True,
+    )
+
     notes: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -236,3 +240,18 @@ class LoanApplication(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    review_packet: Mapped["ApplicationReview | None"] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    review_events: Mapped[list["ApplicationReviewEvent"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+        order_by="ApplicationReviewEvent.created_at",
+    )
+
+    @property
+    def review_packet_data(self):
+        return self.review_packet.packet if self.review_packet else None
