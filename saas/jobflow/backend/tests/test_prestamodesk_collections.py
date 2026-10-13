@@ -1348,3 +1348,111 @@ def test_supervision_excludes_followups_for_paid_loans(
     assert supervision["activity_count"] == 2
     assert supervision["follow_ups_due_today_count"] == 0
     assert supervision["overdue_follow_up_count"] == 0
+
+
+
+def test_supervision_counts_latest_activity_followups_only(
+    authenticated_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        client_number=872,
+        slug="collections-latest-followups",
+    )
+    _, scheduled_loan, _ = create_loan(
+        db_session,
+        tenant=tenant,
+        suffix=872,
+    )
+    _, cleared_loan, _ = create_loan(
+        db_session,
+        tenant=tenant,
+        suffix=873,
+    )
+    headers = role_headers(
+        authenticated_client,
+        db_session,
+        tenant,
+        "owner",
+    )
+    operator_id = authenticated_client.auth_user.id
+    db_session.add_all(
+        [
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=scheduled_loan.id,
+                recorded_by_user_id=operator_id,
+                channel="phone",
+                outcome="Contacto anterior",
+                contacted_at=datetime(
+                    2026, 9, 29, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+                created_at=datetime(
+                    2026, 9, 29, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=scheduled_loan.id,
+                recorded_by_user_id=operator_id,
+                channel="phone",
+                outcome="Contacto reciente",
+                contacted_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=datetime(
+                    2026, 10, 2, 14, 0, tzinfo=timezone.utc
+                ),
+                created_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=cleared_loan.id,
+                recorded_by_user_id=operator_id,
+                channel="phone",
+                outcome="Contacto anterior",
+                contacted_at=datetime(
+                    2026, 9, 29, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+                created_at=datetime(
+                    2026, 9, 29, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=cleared_loan.id,
+                recorded_by_user_id=operator_id,
+                channel="phone",
+                outcome="Gestión completada",
+                contacted_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=None,
+                created_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = authenticated_client.get(
+        f"{BASE_URL}/collections/supervision",
+        params={"as_of": "2026-10-02"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    supervision = response.json()
+    assert supervision["activity_count"] == 4
+    assert supervision["follow_ups_due_today_count"] == 1
+    assert supervision["overdue_follow_up_count"] == 0
