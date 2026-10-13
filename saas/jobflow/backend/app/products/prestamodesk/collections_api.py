@@ -1292,14 +1292,35 @@ def read_collections_supervision(
         and promise.due_date == as_of
         for promise in promises
     )
-    follow_up_activities = db.scalars(
-        select(CollectionActivity)
+    latest_activity_ranks = (
+        select(
+            CollectionActivity.id.label("activity_id"),
+            func.row_number()
+            .over(
+                partition_by=CollectionActivity.loan_id,
+                order_by=(
+                    CollectionActivity.created_at.desc(),
+                    CollectionActivity.id.desc(),
+                ),
+            )
+            .label("activity_rank"),
+        )
         .join(Loan, Loan.id == CollectionActivity.loan_id)
         .where(
             CollectionActivity.tenant_id == tenant.id,
             Loan.tenant_id == tenant.id,
             Loan.status == "active",
         )
+        .subquery()
+    )
+    follow_up_activities = db.scalars(
+        select(CollectionActivity)
+        .join(
+            latest_activity_ranks,
+            CollectionActivity.id
+            == latest_activity_ranks.c.activity_id,
+        )
+        .where(latest_activity_ranks.c.activity_rank == 1)
     ).all()
     follow_ups_due_today_count = sum(
         activity.next_follow_up_at is not None
