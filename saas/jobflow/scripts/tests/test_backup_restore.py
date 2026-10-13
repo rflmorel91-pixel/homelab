@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import time
 import unittest
@@ -66,9 +67,11 @@ class RestoreTests(unittest.TestCase):
                 "NetworkMode": "none", "Privileged": False, "Binds": None,
                 "VolumesFrom": None, "PortBindings": {}, "IpcMode": "private", "PidMode": "",
                 "Memory": 512 * 1024 * 1024, "NanoCpus": 1000000000, "PidsLimit": 128,
-                "Tmpfs": {"/var/lib/postgresql/data": "rw,nosuid,size=256m"},
+                "Tmpfs": {"/var/lib/postgresql/data": "rw,nosuid,size=256m",
+                          "/restore-documents": "rw,nosuid,size=256m"},
             },
-            "Mounts": [{"Type": "tmpfs", "Destination": "/var/lib/postgresql/data"}],
+            "Mounts": [{"Type": "tmpfs", "Destination": "/var/lib/postgresql/data"},
+                       {"Type": "tmpfs", "Destination": "/restore-documents"}],
         }
 
     def test_success_marker_is_private_and_has_no_counts(self):
@@ -148,6 +151,45 @@ class RestoreTests(unittest.TestCase):
         for variant in variants:
             with self.assertRaises(ValueError):
                 v.validate_manifest(variant, self.source, time.time(), False)
+
+    def test_private_archive_requires_exact_safe_files_and_hashes(self):
+        payload = b"private synthetic evidence"
+        key = "1/2/11111111-1111-4111-8111-111111111111.pdf"
+        archive_path = self.source.with_name(self.source.name + ".private.tar")
+        with tarfile.open(archive_path, "w") as archive:
+            for directory in ("1", "1/2"):
+                info = tarfile.TarInfo(directory)
+                info.type = tarfile.DIRTYPE
+                archive.addfile(info)
+            info = tarfile.TarInfo(key)
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+        archive_path.chmod(0o600)
+        metadata = {"archive": archive_path.name, "bytes": archive_path.stat().st_size,
+                    "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+                    "documents": [{"file_key": key, "byte_size": len(payload),
+                                   "sha256": hashlib.sha256(payload).hexdigest()}]}
+        v.validate_private_documents(metadata, self.source)
+        with archive_path.open("rb") as stream:
+            v.validate_private_archive(stream, metadata)
+        metadata["documents"][0]["sha256"] = "0" * 64
+        with archive_path.open("rb") as stream:
+            with self.assertRaises(ValueError):
+                v.validate_private_archive(stream, metadata)
+
+    def test_private_archive_rejects_path_traversal_before_extract(self):
+        archive_path = self.source.with_name(self.source.name + ".private.tar")
+        with tarfile.open(archive_path, "w") as archive:
+            info = tarfile.TarInfo("../escape")
+            info.size = 1
+            archive.addfile(info, io.BytesIO(b"x"))
+        archive_path.chmod(0o600)
+        metadata = {"archive": archive_path.name, "bytes": archive_path.stat().st_size,
+                    "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+                    "documents": []}
+        with archive_path.open("rb") as stream:
+            with self.assertRaises(ValueError):
+                v.validate_private_archive(stream, metadata)
 
     def test_stale_and_future_snapshots_rejected(self):
         for value in (time.time() - v.MAX_SOURCE_AGE - 100, time.time() + 600, float("nan")):
@@ -256,6 +298,8 @@ class RestoreTests(unittest.TestCase):
         restore = next(cmd for cmd in commands if "pg_restore" in cmd)
         self.assertIn("--exit-on-error", restore)
         self.assertIn("--single-transaction", restore)
+        self.assertIn("--no-owner", restore)
+        self.assertIn("--no-privileges", restore)
         self.assertEqual(restore[3], "b" * 64)
         for command in commands:
             self.assertNotIn("jobflow-db", command)

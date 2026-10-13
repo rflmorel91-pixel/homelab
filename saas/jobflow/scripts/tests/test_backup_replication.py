@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "replicate-jobflow-backup.py"
 spec = importlib.util.spec_from_file_location("backup_replication", SCRIPT)
@@ -113,6 +113,65 @@ class Tests(unittest.TestCase):
             second = replication.encrypted_copy(self.source, spool, self.root / "recipient")
         self.assertEqual(first, second)
         self.assertEqual(run.call_count, 1)
+
+    def test_private_archive_is_required_and_paired_from_manifest(self):
+        sidecar = self.source.with_name(self.source.name + ".private.tar")
+        payload = bytearray(512)
+        payload[257:262] = b"ustar"
+        sidecar.write_bytes(payload)
+        sidecar.chmod(0o600)
+        os.utime(sidecar, (self.now, self.now))
+        metadata = {"private_documents": {
+            "archive": sidecar.name, "bytes": len(payload),
+            "sha256": __import__("hashlib").sha256(payload).hexdigest(),
+        }}
+        self.source.with_name(self.source.name + ".manifest.json").write_text(json.dumps(metadata))
+        self.assertEqual(replication.paired_sources(self.source, self.root, self.now),
+                         [self.source, sidecar])
+        sidecar.unlink()
+        with self.assertRaises(ValueError):
+            replication.paired_sources(self.source, self.root, self.now)
+
+    def test_archive_magic_accepts_tar_but_rejects_other_files(self):
+        spool = self.root / "spool"
+        spool.mkdir()
+        tar = self.backups / "jobflow-20260827-141801.dump.private.tar"
+        payload = bytearray(512)
+        payload[257:262] = b"ustar"
+        tar.write_bytes(payload)
+        with patch.object(replication.subprocess, "run", side_effect=lambda args, **kw:
+                          Path(args[args.index("-o") + 1]).write_bytes(b"age-encryption.org/v1\nC")):
+            encrypted, digest = replication.encrypted_copy(tar, spool, self.root / "recipient")
+        self.assertTrue(encrypted.startswith(b"age-encryption.org/v1\n"))
+        self.assertEqual(digest, __import__("hashlib").sha256(payload).hexdigest())
+
+    def test_replication_publishes_dump_and_private_archive_together(self):
+        sidecar = self.source.with_name(self.source.name + ".private.tar")
+        sidecar.write_bytes(b"private-archive")
+        sidecar.chmod(0o600)
+        os.utime(sidecar, (self.now, self.now))
+        manifest = {"private_documents": {
+            "archive": sidecar.name, "bytes": sidecar.stat().st_size,
+            "sha256": __import__("hashlib").sha256(sidecar.read_bytes()).hexdigest(),
+        }}
+        self.source.with_name(self.source.name + ".manifest.json").write_text(json.dumps(manifest))
+        self.source.with_name(self.source.name + ".manifest.json").chmod(0o600)
+        encrypted = b"age-encryption.org/v1\nTEST"
+        b2 = MagicMock()
+        b2.ensure_copy.side_effect = lambda name, data, until: {
+            "name": name, "file_id": "id", "bytes": len(data),
+            "sha256": __import__("hashlib").sha256(data).hexdigest(),
+            "retain_until_ms": until,
+        }
+        with patch.object(replication, "encrypted_copy",
+                          side_effect=[(encrypted, "dump-hash"), (encrypted, "private-hash")]), \
+             patch.object(replication, "B2", return_value=b2):
+            result = replication.replicate(self.source, self.root, self.root, self.now)
+        self.assertEqual([item["source"] for item in result["artifacts"]],
+                         [self.source.name, sidecar.name])
+        self.assertEqual(b2.ensure_copy.call_count, 2)
+        saved = json.loads((self.root / "runtime/last-offsite-success.json").read_text())
+        self.assertEqual(saved["artifacts"], result["artifacts"])
 
     def test_failure_does_not_write_success(self):
         with patch.object(replication, "encrypted_copy", return_value=(b"ciphertext", "hash")), patch.object(replication, "B2") as client:

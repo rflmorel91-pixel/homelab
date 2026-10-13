@@ -15,6 +15,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import tarfile
 import time
 import uuid
 
@@ -23,6 +24,8 @@ OWNER = "fieldlookers.restore-owner"
 PROJECT = "fieldlookers.restore-project"
 OWNER_VALUE = "snapshot-validator-v1"
 MAX_BYTES = 256 * 1024 * 1024
+MAX_PRIVATE_ARCHIVE_BYTES = 256 * 1024 * 1024
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 MAX_SOURCE_AGE = 36 * 3600
 MAX_CHECK_AGE = 8 * 86400
 CORE = {"alembic_version", "users", "tenants", "tenant_memberships", "products"}
@@ -45,7 +48,7 @@ def timestamp(value):
 
 def read_json(path):
     with open_private(path) as stream:
-        require(os.fstat(stream.fileno()).st_size <= 1024 * 1024, "json-size")
+        require(os.fstat(stream.fileno()).st_size <= MAX_MANIFEST_BYTES, "json-size")
         return json.load(stream)
 
 
@@ -124,8 +127,77 @@ def verify_isolation(info, image):
             and host["Memory"] == 512 * 1024 * 1024
             and host["NanoCpus"] == 1000000000 and host["PidsLimit"] == 128
             and host.get("Tmpfs") == {
-                "/var/lib/postgresql/data": "rw,nosuid,size=256m"}
+                "/var/lib/postgresql/data": "rw,nosuid,size=256m",
+                "/restore-documents": "rw,nosuid,size=256m"}
             and all(m["Type"] == "tmpfs" for m in mounts), "isolation-contract")
+
+
+def validate_private_documents(metadata, source):
+    if metadata is None:
+        return None
+    require(isinstance(metadata, dict)
+            and metadata.get("archive") == source.name + ".private.tar",
+            "private-archive-name")
+    require(type(metadata.get("bytes")) is int and
+            0 < metadata["bytes"] <= MAX_PRIVATE_ARCHIVE_BYTES, "private-archive-size")
+    require(re.fullmatch(r"[0-9a-f]{64}", metadata.get("sha256", "")),
+            "private-archive-digest")
+    records = metadata.get("documents")
+    require(isinstance(records, list) and len(records) <= 100000,
+            "private-document-records")
+    keys = set()
+    for record in records:
+        require(isinstance(record, dict), "private-document-record")
+        key = record.get("file_key", "")
+        require(re.fullmatch(
+            r"[1-9][0-9]*/[1-9][0-9]*/"
+            r"[0-9a-fA-F-]{36}\.(?:pdf|jpg|png)", key
+        ) is not None, "private-document-key")
+        identifier = key.split("/")[-1].rsplit(".", 1)[0]
+        require(str(uuid.UUID(identifier)) == identifier.lower(), "private-document-uuid")
+        require(type(record.get("byte_size")) is int and 0 < record["byte_size"] <= 8 * 1024 * 1024,
+                "private-document-size")
+        require(re.fullmatch(r"[0-9a-f]{64}", record.get("sha256", "")),
+                "private-document-hash")
+        require(key not in keys, "duplicate-private-document-key")
+        keys.add(key)
+    return records
+
+
+def validate_private_archive(stream, metadata):
+    stream.seek(0)
+    require(os.fstat(stream.fileno()).st_size == metadata["bytes"], "private-archive-size-mismatch")
+    require(hashlib.file_digest(stream, "sha256").hexdigest() == metadata["sha256"],
+            "private-archive-hash-mismatch")
+    stream.seek(0)
+    expected = {item["file_key"]: item for item in metadata["documents"]}
+    actual, directories = set(), set()
+    with tarfile.open(fileobj=stream, mode="r|") as archive:
+        for member in archive:
+            name = member.name
+            require(not name.startswith("/"), "private-archive-absolute-path")
+            while name.startswith("./"):
+                name = name[2:]
+            name = name.rstrip("/")
+            require(name in ("", ".") or all(part not in ("", ".", "..")
+                    for part in name.split("/")), "private-archive-path")
+            if member.isdir():
+                if name not in ("", "."):
+                    directories.add(name)
+                continue
+            require(member.isfile() and name in expected and name not in actual,
+                    "private-archive-entry")
+            content = archive.extractfile(member)
+            require(content is not None and member.size == expected[name]["byte_size"],
+                    "private-archive-size")
+            require(hashlib.file_digest(content, "sha256").hexdigest() == expected[name]["sha256"],
+                    "private-archive-document-hash")
+            actual.add(name)
+    require(actual == set(expected), "private-archive-inventory")
+    for name in directories:
+        require(any(key.startswith(name + "/") for key in expected),
+                "private-archive-unexpected-directory")
+    stream.seek(0)
 
 
 def quote_identifier(name):
@@ -153,9 +225,10 @@ def validate_manifest(manifest, source, now, allow_old):
     for table, count in counts.items():
         quote_identifier(table)
         require(type(count) is int and count >= 0, "row-count")
+    validate_private_documents(manifest.get("private_documents"), source)
 
 
-def restore(project, source, manifest, stream, phase):
+def restore(project, source, manifest, stream, phase, private_stream=None):
     phase("stale-resource-cleanup")
     cleanup(project)
     image = manifest["postgres_image_id"]
@@ -170,6 +243,7 @@ def restore(project, source, manifest, stream, phase):
             "--network", "none", "--ipc", "private", "--restart", "no",
             "--memory", "512m", "--cpus", "1", "--pids-limit", "128",
             "--tmpfs", "/var/lib/postgresql/data:rw,nosuid,size=256m",
+            "--tmpfs", "/restore-documents:rw,nosuid,size=256m",
             "--env", "POSTGRES_HOST_AUTH_METHOD=trust",
             "--env", "POSTGRES_USER=jobflow", "--env", "POSTGRES_DB=restore_validation",
             image,
@@ -191,8 +265,17 @@ def restore(project, source, manifest, stream, phase):
                 time.sleep(1)
         phase("database-restore")
         run(["docker", "exec", "-i", created, "pg_restore", "--exit-on-error",
-             "--single-transaction", "-h", "127.0.0.1", "-U", "jobflow",
+             "--single-transaction", "--no-owner", "--no-privileges",
+             "-h", "127.0.0.1", "-U", "jobflow",
              "-d", "restore_validation"], stdin=stream, timeout=300)
+        private_metadata = manifest.get("private_documents")
+        if private_metadata is not None:
+            require(private_stream is not None, "private-archive-stream")
+            phase("private-document-extraction")
+            private_stream.seek(0)
+            run(["docker", "exec", "-i", created, "tar", "--no-same-owner",
+                 "--no-same-permissions", "-xpf", "-", "-C", "/restore-documents"],
+                stdin=private_stream, timeout=300)
 
         def query(sql):
             return json.loads(run([
@@ -211,6 +294,19 @@ def restore(project, source, manifest, stream, phase):
         for table, expected in sorted(manifest["table_counts"].items()):
             actual = query("SELECT to_json(count(*)) FROM public." + quote_identifier(table))
             require(type(actual) is int and actual == expected, "row-count-mismatch")
+        if private_metadata is not None:
+            phase("private-document-comparison")
+            expected_documents = sorted(private_metadata["documents"], key=lambda item: item["file_key"])
+            actual_documents = query("SELECT COALESCE(json_agg(json_build_object("
+                "'file_key',file_key,'byte_size',byte_size,'sha256',sha256) ORDER BY file_key),"
+                "'[]'::json) FROM public.prestamodesk_application_review_documents")
+            require(actual_documents == expected_documents, "private-document-database-mismatch")
+            for record in expected_documents:
+                path = "/restore-documents/" + record["file_key"]
+                digest = run(["docker", "exec", created, "sha256sum", path]).split()[0]
+                size = run(["docker", "exec", created, "stat", "-c", "%s", path])
+                require(digest == record["sha256"] and size == str(record["byte_size"]),
+                        "private-document-restored-file-mismatch")
     finally:
         # Also handles create/start timeouts where Docker created the resource
         # but its ID never reached this process. Ownership must still match.
@@ -249,10 +345,16 @@ def perform(project, selected=None, allow_old=False, send_alert=False):
         phase("manifest-verification")
         manifest_path = selected.with_name(selected.name + ".manifest.json")
         with open_private(manifest_path) as metadata:
-            require(os.fstat(metadata.fileno()).st_size <= 1024 * 1024, "manifest-size")
+            require(os.fstat(metadata.fileno()).st_size <= MAX_MANIFEST_BYTES, "manifest-size")
             raw = metadata.read()
         manifest = json.loads(raw)
         validate_manifest(manifest, selected, time.time(), allow_old)
+        private_metadata = manifest.get("private_documents")
+        private_stream = None
+        private_path = selected.with_name(selected.name + ".private.tar")
+        if private_metadata is not None:
+            private_stream = open_private(private_path)
+            validate_private_archive(private_stream, private_metadata)
         with open_private(selected) as stream:
             require(os.fstat(stream.fileno()).st_size == manifest["bytes"], "size-mismatch")
             require(stream.read(5) == b"PGDMP", "dump-format")
@@ -260,11 +362,26 @@ def perform(project, selected=None, allow_old=False, send_alert=False):
             require(hashlib.file_digest(stream, "sha256").hexdigest() == manifest["sha256"], "hash-mismatch")
             if evidence is not None:
                 require(evidence.get("source_sha256") == manifest["sha256"], "offsite-source-mismatch")
+                if private_metadata is not None:
+                    artifacts = evidence.get("artifacts", [])
+                    match = next((item for item in artifacts
+                                  if item.get("source") == private_metadata["archive"]), None)
+                    require(match is not None and match.get("source_sha256") == private_metadata["sha256"],
+                            "offsite-private-archive-mismatch")
             stream.seek(0)
-            restore(project, selected, manifest, stream, phase)
+            try:
+                restore(project, selected, manifest, stream, phase, private_stream)
+            finally:
+                if private_stream is not None:
+                    private_stream.close()
             # Reject an in-place change while the same open file was restored.
             stream.seek(0)
             require(hashlib.file_digest(stream, "sha256").hexdigest() == manifest["sha256"], "source-changed")
+        if private_metadata is not None:
+            with open_private(private_path) as verify_stream:
+                require(os.fstat(verify_stream.fileno()).st_size == private_metadata["bytes"]
+                        and hashlib.file_digest(verify_stream, "sha256").hexdigest()
+                        == private_metadata["sha256"], "private-archive-changed")
         if send_alert:
             phase("success-notification")
             notify(project, "success")
