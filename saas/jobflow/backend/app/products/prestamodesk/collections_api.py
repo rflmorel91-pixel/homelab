@@ -1292,13 +1292,22 @@ def read_collections_supervision(
         and promise.due_date == as_of
         for promise in promises
     )
+    follow_up_activities = db.scalars(
+        select(CollectionActivity)
+        .join(Loan, Loan.id == CollectionActivity.loan_id)
+        .where(
+            CollectionActivity.tenant_id == tenant.id,
+            Loan.tenant_id == tenant.id,
+            Loan.status == "active",
+        )
+    ).all()
     follow_ups_due_today_count = sum(
         activity.next_follow_up_at is not None
         and tenant_local_date(
             tenant,
             activity.next_follow_up_at,
         ) == as_of
-        for activity in activities
+        for activity in follow_up_activities
     )
     overdue_follow_up_count = sum(
         activity.next_follow_up_at is not None
@@ -1306,7 +1315,7 @@ def read_collections_supervision(
             tenant,
             activity.next_follow_up_at,
         ) < as_of
-        for activity in activities
+        for activity in follow_up_activities
     )
 
     collector_portfolios: dict[

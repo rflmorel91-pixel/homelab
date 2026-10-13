@@ -1281,3 +1281,70 @@ def assign_current_collector(
         )
     )
     db_session.commit()
+
+
+
+def test_supervision_excludes_followups_for_paid_loans(
+    authenticated_client,
+    db_session,
+):
+    tenant = create_tenant(
+        db_session,
+        client_number=871,
+        slug="collections-paid-followups",
+    )
+    _, loan, _ = create_loan(
+        db_session,
+        tenant=tenant,
+        suffix=871,
+    )
+    loan.status = "paid"
+    headers = role_headers(
+        authenticated_client,
+        db_session,
+        tenant,
+        "owner",
+    )
+    db_session.add_all(
+        [
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=loan.id,
+                recorded_by_user_id=authenticated_client.auth_user.id,
+                channel="phone",
+                outcome="Pago completado",
+                contacted_at=datetime(
+                    2026, 9, 30, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+            CollectionActivity(
+                tenant_id=tenant.id,
+                loan_id=loan.id,
+                recorded_by_user_id=authenticated_client.auth_user.id,
+                channel="phone",
+                outcome="Pago confirmado",
+                contacted_at=datetime(
+                    2026, 10, 1, 14, 0, tzinfo=timezone.utc
+                ),
+                next_follow_up_at=datetime(
+                    2026, 10, 2, 14, 0, tzinfo=timezone.utc
+                ),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = authenticated_client.get(
+        f"{BASE_URL}/collections/supervision",
+        params={"as_of": "2026-10-02"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    supervision = response.json()
+    assert supervision["activity_count"] == 2
+    assert supervision["follow_ups_due_today_count"] == 0
+    assert supervision["overdue_follow_up_count"] == 0
