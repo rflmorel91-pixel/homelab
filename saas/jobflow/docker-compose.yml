@@ -106,4 +106,6 @@ services:
 
 volumes:
   jobflow_postgres_data:
+    external: true
+    name: ${JOBFLOW_POSTGRES_VOLUME_NAME:-jobflow_jobflow_postgres_data}
   jobflow_prestamodesk_private_documents:
