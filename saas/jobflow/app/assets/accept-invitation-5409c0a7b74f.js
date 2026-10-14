@@ -64,7 +64,7 @@ form.addEventListener(
     }
 
     activateButton.disabled = true;
-    activateButton.textContent = "Activating...";
+      activateButton.textContent = "Accepting...";
 
     try {
       const response = await fetch(
@@ -116,7 +116,7 @@ form.addEventListener(
       continueLink.classList.add("visible");
 
       showStatus(
-        `Your account is active. Redirecting to ${payload.product.name} sign in...`,
+        `Invitation accepted. Redirecting to ${payload.product.name} sign in...`,
         "success"
       );
 
@@ -132,7 +132,7 @@ form.addEventListener(
       );
 
       activateButton.disabled = false;
-      activateButton.textContent = "Activate Account";
+      activateButton.textContent = "Accept Invitation";
     }
   }
 );

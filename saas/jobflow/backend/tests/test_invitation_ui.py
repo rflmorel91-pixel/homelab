@@ -7,13 +7,14 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 def test_activation_page_uses_fragment_token():
     page = (
         (WORKSPACE_ROOT / "app/accept-invitation.html").read_text()
-        + (WORKSPACE_ROOT / "app/assets/accept-invitation-f0f3c6a68515.js").read_text()
+        + (WORKSPACE_ROOT / "app/assets/accept-invitation-5409c0a7b74f.js").read_text()
     )
 
     assert 'window.location.hash.slice(1)' in page
     assert 'hash.get("token")' in page
     assert "window.history.replaceState" in page
     assert "?token=" not in page
+    assert "current password" in page
 
 
 def test_admin_invitation_form_uses_platform_api():
@@ -21,7 +22,7 @@ def test_admin_invitation_form_uses_platform_api():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-9b4f98001df2.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert 'id="inviteUserForm"' in page
     assert 'id="invitationLeadId"' in page
@@ -32,6 +33,7 @@ def test_admin_invitation_form_uses_platform_api():
     assert "lead.status === \"qualified\"" in page
     assert "invitation.product.name" in page
     assert "invitation.activation_path" in page
+    assert "invitation.existing_account" in page
 
 
 def test_nginx_routes_and_limits_invitation_acceptance():
@@ -59,7 +61,7 @@ def test_nginx_routes_and_limits_invitation_acceptance():
 def test_activation_continues_to_linked_product_landing():
     page = (
         (WORKSPACE_ROOT / "app/accept-invitation.html").read_text()
-        + (WORKSPACE_ROOT / "app/assets/accept-invitation-f0f3c6a68515.js").read_text()
+        + (WORKSPACE_ROOT / "app/assets/accept-invitation-5409c0a7b74f.js").read_text()
     )
 
     assert "payload.product.workspace_route" in page
@@ -123,7 +125,7 @@ def test_commercial_client_uses_secure_user_invitation():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-9b4f98001df2.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "<h3>Invite Client User</h3>" in page
     assert 'id="clientInvitationName"' in page
@@ -152,7 +154,7 @@ def test_client_invitation_lifecycle_is_manageable():
         WORKSPACE_ROOT
         / "app"
         / "admin.html"
-    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-208a679dbd82.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
+    ).read_text() + (WORKSPACE_ROOT / "app/assets/admin-9b4f98001df2.js").read_text() + (WORKSPACE_ROOT / "app/assets/admin-dea40d584f53.css").read_text()
 
     assert "<h3>Client Invitations</h3>" in page
     assert 'id="clientInvitationRows"' in page
