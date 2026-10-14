@@ -235,7 +235,7 @@ def test_cannot_invite_existing_account_without_password(
     )
 
 
-def test_existing_user_accepts_lead_invitation_with_current_password(
+def test_existing_user_accepts_multiple_lead_invitations_with_current_password(
     client,
     raw_client,
     db_session,
@@ -258,6 +258,28 @@ def test_existing_user_accepts_lead_invitation_with_current_password(
     original_display_name = user.display_name
     original_password_hash = user.password_hash
     db_session.commit()
+
+    previous_lead, _ = create_lead(
+        db_session,
+        email=lead.email,
+    )
+    previous_create = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": previous_lead.id},
+    )
+    assert previous_create.status_code == 201
+    assert previous_create.json()["existing_account"] is True
+    previous_token = token_from_activation_path(
+        previous_create.json()["activation_path"]
+    )
+    previous_acceptance = raw_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": previous_token,
+            "password": "legacy-pass",
+        },
+    )
+    assert previous_acceptance.status_code == 200
 
     create_response = client.post(
         "/api/v1/admin/user-invitations",
@@ -307,6 +329,14 @@ def test_existing_user_accepts_lead_invitation_with_current_password(
     assert invitation is not None
     assert invitation.accepted_user_id == original_user_id
     assert invitation.accepted_at is not None
+    previous_invitation = db_session.scalar(
+        select(UserInvitation).where(
+            UserInvitation.lead_id == previous_lead.id,
+        )
+    )
+    assert previous_invitation is not None
+    assert previous_invitation.accepted_user_id == original_user_id
+    assert previous_invitation.accepted_at is not None
 
     provisioning_options = client.get(
         "/api/v1/leads/provisioning-options",
