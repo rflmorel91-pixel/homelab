@@ -80,7 +80,6 @@ class UserInvitation(Base):
 
     accepted_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
-        unique=True,
         nullable=True,
         index=True,
     )
