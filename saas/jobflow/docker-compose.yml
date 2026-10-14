@@ -6,6 +6,9 @@ services:
     build:
       context: ./backend
     container_name: jobflow-api
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     volumes:
       - jobflow_prestamodesk_private_documents:/var/lib/jobflow-private/prestamodesk
@@ -43,6 +46,9 @@ services:
     build:
       context: ./backend
     container_name: jobflow-migrate
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     environment:
       DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
       JWT_SECRET: ${JWT_SECRET}
