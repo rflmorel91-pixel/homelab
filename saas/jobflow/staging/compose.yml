@@ -57,6 +57,23 @@ services:
       staging-db:
         condition: service_healthy
 
+  staging-private-storage-init:
+    image: fieldlookers-staging-api:local
+    build:
+      context: ../backend
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    command: ["chown", "-R", "10001:10001", "/var/lib/jobflow-private/prestamodesk"]
+    volumes:
+      - staging_private_documents:/var/lib/jobflow-private/prestamodesk
+    networks: [isolated]
+    mem_limit: 128m
+    cpus: 0.25
+
   staging-api:
     image: fieldlookers-staging-api:local
     build:
@@ -71,6 +88,8 @@ services:
     cpus: 1.0
     depends_on:
       staging-migrate:
+        condition: service_completed_successfully
+      staging-private-storage-init:
         condition: service_completed_successfully
       staging-mail:
         condition: service_started
