@@ -183,7 +183,37 @@ def test_cannot_invite_unqualified_lead(
     )
 
 
-def test_cannot_invite_existing_user(
+def test_platform_admin_can_invite_existing_user_account(
+    client,
+    db_session,
+):
+    from app.security import hash_password
+
+    make_platform_admin(db_session)
+    lead, _ = create_lead(
+        db_session,
+        email="default-test-user@example.com",
+    )
+    user = db_session.scalar(
+        select(User).where(
+            User.email == lead.email,
+        )
+    )
+    assert user is not None
+    user.password_hash = hash_password("existing-password")
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": lead.id},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["existing_account"] is True
+    assert response.json()["email"] == lead.email
+
+
+def test_cannot_invite_existing_account_without_password(
     client,
     db_session,
 ):
@@ -199,6 +229,94 @@ def test_cannot_invite_existing_user(
     )
 
     assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The existing account needs a password "
+        "before it can accept this invitation."
+    )
+
+
+def test_existing_user_accepts_lead_invitation_with_current_password(
+    client,
+    raw_client,
+    db_session,
+):
+    from app.security import hash_password
+
+    make_platform_admin(db_session)
+    lead, _ = create_lead(
+        db_session,
+        email="default-test-user@example.com",
+    )
+    user = db_session.scalar(
+        select(User).where(
+            User.email == lead.email,
+        )
+    )
+    assert user is not None
+    user.password_hash = hash_password("legacy-pass")
+    original_user_id = user.id
+    original_display_name = user.display_name
+    original_password_hash = user.password_hash
+    db_session.commit()
+
+    create_response = client.post(
+        "/api/v1/admin/user-invitations",
+        json={"lead_id": lead.id},
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["existing_account"] is True
+    token = token_from_activation_path(
+        create_response.json()["activation_path"]
+    )
+
+    wrong_password = raw_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": token,
+            "password": "incorrect-account-password",
+        },
+    )
+    assert wrong_password.status_code == 401
+
+    accepted = raw_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={
+            "token": token,
+            "password": "legacy-pass",
+        },
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.json()["user"]["id"] == original_user_id
+
+    db_session.expire_all()
+    unchanged_user = db_session.get(User, original_user_id)
+    invitation = db_session.scalar(
+        select(UserInvitation).where(
+            UserInvitation.lead_id == lead.id,
+        )
+    )
+    assert unchanged_user is not None
+    assert unchanged_user.display_name == original_display_name
+    assert unchanged_user.password_hash == original_password_hash
+    assert db_session.scalar(
+        select(User).where(
+            User.email == lead.email,
+        )
+    ).id == original_user_id
+    assert invitation is not None
+    assert invitation.accepted_user_id == original_user_id
+    assert invitation.accepted_at is not None
+
+    provisioning_options = client.get(
+        "/api/v1/leads/provisioning-options",
+    )
+    assert provisioning_options.status_code == 200
+    assert any(
+        owner["lead_id"] == lead.id
+        and owner["user_id"] == original_user_id
+        for owner in provisioning_options.json()["owners"]
+    )
 
 
 def test_cannot_create_duplicate_active_invitation(

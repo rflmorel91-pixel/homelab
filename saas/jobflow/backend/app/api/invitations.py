@@ -30,6 +30,7 @@ from app.security import (
     create_invitation_token,
     hash_invitation_token,
     hash_password,
+    verify_password,
 )
 
 
@@ -98,7 +99,7 @@ class InvitationAccept(BaseModel):
         max_length=256,
     )
     password: str = Field(
-        min_length=12,
+        min_length=1,
         max_length=128,
     )
 
@@ -186,10 +187,25 @@ def create_user_invitation(
         )
     )
 
-    if existing_user is not None:
+    if existing_user is not None and not existing_user.is_active:
         raise HTTPException(
             status_code=409,
-            detail="A user with this email already exists",
+            detail=(
+                "The existing account is inactive. "
+                "Reactivate it before inviting this lead."
+            ),
+        )
+
+    if (
+        existing_user is not None
+        and existing_user.password_hash is None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "The existing account needs a password "
+                "before it can accept this invitation."
+            ),
         )
 
     now = utc_now_naive()
@@ -261,6 +277,7 @@ def create_user_invitation(
         },
         "email": invitation.email,
         "display_name": invitation.display_name,
+        "existing_account": existing_user is not None,
         "expires_at": invitation.expires_at,
         "activation_path": (
             f"/accept-invitation#token={token}"
@@ -1051,12 +1068,6 @@ def accept_user_invitation(
         )
     )
 
-    if existing_user is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists",
-        )
-
     lead = None
     tenant = None
 
@@ -1141,15 +1152,53 @@ def accept_user_invitation(
             detail="Invitation product is unavailable",
         )
 
-    user = User(
-        email=invitation.email,
-        display_name=invitation.display_name,
-        password_hash=hash_password(payload.password),
-        is_active=True,
-        is_platform_admin=False,
-    )
-    db.add(user)
-    db.flush()
+    if existing_user is not None:
+        if not existing_user.is_active:
+            raise HTTPException(
+                status_code=409,
+                detail="The existing account is inactive",
+            )
+
+        if existing_user.password_hash is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The existing account needs a password "
+                    "before it can accept this invitation."
+                ),
+            )
+
+        if not verify_password(
+            payload.password,
+            existing_user.password_hash,
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    "This email already has an account. "
+                    "Enter its current password to accept."
+                ),
+            )
+
+        user = existing_user
+    else:
+        if len(payload.password) < 12:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "New passwords must contain "
+                    "at least 12 characters"
+                ),
+            )
+        user = User(
+            email=invitation.email,
+            display_name=invitation.display_name,
+            password_hash=hash_password(payload.password),
+            is_active=True,
+            is_platform_admin=False,
+        )
+        db.add(user)
+        db.flush()
 
     membership = None
 
@@ -1181,6 +1230,21 @@ def accept_user_invitation(
 
     invitation.accepted_user_id = user.id
     invitation.accepted_at = now
+
+    if lead is not None:
+        add_admin_audit(
+            db,
+            operator_user_id=invitation.created_by_user_id,
+            action="user.lead_invitation_accepted",
+            target_type="user_invitation",
+            target_id=invitation.id,
+            after_data={
+                "lead_id": lead.id,
+                "user_id": user.id,
+                "email": user.email,
+                "existing_account": existing_user is not None,
+            },
+        )
 
     db.commit()
     db.refresh(user)

@@ -2871,7 +2871,10 @@
         `Product: ${invitation.product.name} `
         + `(${invitation.product.slug}) · `
         + `Lead #${invitation.lead.id} · `
-        + `${invitation.lead.business_name}`;
+        + `${invitation.lead.business_name}`
+        + (invitation.existing_account
+          ? " · Existing account: use the current password"
+          : "");
 
       document.getElementById(
         "invitationExpiration"
