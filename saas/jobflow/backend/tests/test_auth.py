@@ -290,6 +290,11 @@ def test_cookie_authenticates_protected_tenant_resource(
 
     assert response.status_code == 200
     assert response.json() == []
+    assert "jobflow_access_token=" in response.headers["set-cookie"]
+    assert "Max-Age=1800" in response.headers["set-cookie"]
+    assert decode_access_token(
+        response.cookies["jobflow_access_token"]
+    ) == user.id
 
 
 def test_logout_clears_authentication_cookie(raw_client, db_session):
