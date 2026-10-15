@@ -54,7 +54,9 @@ rationale and review date.
 
 The command builds the API and web images from the evaluated commit,
 pulling current base-image metadata. Trivy scans both images for HIGH
-and CRITICAL vulnerabilities.
+and CRITICAL vulnerabilities. It also verifies that the API image imports
+successfully with a read-only root filesystem and only a bounded writable
+/tmp tmpfs.
 
 The API build applies available Debian security upgrades and removes
 pip after dependency installation. The web image derives from Nginx
@@ -78,21 +80,34 @@ The validator prints only the image label, vulnerability identifier,
 package name, disposition and expiry. It does not print vulnerability
 descriptions, environment variables, request data or secret values.
 
-## Initial reviewed exceptions
+## Current reviewed exceptions
 
-The initial API exceptions cover 13 unique upstream-unfixed Debian
-CVEs represented by 16 package findings. Review established that:
+security/container-vulnerability-exceptions.json is the source of truth
+for current image/CVE/package findings, owner, rationale, acceptance date,
+and expiry. Counts and dates change as scans run; do not rely on a count copied
+into this guide.
 
-- Perl, gzip and several ncurses packages are Debian essential
-  components and cannot be safely removed.
-- SQLite and ncurses libraries are linked into Python runtime modules.
-- The application does not expose the affected Perl, archive,
-  terminal, SQLite FTS5, gzip LZH or ACL mutation surfaces.
-- Debian 13 did not provide fixed package versions at acceptance time.
+The validator allows only current HIGH/CRITICAL findings with no fixed version,
+an exact image/CVE/package match, and a live reviewed exception. The API service
+also uses a read-only root filesystem, drops all Linux capabilities, enables
+no-new-privileges, and leaves only its private-document volume and bounded
+/tmp tmpfs writable. These controls reduce risk but do not replace
+remediation or a review of runtime reachability.
 
-These exceptions expire on 2026-09-29. They cease to authorize a
-finding immediately when Trivy reports a fixed version, even before
-the expiry date.
+## PréstamoDesk data at rest
+
+PréstamoDesk private documents are stored in the local Docker volume with
+restrictive filesystem permissions. PostgreSQL also uses a persistent Docker
+volume. These controls do not encrypt the live data, and application-level
+encryption is not implemented in the reviewed storage code. Encrypted B2
+backups protect off-site copies only; they do not encrypt the running database
+or document volume.
+
+Before storing real borrower identity documents, signed agreements, or other
+sensitive pilot records, verify that the host or VM storage backing both
+volumes is encrypted at rest and that recovery keys are held separately.
+Until this is verified, use synthetic data and do not upload sensitive
+documents.
 
 ## Exception approval
 

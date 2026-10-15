@@ -178,6 +178,19 @@ docker build \
   --tag "$API_IMAGE" \
   "$JOBFLOW_ROOT/backend"
 
+printf '\n===== API READ-ONLY FILESYSTEM SMOKE TEST =====\n'
+docker run \
+  --rm \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --env JWT_SECRET=security-scan-dummy-secret-at-least-32-bytes \
+  --env DATABASE_URL=postgresql+psycopg://jobflow:unused@127.0.0.1:5432/unused \
+  --env PYTHONDONTWRITEBYTECODE=1 \
+  --entrypoint python \
+  "$API_IMAGE" \
+  -B \
+  -c 'import app.main; print("API import works with a read-only root filesystem.")'
+
 printf '\n===== BUILD WEB SCAN IMAGE =====\n'
 docker build \
   --pull \
