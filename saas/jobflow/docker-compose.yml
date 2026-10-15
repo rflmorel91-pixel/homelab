@@ -46,6 +46,22 @@ services:
     depends_on:
       jobflow-migrate:
         condition: service_completed_successfully
+      jobflow-private-storage-init:
+        condition: service_completed_successfully
+  jobflow-private-storage-init:
+    image: jobflow-jobflow-api
+    build:
+      context: ./backend
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    command: ["chown", "-R", "10001:10001", "/var/lib/jobflow-private/prestamodesk"]
+    volumes:
+      - jobflow_prestamodesk_private_documents:/var/lib/jobflow-private/prestamodesk
+
   jobflow-migrate:
     build:
       context: ./backend
