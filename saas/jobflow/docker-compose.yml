@@ -9,11 +9,15 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
     restart: unless-stopped
     volumes:
       - jobflow_prestamodesk_private_documents:/var/lib/jobflow-private/prestamodesk
     environment:
       PRESTAMODESK_PRIVATE_STORAGE_PATH: /var/lib/jobflow-private/prestamodesk
+      PYTHONDONTWRITEBYTECODE: "1"
       DATABASE_URL: postgresql+psycopg://jobflow:${POSTGRES_PASSWORD}@jobflow-db:5432/jobflow
       JWT_SECRET: ${JWT_SECRET}
       PLATFORM_PUBLIC_BASE_URL: ${PLATFORM_PUBLIC_BASE_URL:-https://jobflow.fieldlookers.com}
