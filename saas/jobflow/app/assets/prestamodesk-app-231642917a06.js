@@ -1,0 +1,2559 @@
+function pdReceiptMarkup(receipt, context) {
+  const text = value => escapeHtml(value == null || value === "" ? "—" : String(value));
+  const money = value => value == null ? "—" : formatMoney(value);
+  const methods = {cash:"Efectivo",bank_transfer:"Transferencia bancaria",card:"Tarjeta",other:"Otro"};
+  const row = (label, value) => `<div><dt>${label}</dt><dd>${value}</dd></div>`;
+  const date = receipt.paid_at ? pdDateTime(receipt.paid_at) : pdDateOnly(context.date);
+  return `<div class="pd-receipt-heading"><p>PréstamoDesk · by FieldLookers</p><p>${text(context.business)}</p>
+    <p class="pd-receipt-number">${text(receipt.receipt_number ?? `PM-${String(receipt.id).padStart(8, "0")}`)}</p></div>
+    ${context.historical ? `<p class="pd-receipt-note">Copia del registro de pago. Nombre del prestatario y negocio actuales.</p>` : ""}
+    ${receipt.voided_at ? `<p class="message error"><strong>ANULADO · No acredita un pago vigente</strong><br>${text(receipt.void_reason)} · ${text(pdDateTime(receipt.voided_at))} · Usuario #${text(receipt.voided_by_user_id)}</p>` : ""}
+    <p class="pd-receipt-amount"><span>Monto pagado (DOP)</span><strong>${text(money(receipt.amount))}</strong></p>
+    <dl class="pd-receipt-details">
+      ${row("Préstamo", text("#" + (receipt.loan_id ?? context.loanId)))}
+      ${row("Prestatario", text(context.borrower))}
+      ${row("Fecha del pago · República Dominicana", text(date))}
+      ${row("Método", text(methods[receipt.payment_method ?? context.method] || "—"))}
+      ${row("Referencia", text(receipt.reference ?? context.reference))}
+    </dl>
+    <h3>Aplicación del pago</h3><dl class="pd-receipt-details">
+      ${row("Mora", text(money(receipt.late_fee_amount)))}
+      ${row("Interés", text(money(receipt.interest_amount)))}
+      ${row("Principal", text(money(receipt.principal_amount)))}
+    </dl>
+    <h3>Saldos después del pago</h3><dl class="pd-receipt-details">
+      ${row("Saldo ordinario de cuota", text(money(receipt.installment_ordinary_balance)))}
+      ${row("Mora pendiente de cuota", text(money(receipt.installment_late_fee_balance)))}
+      ${row("Total pendiente de cuota", text(money(receipt.installment_balance)))}
+      ${row("Saldo total del préstamo", text(money(receipt.loan_balance)))}
+    </dl>
+    <p class="pd-receipt-note">${context.snapshotAvailable === false ? "Este pago no conserva los saldos originales. Los guiones indican información histórica no disponible." : "Saldos al registrar este pago. Los movimientos posteriores pueden cambiar estos importes."}</p>
+    <p class="pd-receipt-note">Registrado por usuario #${text(receipt.recorded_by_user_id)}</p>`;
+}
+function renderEmptyState(container, message, label, action) {
+  container.replaceChildren();
+  const text = document.createElement("p");
+  text.className = "notice";
+  text.textContent = message;
+  container.append(text);
+  if (label && action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.dataset.emptyAction = "true";
+    button.textContent = label;
+    button.addEventListener("click", action);
+    container.append(button);
+  }
+}
+function emptyCreateForm(id) {
+  if (!canManageLoans()) return;
+  if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || paymentSubmitting || paymentNeedsReview) {
+    showError("Confirme el resultado de la operación pendiente antes de abrir otro formulario."); return;
+  }
+  // Reuse the guarded form action and preserve every existing draft.
+  document.querySelector('[data-loan-form="' + id + '"]')?.click();
+  document.getElementById(id).scrollIntoView?.({behavior:"instant", block:"start"});
+}
+function pdDateOnly(value, fallback = "—") {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const date = new Date(value + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return fallback;
+  return match[3] + "/" + match[2] + "/" + match[1];
+}
+function pdDateTime(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : raw + "Z";
+  const date = new Date(normalized);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("day") + "/" + part("month") + "/" + part("year") + ", " + new Intl.DateTimeFormat("es-DO", {timeZone:"America/Santo_Domingo",hour:"numeric",minute:"2-digit"}).format(date);
+}
+function pdBusinessDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", {timeZone:"America/Santo_Domingo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const part = type => parts.find(item => item.type === type).value;
+  return part("year")+"-"+part("month")+"-"+part("day");
+}
+const API_BASE = "/api/v1";
+const PRODUCT_BASE = "/products/prestamodesk";
+
+let tenantId =
+  localStorage.getItem("prestamodesk_tenant_id");
+
+let selectedLoanId = null;
+let paymentSubmitting = false;
+let paymentNeedsReview = false;
+let borrowers = [];
+let loanBorrowerNames = new Map();
+let loanBorrowerDocuments = new Map();
+let loans = [];
+let loanDetails = [];
+let prospects = [];
+let applications = [];
+let prospectPage = null;
+let lateFeePolicy = null;
+
+const authPanel = document.getElementById("authPanel");
+const workspace = document.getElementById("workspace");
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const forgotPasswordButton =
+  document.getElementById("forgotPasswordButton");
+const passwordResetRequestForm =
+  document.getElementById("passwordResetRequestForm");
+const passwordResetEmail =
+  document.getElementById("passwordResetEmail");
+const passwordResetRequestButton =
+  document.getElementById("passwordResetRequestButton");
+const backToSignInButton =
+  document.getElementById("backToSignInButton");
+const logoutButton = document.getElementById("logoutButton");
+const clientContext = document.getElementById("clientContext");
+const healthStatus = document.getElementById("healthStatus");
+const errorMessage = document.getElementById("errorMessage");
+const successMessage = document.getElementById("successMessage");
+const borrowerForm = document.getElementById("borrowerForm");
+const loanForm = document.getElementById("loanForm");
+const loanLateFeeEnabled =
+  document.getElementById("loanLateFeeEnabled");
+const loanType = document.getElementById("loanType");
+const loanPrincipal =
+  document.getElementById("loanPrincipal");
+const vehicleLoanFields =
+  document.getElementById("vehicleLoanFields");
+const vehicleCashPrice =
+  document.getElementById("vehicleCashPrice");
+const vehicleDownPayment =
+  document.getElementById("vehicleDownPayment");
+const paymentForm = document.getElementById("paymentForm");
+const borrowerList = document.getElementById("borrowerList");
+const loanList = document.getElementById("loanList");
+const applicationList =
+  document.getElementById("applicationList");
+const prospectList =
+  document.getElementById("prospectList");
+const publicProspectPageLink =
+  document.getElementById("publicProspectPageLink");
+const loanBorrower = document.getElementById("loanBorrower");
+const loanBorrowerSearch = document.getElementById("loanBorrowerSearch");
+const loanBorrowerSearchClear = document.getElementById("loanBorrowerSearchClear");
+const loanBorrowerSearchStatus = document.getElementById("loanBorrowerSearchStatus");
+let borrowerOptionsTenantId = null;
+const loanDetailPanel =
+  document.getElementById("loanDetailPanel");
+const loanDetailTitle =
+  document.getElementById("loanDetailTitle");
+const loanDetailSummary =
+  document.getElementById("loanDetailSummary");
+const loanLateFeeForm =
+  document.getElementById("loanLateFeeForm");
+const loanLateFeeSelected =
+  document.getElementById("loanLateFeeSelected");
+const installmentList =
+  document.getElementById("installmentList");
+const paymentPanel =
+  document.getElementById("paymentPanel");
+const paymentInstallment =
+  document.getElementById("paymentInstallment");
+const receiptPanel =
+  document.getElementById("receiptPanel");
+const receiptContent =
+  document.getElementById("receiptContent");
+const lateFeePolicyForm =
+  document.getElementById("lateFeePolicyForm");
+const lateFeeEnabled =
+  document.getElementById("lateFeeEnabled");
+const lateFeeDailyRate =
+  document.getElementById("lateFeeDailyRate");
+const lateFeeGraceDays =
+  document.getElementById("lateFeeGraceDays");
+const lateFeeCapPercent =
+  document.getElementById("lateFeeCapPercent");
+const lateFeeEffectiveDate =
+  document.getElementById("lateFeeEffectiveDate");
+const lateFeePolicyStatus =
+  document.getElementById("lateFeePolicyStatus");
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(
+    "es-DO",
+    {
+      style: "currency",
+      currency: "DOP"
+    }
+  ).format(Number(value || 0));
+}
+
+
+function formatStatus(value) {
+  const labels = {
+    active: "Activo",
+    inactive: "Inactivo",
+    paid: "Pagado",
+    cancelled: "Cancelado",
+    pending: "Pendiente",
+    partial: "Parcial",
+    overdue: "Vencida",
+    new: "Nueva",
+    reviewing: "En revisión",
+    approved: "Aprobada",
+    contacted: "Contactado",
+    qualified: "Calificado",
+    rejected: "Rechazado",
+    converted: "Convertido"
+  };
+
+  return labels[value] || value;
+}
+
+
+function setAuthenticatedUI(authenticated) {
+  authPanel.hidden = authenticated;
+  workspace.hidden = !authenticated;
+  logoutButton.hidden = !authenticated;
+  clientContext.hidden = !authenticated;
+}
+
+
+function optionalInputValue(elementId) {
+  return (
+    document.getElementById(elementId).value.trim()
+    || null
+  );
+}
+
+
+function updateVehicleFinancedAmount() {
+  if (loanType.value !== "vehicle") {
+    return;
+  }
+
+  const cashPrice = Number(vehicleCashPrice.value);
+  const downPayment = Number(
+    vehicleDownPayment.value || 0
+  );
+
+  if (
+    !Number.isFinite(cashPrice)
+    || cashPrice <= 0
+    || !Number.isFinite(downPayment)
+    || downPayment < 0
+    || downPayment > cashPrice
+  ) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  loanPrincipal.value = (
+    cashPrice - downPayment
+  ).toFixed(2);
+}
+
+
+function updateVehicleLoanFields() {
+  const isVehicle = loanType.value === "vehicle";
+
+  vehicleLoanFields.hidden = !isVehicle;
+  loanPrincipal.readOnly = isVehicle;
+
+  for (const element of vehicleLoanFields.querySelectorAll(
+    "input"
+  )) {
+    element.required = false;
+  }
+
+  if (!isVehicle) {
+    loanPrincipal.value = "";
+    return;
+  }
+
+  for (const elementId of (
+    "vehicleCashPrice",
+    "vehicleDownPayment",
+    "vehicleMake",
+    "vehicleModel",
+    "vehicleYear"
+  )) {
+    document.getElementById(elementId).required = true;
+  }
+
+  updateVehicleFinancedAmount();
+}
+
+
+function buildLoanPayload() {
+  const payload = {
+    borrower_id: Number(loanBorrower.value),
+    loan_type: loanType.value,
+    principal_amount: loanPrincipal.value,
+    flat_interest_rate_percent:
+      document.getElementById("loanRate").value,
+    installment_count: Number(
+      document.getElementById(
+        "loanInstallments"
+      ).value
+    ),
+    payment_frequency:
+      document.getElementById("loanFrequency").value,
+    start_date:
+      document.getElementById("loanStartDate").value,
+    first_payment_date:
+      document.getElementById(
+        "loanFirstPaymentDate"
+      ).value,
+    late_fee_enabled: loanLateFeeEnabled.checked
+  };
+
+  if (loanType.value === "vehicle") {
+    Object.assign(
+      payload,
+      {
+        vehicle_cash_price: vehicleCashPrice.value,
+        vehicle_down_payment:
+          vehicleDownPayment.value,
+        vehicle_make:
+          optionalInputValue("vehicleMake"),
+        vehicle_model:
+          optionalInputValue("vehicleModel"),
+        vehicle_year: Number(
+          document.getElementById(
+            "vehicleYear"
+          ).value
+        ),
+        vehicle_color:
+          optionalInputValue("vehicleColor"),
+        vehicle_vin:
+          optionalInputValue("vehicleVin"),
+        vehicle_license_plate:
+          optionalInputValue("vehicleLicensePlate"),
+        vehicle_seller:
+          optionalInputValue("vehicleSeller"),
+        vehicle_notes:
+          optionalInputValue("vehicleNotes")
+      }
+    );
+  }
+
+  return payload;
+}
+
+
+function clearMessages() {
+  errorMessage.hidden = true;
+  errorMessage.textContent = "";
+  successMessage.hidden = true;
+  successMessage.textContent = "";
+}
+
+function showError(message) {
+  errorMessage.textContent = "";
+  errorMessage.hidden = false;
+  errorMessage.textContent = message;
+  successMessage.hidden = true;
+  if (errorMessage.isConnected && !errorMessage.closest("[hidden]")) {
+    errorMessage.scrollIntoView?.({behavior: "instant", block: "center", inline: "nearest"});
+  }
+}
+
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  successMessage.hidden = false;
+  errorMessage.hidden = true;
+
+  window.setTimeout(() => {
+    successMessage.hidden = true;
+  }, 3500);
+}
+
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(tenantId
+          ? {"X-Tenant-ID": tenantId}
+          : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    }
+  );
+
+  if (!response.ok) {
+    let detail = `Solicitud fallida (${response.status})`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // Preserve the safe default.
+    }
+
+    function spanishApiError(detail, status) {
+      const translations = {
+  "Configure and enable the tenant late-fee policy first": "Configure y active la política de mora antes de crear o modificar un préstamo con mora.",
+  "Late-fee policy not configured": "Configure la política de mora en la sección Préstamos.",
+  "First payment date cannot be before the loan start date": "La primera cuota debe vencer en la fecha del préstamo o después. Revise ambas fechas.",
+  "Borrower not found": "No se encontró el prestatario en este negocio. Actualice la lista y selecciónelo nuevamente.",
+  "Borrower is inactive": "El prestatario está inactivo. Revise su estado antes de crear el préstamo.",
+  "Loan not found": "No se encontró el préstamo en este negocio. Actualice la lista y selecciónelo nuevamente.",
+  "Loan is not active": "El préstamo no está activo. Revise su estado antes de registrar un pago.",
+  "Installment not found": "No se encontró la cuota. Actualice el préstamo y selecciónela nuevamente.",
+  "Payment not found": "No se encontró el pago. Actualice el historial del préstamo.",
+  "Payment date cannot be in the future": "La fecha del pago no puede ser futura. Revise la fecha indicada.",
+  "Payment date precedes an existing late-fee assessment": "La fecha del pago es anterior a la mora ya calculada. Revise la fecha y el historial antes de continuar.",
+  "Payment amount must be greater than zero": "El monto del pago debe ser mayor que cero.",
+  "Payment exceeds installment balance": "El pago supera el saldo de la cuota. Actualice el saldo y revise el monto.",
+  "Collectors cannot record payments": "El rol Cobrador no permite registrar pagos. Solicite acceso de caja al propietario o administrador.",
+  "Payment operation access required": "Su rol no permite esta operación de pago. Consulte al propietario o administrador.",
+  "Payment request belongs to another operator": "Esta solicitud de pago pertenece a otro operador. Revise el historial con el propietario o administrador antes de continuar.",
+  "Payment request key was used with different details": "Esta solicitud ya se usó con otros datos de pago. Revise el historial antes de volver a cobrar.",
+  "Original payment was voided; use a new request key": "El pago original fue anulado. Revise su recibo y la anulación antes de iniciar otro pago.",
+  "Original receipt unavailable; review payment history": "El recibo original no está disponible. Revise el historial antes de volver a cobrar.",
+  "Projection date cannot be in the future": "La fecha de consulta no puede ser futura.",
+  "Payment is already voided; the original reason cannot be changed": "El pago ya fue anulado. No se puede cambiar el motivo original.",
+  "Payment belongs to a cash closing; a reconciled adjustment is required": "El pago pertenece a un cierre de caja. Solicite un ajuste conciliado al propietario o administrador.",
+  "Payment predates correction snapshots; a reconciled adjustment is required": "Este pago requiere un ajuste conciliado. Consulte al propietario o administrador.",
+  "Only the latest recorded payment on the loan may be voided": "Solo puede anular el último pago registrado del préstamo. Revise el historial.",
+  "Payment ledger is incomplete; reconciliation is required": "El registro del pago está incompleto. Solicite una conciliación antes de continuar.",
+  "Loan status does not allow payment correction": "El estado del préstamo no permite anular este pago.",
+  "Installment changed after payment; reconciliation is required": "La cuota cambió después del pago. Solicite una conciliación antes de continuar.",
+  "Promise allocation requires reconciliation": "La aplicación del pago a las promesas requiere conciliación. Consulte al propietario o administrador.",
+  "Release collector assignments before changing or suspending this membership": "Libere las carteras asignadas antes de cambiar el rol o suspender este integrante.",
+  "Client must retain at least one owner": "El negocio debe conservar al menos un propietario.",
+  "Client must retain at least one active owner": "El negocio debe conservar al menos un propietario activo.",
+  "You cannot suspend your own membership": "No puede suspender su propio acceso.",
+  "Only the owner may manage owners and administrators": "Solo el propietario puede administrar propietarios y administradores.",
+  "Administration access required": "Su rol no permite administrar el equipo. Consulte al propietario o administrador.",
+  "Reactivate access before requesting password recovery": "Reactive el acceso del integrante antes de solicitar la recuperación de contraseña.",
+  "Membership not found": "No se encontró el integrante en este negocio. Actualice el equipo.",
+  "Invitation not found": "No se encontró la invitación. Actualice la lista.",
+  "Client invitation not found": "No se encontró la invitación en este negocio. Actualice la lista.",
+  "An active invitation already exists for this client and email": "Ya existe una invitación pendiente para este correo. Revísela en Invitaciones; si perdió el enlace, revoque la invitación antes de crear otra.",
+  "A user with this email already exists": "Ya existe una cuenta con este correo. Revise el equipo o use otro correo para la invitación.",
+  "A platform user with this email already exists": "Ya existe una cuenta de plataforma con este correo. Revise el equipo antes de invitarla.",
+  "Only pending client invitations can be revoked": "Solo puede revocar invitaciones pendientes. Actualice la lista para revisar su estado.",
+  "Role is not available for this product": "El rol seleccionado no está disponible para este negocio. Seleccione un rol permitido.",
+  "Client must be active": "El negocio debe estar activo para crear invitaciones.",
+  "Client not found": "No se encontró el negocio. Actualice su acceso y selecciónelo nuevamente.",
+  "Client product is unavailable": "PréstamoDesk no está disponible para este negocio. Consulte al administrador.",
+  "Authentication required": "Su sesión no está disponible. Inicie sesión nuevamente.",
+  "Invalid email or password": "El correo o la contraseña no son correctos. Revise sus datos.",
+  "Tenant context required": "Seleccione un negocio antes de continuar.",
+  "User is not a member of this tenant": "No tiene acceso a este negocio. Actualice su acceso o consulte al propietario.",
+  "Tenant is suspended": "El negocio está suspendido. Consulte al administrador.",
+  "Tenant owner access required": "Esta operación requiere el rol Propietario.",
+  "Role does not permit this operation": "Su rol no permite esta operación. Consulte al propietario o administrador.",
+  "Cashier membership required": "Su rol no permite cerrar caja. Consulte al propietario o administrador."
+};
+      if (status >= 500) return "No se pudo completar la solicitud por un problema del servidor. Si estaba registrando un pago, revise el historial antes de volver a cobrar.";
+      if (typeof detail === "string" && Object.hasOwn(translations, detail)) return translations[detail];
+      const fallback = {
+        400: "No se pudo completar la solicitud. Revise los datos indicados.",
+        401: "Su sesión no está disponible. Inicie sesión nuevamente.",
+        403: "No tiene permiso para esta operación. Consulte al propietario o administrador.",
+        404: "No se encontró el registro en este negocio. Actualice la sección.",
+        409: "No se pudo completar la operación por un conflicto con el estado actual. Actualice la sección y revise el registro antes de continuar.",
+        422: "Revise los campos obligatorios, los montos y las fechas antes de continuar.",
+        429: "Se realizaron demasiadas solicitudes. Espere un momento antes de continuar."
+      };
+      return fallback[status] || "No se pudo completar la solicitud. Actualice la sección y revise los datos antes de continuar.";
+    }
+    const error = new Error(spanishApiError(detail, response.status));
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+}
+
+
+async function checkHealth() {
+  try {
+    const health = await apiRequest("/health");
+    healthStatus.textContent = `API: ${health.status}`;
+  } catch {
+    healthStatus.textContent = "API no disponible";
+  }
+}
+
+
+async function discoverAccess() {
+  const access = await apiRequest(
+    "/auth/products/prestamodesk/access"
+  );
+
+  if (access.clients.length === 0) {
+    throw new Error(
+      "Su cuenta no tiene acceso activo a PréstamoDesk."
+    );
+  }
+
+  if (access.clients.length > 1) {
+    throw new Error(
+      "Su cuenta tiene varios clientes. "
+      + "La selección de cliente aún no está disponible."
+    );
+  }
+
+  const client = access.clients[0];
+
+  if (client.role === "collector") {
+    window.location.replace(
+      "/prestamodesk/cobros"
+    );
+    return;
+  }
+  if (client.role === "supervisor") {
+    window.location.replace("/prestamodesk/cobros/supervision");
+    return;
+  }
+  if (client.role === "cashier") {
+    window.location.replace("/prestamodesk/caja");
+    return;
+  }
+  tenantId = String(client.tenant_id);
+  window.prestamodeskAccess = client;
+  window.dispatchEvent(new CustomEvent("prestamodesk-access", {detail: client}));
+
+  localStorage.setItem(
+    "prestamodesk_tenant_id",
+    tenantId
+  );
+
+  clientContext.textContent =
+    `Cliente #${client.client_number} · `
+    + `${client.name} · ${client.role}`;
+}
+
+
+function canManageLoans() {
+  return ["owner", "administrator"].includes(window.prestamodeskAccess?.role);
+}
+
+function applyLoanAccess() {
+  const manage = canManageLoans();
+  for (const id of ["borrowerForm", "loanForm", "applicationList", "prospectList", "borrowerList", "lateFeePolicyForm"]) {
+    const panel = document.getElementById(id).closest("section");
+    panel.hidden = !manage;
+    if (!manage) for (const control of panel.querySelectorAll("input, select, textarea, button")) control.disabled = true;
+  }
+  for (const id of ["openApplicationCount", "borrowerCount"]) document.getElementById(id).closest("article").hidden = !manage;
+  applyCompactAccess(manage);
+  loanLateFeeForm.hidden = !manage;
+  loanLateFeeForm.nextElementSibling.hidden = !manage;
+  if (!manage) for (const control of loanLateFeeForm.querySelectorAll("input, button")) control.disabled = true;
+}
+
+function borrowerNameForLoan(loan) {
+  return borrowers.find(item => item.id === loan.borrower_id)?.full_name
+    || loanBorrowerNames.get(loan.id)
+    || `Prestatario #${loan.borrower_id}`;
+}
+
+
+function renderBorrowerOptions() {
+  if (borrowerOptionsTenantId !== tenantId) {
+    borrowerOptionsTenantId = tenantId;
+    loanBorrowerSearch.value = "";
+    loanBorrower.value = "";
+  }
+  const manage = canManageLoans();
+  const active = manage ? borrowers.filter(item => item.status === "active") : [];
+  const selected = active.find(item => String(item.id) === loanBorrower.value);
+  const query = normalizeLoanSearch(loanBorrowerSearch.value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const matches = active.filter(item => {
+    if (!query) return true;
+    const name = normalizeLoanSearch(item.full_name);
+    const documentNumber = normalizeLoanSearch(item.document_number);
+    return name.includes(query) || documentNumber.includes(query)
+      || Boolean(compactQuery && documentNumber.replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+  const outsideSearch = selected && !matches.some(item => item.id === selected.id);
+  const options = outsideSearch ? [selected, ...matches] : matches;
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = active.length ? "Seleccione…" : "No hay prestatarios activos";
+  loanBorrower.replaceChildren(placeholder);
+  for (const item of options) {
+    const option = document.createElement("option");
+    option.value = String(item.id);
+    option.textContent = item.full_name + (item.document_number ? " · " + item.document_number : "")
+      + (outsideSearch && item.id === selected.id ? " · Selección actual" : "");
+    loanBorrower.append(option);
+  }
+  loanBorrower.value = selected ? String(selected.id) : "";
+  loanBorrower.disabled = active.length === 0;
+  loanBorrowerSearch.disabled = !manage || active.length === 0;
+  loanBorrowerSearchClear.disabled = !manage || !loanBorrowerSearch.value;
+  loanBorrowerSearchStatus.textContent = !manage ? "" : active.length === 0
+    ? "No hay prestatarios activos. Cree o active un prestatario antes de crear el préstamo."
+    : matches.length + " coincidencias de " + active.length + " prestatarios activos."
+      + (outsideSearch ? " Se conserva el prestatario seleccionado, aunque no coincide con la búsqueda." : "");
+}
+
+loanBorrowerSearch.addEventListener("input", renderBorrowerOptions);
+loanBorrowerSearch.addEventListener("keydown", event => {
+  if (event.key === "Enter") event.preventDefault();
+});
+loanBorrowerSearchClear.addEventListener("click", () => {
+  loanBorrowerSearch.value = "";
+  renderBorrowerOptions();
+  loanBorrowerSearch.focus();
+});
+loanBorrower.addEventListener("change", renderBorrowerOptions);
+
+
+function renderApplications() {
+  document.getElementById(
+    "applicationResultCount"
+  ).textContent = String(applications.length);
+
+  if (applications.length === 0) {
+    applicationList.innerHTML = `
+      <p class="notice">
+        No hay solicitudes de préstamo. Las solicitudes recibidas aparecerán aquí para su revisión.
+      </p>
+    `;
+    return;
+  }
+
+  applicationList.innerHTML = applications
+    .map(application => {
+      let actions = "";
+
+      if (application.status === "new") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="reviewing"
+            data-application-id="${application.id}"
+          >
+            Iniciar revisión
+          </button>
+        `;
+      } else if (application.status === "reviewing") {
+        actions = `
+          <button
+            type="button"
+            data-application-status="approved"
+            data-application-id="${application.id}"
+          >
+            Aprobar
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            data-application-status="rejected"
+            data-application-id="${application.id}"
+          >
+            Rechazar
+          </button>
+        `;
+      } else if (application.status === "approved") {
+        actions = `
+          <button
+            type="button"
+            data-convert-application="${application.id}"
+          >
+            Convertir en préstamo
+          </button>
+        `;
+      } else if (
+        application.status === "converted"
+        && application.converted_loan_id
+      ) {
+        actions = `
+          <button
+            type="button"
+            data-application-loan="${
+              application.converted_loan_id
+            }"
+          >
+            Ver préstamo
+          </button>
+        `;
+      }
+
+      const contact = [
+        application.phone,
+        application.email
+      ].filter(Boolean).join(" · ");
+
+      const vehicle = [
+        application.vehicle_make,
+        application.vehicle_model,
+        application.vehicle_year
+      ].filter(Boolean).join(" ");
+
+      return `
+        <article class="item-card">
+          <div class="section-heading">
+            <h3>
+              Solicitud #${application.id}
+              · ${escapeHtml(application.full_name)}
+            </h3>
+            <span class="badge">
+              ${escapeHtml(
+                formatStatus(application.status)
+              )}
+            </span>
+          </div>
+
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(
+                application.document_type
+              )}:
+              ${escapeHtml(
+                application.document_number || "No indicado"
+              )}
+            </span>
+            ${
+              contact
+                ? `<span>${escapeHtml(contact)}</span>`
+                : ""
+            }
+            <span>Tipo: ${application.loan_type === "vehicle" ? "Vehículo" : "Personal"}</span>
+            ${application.source_prospect_id ? `<span>Prospecto #${application.source_prospect_id}</span>` : ""}
+            ${application.loan_type === "vehicle" ? `
+            <span>Vehículo: ${escapeHtml(vehicle)}</span>
+            <span>Precio: ${formatMoney(application.vehicle_cash_price)}</span>
+            <span>Inicial: ${formatMoney(application.vehicle_down_payment)}</span>
+            ` : ""}
+            <span>
+              Financiado: ${formatMoney(
+                application.principal_amount
+              )}
+            </span>
+            <span>
+              Interés: ${formatMoney(
+                application.total_interest
+              )}
+            </span>
+            <span>
+              Total: ${formatMoney(
+                application.total_due
+              )}
+            </span>
+            <span>
+              Cuotas: ${application.installment_count}
+            </span>
+          </div>
+
+          <div class="item-actions">
+            ${actions}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+document.getElementById("borrowerFilterForm").addEventListener("submit", event => event.preventDefault());
+document.getElementById("borrowerSearchQuery").addEventListener("input", renderBorrowers);
+document.getElementById("borrowerStatusFilter").addEventListener("change", renderBorrowers);
+document.getElementById("borrowerFilterClear").addEventListener("click", () => {
+  document.getElementById("borrowerSearchQuery").value = "";
+  document.getElementById("borrowerStatusFilter").value = "all";
+  renderBorrowers();
+  document.getElementById("borrowerSearchQuery").focus();
+});
+let borrowerFilterTenantId = null;
+function renderBorrowers() {
+  const search = document.getElementById("borrowerSearchQuery");
+  const status = document.getElementById("borrowerStatusFilter");
+  if (borrowerFilterTenantId !== tenantId) {
+    borrowerFilterTenantId = tenantId;
+    search.value = "";
+    status.value = "all";
+  }
+  const query = normalizeLoanSearch(search.value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const matches = borrowers.filter(item => {
+    if (status.value !== "all" && item.status !== status.value) return false;
+    const name = normalizeLoanSearch(item.full_name);
+    const number = normalizeLoanSearch(item.document_number);
+    return !query || name.includes(query) || number.includes(query)
+      || Boolean(compactQuery && number.replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+  document.getElementById("borrowerFilterResult").textContent =
+    `Mostrando ${matches.length} de ${borrowers.length} prestatarios.`;
+  document.getElementById(
+    "borrowerCount"
+  ).textContent = String(borrowers.length);
+
+  document.getElementById(
+    "borrowerResultCount"
+  ).textContent = String(matches.length);
+
+  if (borrowers.length === 0) {
+    renderEmptyState(borrowerList, "No hay prestatarios registrados. Registre el primero para preparar un préstamo.",
+      canManageLoans() ? "Crear prestatario" : null, () => emptyCreateForm("compactBorrowerForm"));
+    return;
+  }
+
+  if (matches.length === 0) {
+    renderEmptyState(borrowerList, "No hay prestatarios que coincidan con los filtros. Pruebe otro nombre o documento.",
+      "Limpiar filtros", () => document.getElementById("borrowerFilterClear").click());
+    return;
+  }
+  borrowerList.innerHTML = matches
+    .map(item => `
+      <article class="item-card">
+        <h3>${escapeHtml(item.full_name)}</h3>
+        <div class="item-meta">
+          <span>${escapeHtml(
+            formatStatus(item.status)
+          )}</span>
+          ${
+            item.document_number
+              ? `<span>Documento: ${
+                  escapeHtml(item.document_number)
+                }</span>`
+              : ""
+          }
+          ${
+            item.phone
+              ? `<span>Teléfono: ${
+                  escapeHtml(item.phone)
+                }</span>`
+              : ""
+          }
+          ${
+            item.province
+              ? `<span>Provincia: ${
+                  escapeHtml(item.province)
+                }</span>`
+              : ""
+          }
+        </div>
+        <div class="item-actions"><button type="button" class="secondary" data-view-borrower="${Number(item.id)}">Ver detalle</button></div>
+      </article>
+    `)
+    .join("");
+
+}
+
+
+const contactFields = {phone:"Phone",email:"Email",address:"Address",municipality:"Municipality",province:"Province",notes:"Notes"};
+const contactForm = document.getElementById("borrowerContactForm");
+let contactSnapshot = null, contactBusy = false, contactDisposed = false;
+function contactValues() {
+  return Object.fromEntries(Object.entries(contactFields).map(([key,suffix]) => [key,document.getElementById("borrowerContact"+suffix).value.trim() || null]));
+}
+function contactDirty() {
+  return !contactForm.hidden && contactSnapshot && JSON.stringify(contactValues()) !== JSON.stringify(contactSnapshot.values);
+}
+function contactMessage(text, error=false) {
+  const box=document.getElementById("borrowerContactMessage");
+  box.textContent="";box.setAttribute("role",error?"alert":"status");box.textContent=text;box.hidden=!text;
+  if(error&&box.isConnected&&!box.closest("[hidden]"))box.scrollIntoView?.({behavior:"instant",block:"center"});
+}
+function contactControls() {
+  for(const control of contactForm.elements) control.disabled=contactBusy;
+  document.getElementById("editBorrowerContact").disabled=contactBusy;
+}
+function resetContactEditor() {
+  contactSnapshot=null;contactForm.reset();contactForm.hidden=true;contactMessage("");
+}
+function leaveContact() {
+  if(contactBusy){contactMessage("Espere la confirmación antes de salir de la edición.",true);return false;}
+  if(contactDirty()&&!window.confirm("Hay cambios de contacto sin guardar. ¿Desea descartarlos?"))return false;
+  resetContactEditor();return true;
+}
+window.prestamodeskBorrowerContact={
+  canLeave:()=>!contactBusy&&!contactDirty(),
+  confirmLeave:()=>leaveContact(),
+  leaveMessage:"Guarde o descarte los cambios de contacto antes de cambiar de sección."
+};
+window.addEventListener("beforeunload",event=>{if(contactBusy||contactDirty()){event.preventDefault();event.returnValue="";}});
+window.addEventListener("pd-dispose",()=>{contactDisposed=true;resetContactEditor();});
+async function startContactEditor() {
+  if(!canManageLoans()||!selectedBorrowerId||borrowerDetailTenantId!==tenantId||!leaveContact())return;
+  const id=selectedBorrowerId,tenant=tenantId;
+  contactBusy=true;contactControls();
+  try {
+    const record=await apiRequest(`${PRODUCT_BASE}/borrowers/${id}`);
+    if(contactDisposed||tenant!==tenantId||id!==selectedBorrowerId||!canManageLoans())return;
+    borrowers=borrowers.map(item=>item.id===id?record:item);renderBorrowerDetail();
+    for(const [key,suffix] of Object.entries(contactFields))document.getElementById("borrowerContact"+suffix).value=record[key]||"";
+    contactSnapshot={id,tenant,updated_at:record.updated_at,values:contactValues()};
+    contactForm.hidden=false;document.getElementById("borrowerContactPhone").focus();
+  } catch(error) {
+    if(!contactDisposed&&tenant===tenantId)contactMessage(error.message||"No se pudo cargar el contacto.",true);
+  } finally {contactBusy=false;contactControls();}
+}
+document.getElementById("editBorrowerContact").addEventListener("click",startContactEditor);
+document.getElementById("refreshBorrowerContact").addEventListener("click",startContactEditor);
+document.getElementById("cancelBorrowerContact").addEventListener("click",()=>{if(leaveContact())document.getElementById("editBorrowerContact").focus();});
+contactForm.addEventListener("submit",async event=>{
+  event.preventDefault();
+  if(contactBusy||!contactSnapshot||!canManageLoans()||contactSnapshot.tenant!==tenantId||contactSnapshot.id!==selectedBorrowerId)return;
+  if(!contactForm.reportValidity())return;
+  if(!contactDirty()){contactMessage("No hay cambios de contacto para guardar.");return;}
+  const snapshot=contactSnapshot;
+  contactBusy=true;contactControls();contactMessage("");
+  try {
+    const record=await apiRequest(`${PRODUCT_BASE}/borrowers/${snapshot.id}/contact`,{method:"PATCH",body:JSON.stringify({expected_updated_at:snapshot.updated_at,...contactValues()})});
+    if(contactDisposed||snapshot.tenant!==tenantId||snapshot.id!==selectedBorrowerId)return;
+    borrowers=borrowers.map(item=>item.id===snapshot.id?record:item);resetContactEditor();renderBorrowers();renderBorrowerDetail();
+    contactMessage("Contacto guardado.");document.getElementById("editBorrowerContact").focus();
+  } catch(error) {
+    if(!contactDisposed&&snapshot.tenant===tenantId)contactMessage(error.status===409
+      ? "El prestatario cambió desde que abrió la edición. Sus cambios se conservan. Use Actualizar datos para revisar la versión actual antes de guardar."
+      : error.status ? error.message : "No se pudo confirmar el guardado. Sus cambios se conservan. Actualice los datos para comprobar el resultado antes de volver a guardar.",true);
+  } finally {contactBusy=false;contactControls();}
+});
+
+let borrowerStatementLoadedAt = null;
+function clearBorrowerStatement() {
+  document.body.classList.remove("pd-borrower-print");
+  document.getElementById("borrowerStatementPanel").hidden=true;
+  document.getElementById("borrowerStatementContent").replaceChildren();
+}
+function statementCents(value) {
+  const text=String(value);
+  if(!/^\d+(?:\.\d{1,2})?$/.test(text))throw new Error("No se pudo preparar el estado de cuenta: revise los importes del préstamo.");
+  const [whole,fraction=""]=text.split(".");const cents=Number(whole)*100+Number(fraction.padEnd(2,"0"));
+  if(!Number.isSafeInteger(cents))throw new Error("El importe supera el límite del estado de cuenta.");return cents;
+}
+function statementSum(values) {
+  const total=values.reduce((sum,value)=>sum+value,0);
+  if(!Number.isSafeInteger(total))throw new Error("El total supera el límite del estado de cuenta.");return total;
+}
+function buildBorrowerStatement() {
+  if(!canManageLoans()||borrowerDetailTenantId!==tenantId)return;
+  if(contactBusy||contactDirty()){contactMessage("Guarde o descarte los cambios de contacto antes de preparar el estado de cuenta.",true);return;}
+  const borrower=borrowers.find(item=>item.id===selectedBorrowerId);if(!borrower)return;
+  const today=loanPortfolioToday(), client=window.prestamodeskAccess;
+  const linked=loanDetails.filter(loan=>loan.borrower_id===borrower.id).sort((a,b)=>a.id-b.id);
+  try {
+    const rows=linked.map(loan=>{
+      const amounts=loan.installments.map(item=>({due:statementCents(item.total_due),paid:statementCents(item.paid_amount),date:item.due_date}));
+      if(amounts.some(item=>item.paid>item.due))throw new Error("No se pudo preparar el estado de cuenta: revise los saldos de las cuotas.");
+      return {loan,total:statementSum(amounts.map(item=>item.due)),paid:statementSum(amounts.map(item=>item.paid)),
+        balance:statementSum(amounts.map(item=>item.due-item.paid)),overdue:loan.status==='active'?statementSum(amounts.filter(item=>item.date<today).map(item=>item.due-item.paid)):0};
+    });
+    const active=rows.filter(row=>row.loan.status==='active');
+    const ordinary=rows.filter(row=>row.loan.status!=='cancelled');
+    const money=cents=>formatMoney(cents/100);
+    const escape=escapeHtml;
+    document.getElementById("borrowerStatementContent").innerHTML=`
+      <p>PréstamoDesk · by FieldLookers</p>
+      <h2 id="borrowerStatementTitle" tabindex="-1">Estado de cuenta</h2>
+      <p>${escape(client.name)} · Cliente #${escape(String(client.client_number))}</p>
+      <h3>${escape(borrower.full_name)}</h3>
+      <p>Documento: ${escape(borrower.document_number||"No registrado")} · Teléfono: ${escape(borrower.phone||"No registrado")}</p>
+      <p>Correo: ${escape(borrower.email||"No registrado")}</p>
+      <p>Fecha de consulta: ${escape(pdDateOnly(today))} · República Dominicana · DOP</p>
+      <p>Datos cargados: ${escape(pdDateTime(borrowerStatementLoadedAt,"No disponible"))} (República Dominicana). Actualice la sección para consultar cambios posteriores.</p>
+      <p><strong>Saldo ordinario pendiente (préstamos activos): ${money(statementSum(active.map(row=>row.balance)))}</strong></p>
+      <p>Saldo ordinario vencido: ${money(statementSum(active.map(row=>row.overdue)))} · Pagado a cuotas (sin préstamos cancelados): ${money(statementSum(ordinary.map(row=>row.paid)))}</p>
+      <p>Los importes no incluyen mora. Pagado a cuotas corresponde al capital e interés aplicado, no al total de recibos. Los préstamos cancelados se muestran como referencia y se excluyen de los totales.</p>
+      ${rows.length?`<div class="table-wrap"><table><thead><tr><th>Préstamo</th><th>Estado</th><th>Total cuotas</th><th>Pagado a cuotas</th><th>Saldo ordinario</th></tr></thead><tbody>${rows.map(row=>`<tr><td>#${row.loan.id} · ${row.loan.loan_type==='vehicle'?'Vehículo':'Personal'}</td><td>${escape(formatStatus(row.loan.status))}</td><td>${money(row.total)}</td><td>${row.loan.status==='cancelled'?'—':money(row.paid)}</td><td>${row.loan.status==='cancelled'?'—':money(row.balance)}</td></tr>`).join('')}</tbody></table></div>`:'<p>No hay préstamos para este prestatario.</p>'}
+      <p>Préstamos: ${rows.length} · Activos: ${active.length}</p>`;
+    document.getElementById("borrowerStatementPanel").hidden=false;
+    document.getElementById("borrowerStatementTitle").focus();
+  }catch(error){clearBorrowerStatement();showError(error.message);}
+}
+document.getElementById("openBorrowerStatement").addEventListener("click",buildBorrowerStatement);
+document.getElementById("closeBorrowerStatement").addEventListener("click",()=>{clearBorrowerStatement();document.getElementById("openBorrowerStatement").focus();});
+document.getElementById("printBorrowerStatement").addEventListener("click",()=>{
+  if(!canManageLoans()||borrowerDetailTenantId!==tenantId||contactBusy||contactDirty()||document.getElementById("borrowerStatementPanel").hidden)return;
+  document.body.classList.add("pd-borrower-print");
+  try{window.print();}finally{document.body.classList.remove("pd-borrower-print");}
+});
+window.addEventListener("afterprint",()=>document.body.classList.remove("pd-borrower-print"));
+
+let selectedBorrowerId = null;
+let borrowerDetailTenantId = null;
+function clearBorrowerDetail() {
+  clearBorrowerStatement();
+  resetContactEditor();
+  selectedBorrowerId = null;
+  borrowerDetailTenantId = null;
+  document.getElementById("borrowerDetailPanel").hidden = true;
+  for (const id of ["borrowerDetailTitle", "borrowerContactDetails", "borrowerBalanceSummary", "borrowerLoanList"]) document.getElementById(id).replaceChildren();
+}
+let loanCreationPending = false;
+let loanCreationRequest = null;
+let loanCreationStorageBlocked = false;
+let loanCreationDisabled = null;
+function loanCreationStorageKey(){return "prestamodesk_loan_creation_v1:"+tenantId;}
+function loanCreationControls(){
+  const blocked = loanCreationPending || !!loanCreationRequest || loanCreationStorageBlocked;
+  if (blocked && canManageLoans()) openCompactForm("compactLoanForm");
+  const fields = [...loanForm.querySelectorAll("button,input,select,textarea")];
+  if(blocked && !loanCreationDisabled) loanCreationDisabled = fields.map(field=>[field,field.disabled]);
+  if(blocked) fields.forEach(field=>{field.disabled=true;});
+  else if(loanCreationDisabled){loanCreationDisabled.forEach(([field,disabled])=>{field.disabled=disabled;});loanCreationDisabled=null;}
+  const notice=document.getElementById("loanCreationNotice");
+  notice.hidden=!blocked;
+  notice.textContent=loanCreationStorageBlocked ? "No se pudo leer la solicitud pendiente. No cree otro préstamo; revise esta sesión antes de continuar." : loanCreationPending ? "Creando o confirmando el préstamo. Espere el resultado." : loanCreationRequest ? "Hay una solicitud de préstamo sin confirmar. No cree otra: use Confirmar o recuperar el préstamo para consultar el resultado con la misma solicitud." : "";
+  const retry=document.getElementById("loanCreationRetry");retry.hidden=!loanCreationRequest;retry.disabled=loanCreationPending;
+}
+function restoreLoanCreation(){
+  if(!loanCreationRequest && tenantId){
+    try{
+      const raw=sessionStorage.getItem(loanCreationStorageKey());
+      if(raw){const request=JSON.parse(raw);if(typeof request.key!=="string" || !/^[a-f0-9-]{36}$/i.test(request.key) || !request.payload || typeof request.payload!=="object")throw new Error();loanCreationRequest=request;}
+    }catch{loanCreationStorageBlocked=true;showError("No se pudo leer la solicitud de préstamo pendiente. No cree otro préstamo hasta revisar el almacenamiento de esta sesión.");}
+  }
+  loanCreationControls();
+}
+window.prestamodeskLoanCreation={canLeave:()=>!loanCreationPending&&!loanCreationRequest&&!loanCreationStorageBlocked,confirmLeave:()=>false,leaveMessage:"Confirme el resultado del préstamo pendiente antes de cambiar de sección."};
+window.addEventListener("beforeunload",event=>{if(loanCreationPending||loanCreationRequest){event.preventDefault();event.returnValue="";}});
+
+document.getElementById("borrowerNewLoan").addEventListener("click", () => {
+  const borrower = borrowers.find(item => item.id === selectedBorrowerId);
+  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower || borrower.status !== "active" || loanCreationPending || loanCreationRequest) return;
+  const previous = loanBorrower.value;
+  if (previous && previous !== String(borrower.id) && !window.confirm("El formulario tiene otro prestatario seleccionado. ¿Desea cambiarlo? Los demás datos del préstamo se conservarán.")) return;
+  if (!leaveContact()) return;
+  clearBorrowerStatement();
+  loanBorrowerSearch.value = "";
+  renderBorrowerOptions();
+  loanBorrower.value = String(borrower.id);
+  renderBorrowerOptions();
+  if (previous !== loanBorrower.value) loanBorrower.dispatchEvent(new Event("change", {bubbles:true}));
+  openCompactForm("compactLoanForm");
+  loanForm.scrollIntoView?.({behavior:"instant",block:"start"});
+  loanBorrower.focus();
+});
+function renderBorrowerDetail() {
+  clearBorrowerStatement();
+  const borrower = borrowers.find(item => item.id === selectedBorrowerId);
+  if (!canManageLoans() || borrowerDetailTenantId !== tenantId || !borrower) {
+    clearBorrowerDetail(); return;
+  }
+  document.getElementById("borrowerNewLoan").hidden = borrower.status !== "active";
+  const title = document.getElementById("borrowerDetailTitle");
+  title.textContent = borrower.full_name;
+  const contact = document.getElementById("borrowerContactDetails");
+  contact.replaceChildren();
+  const labels = {cedula:"Cédula", passport:"Pasaporte", other:"Otro"};
+  for (const [label,value] of [
+    ["Estado",formatStatus(borrower.status)],
+    ["Tipo de documento",labels[borrower.document_type] || borrower.document_type],
+    ["Documento",borrower.document_number],["Teléfono",borrower.phone],
+    ["Correo",borrower.email],["Dirección",borrower.address],
+    ["Municipio",borrower.municipality],["Provincia",borrower.province],
+    ["Observaciones",borrower.notes]
+  ]) {
+    const field = document.createElement("span");
+    field.textContent = label + ": " + (value || "No registrado");
+    contact.append(field);
+  }
+  const linked = loanDetails.filter(loan => loan.borrower_id === borrower.id);
+  const balance = loan => loan.installments.reduce((sum,item) => sum + Math.max(0,Number(item.total_due)-Number(item.paid_amount)),0);
+  const active = linked.filter(loan => loan.status === "active");
+  document.getElementById("borrowerBalanceSummary").textContent =
+    `Préstamos: ${linked.length} · Activos: ${active.length} · Saldo ordinario pendiente: ${formatMoney(active.reduce((sum,loan)=>sum+balance(loan),0))}`;
+  const list = document.getElementById("borrowerLoanList");
+  list.replaceChildren();
+  if (!linked.length) {
+    const empty = document.createElement("p"); empty.textContent = "No hay préstamos para este prestatario."; list.append(empty);
+  }
+  for (const loan of linked) {
+    const card = document.createElement("article"); card.className = "item-card";
+    const heading = document.createElement("h4"); heading.textContent = "Préstamo #" + loan.id;
+    const info = document.createElement("p");
+    info.textContent = `${loan.loan_type === "vehicle" ? "Vehículo" : "Personal"} · ${formatStatus(loan.status)} · Financiado: ${formatMoney(loan.principal_amount)}`
+      + (loan.status === "cancelled" ? "" : ` · Saldo ordinario: ${formatMoney(balance(loan))}`);
+    const button = document.createElement("button"); button.type = "button"; button.className = "secondary";
+    button.dataset.borrowerLoan = String(loan.id); button.textContent = "Ver préstamo";
+    card.append(heading,info,button); list.append(card);
+  }
+  document.getElementById("borrowerDetailPanel").hidden = false;
+}
+borrowerList.addEventListener("click", event => {
+  const button = event.target.closest("button[data-view-borrower]");
+  if (!button || !canManageLoans() || !leaveContact()) return;
+  selectedBorrowerId = Number(button.dataset.viewBorrower); borrowerDetailTenantId = tenantId;
+  renderBorrowerDetail();
+  if (!document.getElementById("borrowerDetailPanel").hidden) document.getElementById("borrowerDetailTitle").focus();
+});
+document.getElementById("closeBorrowerDetail").addEventListener("click", () => {
+  if(!leaveContact())return;
+  const button = [...borrowerList.querySelectorAll("[data-view-borrower]")].find(item => Number(item.dataset.viewBorrower) === selectedBorrowerId);
+  clearBorrowerDetail();
+  (button || document.getElementById("borrowerSearchQuery")).focus();
+});
+document.getElementById("borrowerLoanList").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-borrower-loan]");
+  if (!button || !canManageLoans() || borrowerDetailTenantId !== tenantId) return;
+  const id = Number(button.dataset.borrowerLoan);
+  if (!loanDetails.some(loan=>loan.id===id && loan.borrower_id===selectedBorrowerId)) return;
+  if(!leaveContact())return;
+  await openLoan(id);
+});
+
+function renderProspects() {
+  document.getElementById(
+    "prospectResultCount"
+  ).textContent = String(prospects.length);
+
+  if (prospectPage) {
+    publicProspectPageLink.href =
+      `/prestamodesk/solicitar/${
+        encodeURIComponent(prospectPage.tenant_slug)
+      }`;
+    publicProspectPageLink.hidden = false;
+  } else {
+    publicProspectPageLink.hidden = true;
+  }
+
+  if (prospects.length === 0) {
+    prospectList.innerHTML =
+      prospectPage ? "<p>No hay prospectos registrados. Comparta el enlace de Abrir página pública para recibir solicitudes preliminares.</p>" : "<p>No hay prospectos registrados.</p>";
+    return;
+  }
+
+  prospectList.innerHTML = prospects
+    .map(item => {
+      const actions = [];
+      const linked = applications.find(application => application.source_prospect_id === item.id);
+
+      if (
+        !linked && (item.status === "new"
+        || item.status === "contacted")
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="qualified"
+          >
+            Calificar
+          </button>
+        `);
+      }
+
+      if (!linked && item.status === "new") {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="contacted"
+          >
+            Marcar contactado
+          </button>
+        `);
+      }
+
+      if (
+        !linked && item.status !== "rejected"
+        && item.status !== "converted"
+      ) {
+        actions.push(`
+          <button
+            type="button"
+            class="secondary"
+            data-prospect-id="${item.id}"
+            data-prospect-status="rejected"
+          >
+            Rechazar
+          </button>
+        `);
+      }
+
+      if (!linked && item.status === "qualified") {
+        actions.push(`
+          <button
+            type="button"
+            data-start-prospect-application="${item.id}"
+          >
+            Seleccionar tipo y preparar solicitud
+          </button>
+        `);
+      }
+
+      if (linked) {
+        actions.push(`<span class="notice">Solicitud #${linked.id} · ${linked.loan_type === "vehicle" ? "Vehículo" : "Personal"} · ${escapeHtml(formatStatus(linked.status))}. Continúe en Solicitudes de préstamo.</span>`);
+      }
+      return `
+        <article class="item-card">
+          <h3>${escapeHtml(item.full_name)}</h3>
+          <div class="item-meta">
+            <span>
+              ${escapeHtml(formatStatus(item.status))}
+            </span>
+            <span>
+              Monto solicitado:
+              ${formatMoney(item.requested_amount)}
+            </span>
+            <span>
+              Teléfono: ${escapeHtml(item.phone)}
+            </span>
+            ${
+              item.email
+                ? `<span>Correo: ${
+                    escapeHtml(item.email)
+                  }</span>`
+                : ""
+            }
+            ${
+              item.province
+                ? `<span>Provincia: ${
+                    escapeHtml(item.province)
+                  }</span>`
+                : ""
+            }
+            <span>
+              Contacto preferido:
+              ${escapeHtml(item.preferred_contact)}
+            </span>
+          </div>
+          ${
+            item.message
+              ? `<p>${escapeHtml(item.message)}</p>`
+              : ""
+          }
+          <div class="item-actions">
+            ${actions.join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function loanPortfolioToday() {
+  const parts = new Intl.DateTimeFormat("en", {timeZone: "America/Santo_Domingo", year: "numeric", month: "2-digit", day: "2-digit"}).formatToParts(new Date());
+  return ["year", "month", "day"].map(type => parts.find(part => part.type === type).value).join("-");
+}
+
+function normalizeLoanSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-DO").replace(/\s+/g, " ").trim();
+}
+
+function filteredLoans() {
+  const query = normalizeLoanSearch(document.getElementById("loanSearchQuery").value);
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const status = document.getElementById("loanStatusFilter").value;
+  const today = loanPortfolioToday();
+  const overdueIds = new Set(loanDetails.filter(detail => detail.status === "active" && detail.installments.some(item =>
+    item.due_date < today && Number(item.total_due) - Number(item.paid_amount) > 0
+  )).map(detail => detail.id));
+  return loans.filter(loan => {
+    if (status === "overdue" ? !overdueIds.has(loan.id) : status !== "all" && loan.status !== status) return false;
+    if (!query) return true;
+    const borrower = borrowers.find(item => item.id === loan.borrower_id);
+    const documentNumber = borrower?.document_number || loanBorrowerDocuments.get(loan.id) || "";
+    const searchable = normalizeLoanSearch(`${loan.id} #${loan.id} Préstamo #${loan.id} ${borrowerNameForLoan(loan)} ${documentNumber}`);
+    return searchable.includes(query) || Boolean(compactQuery && normalizeLoanSearch(documentNumber).replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  });
+}
+
+function renderLoans() {
+  const visibleLoans = filteredLoans();
+  document.getElementById("loanFilterResult").textContent = `Mostrando ${visibleLoans.length} de ${loans.length} préstamos.`;
+  document.getElementById(
+    "loanResultCount"
+  ).textContent = String(visibleLoans.length);
+
+  const activeLoans = loans.filter(
+    loan => loan.status === "active"
+  );
+
+  document.getElementById(
+    "activeLoanCount"
+  ).textContent = String(activeLoans.length);
+
+  if (visibleLoans.length === 0) {
+    if (loans.length === 0) {
+      const hasActiveBorrower = borrowers.some(item => item.status === "active");
+      renderEmptyState(loanList, canManageLoans()
+        ? (hasActiveBorrower ? "No hay préstamos registrados. Prepare el primer préstamo para un prestatario activo." : "No hay préstamos registrados. Registre un prestatario activo para comenzar.")
+        : "No hay préstamos registrados. Cuando el propietario o administrador cree uno, podrá consultarlo aquí.",
+        canManageLoans() ? (hasActiveBorrower ? "Crear préstamo" : "Crear prestatario") : null,
+        () => emptyCreateForm(hasActiveBorrower ? "compactLoanForm" : "compactBorrowerForm"));
+    } else {
+      renderEmptyState(loanList, "No hay préstamos que coincidan con los filtros. Pruebe otro nombre, documento o número de préstamo.",
+        "Limpiar filtros", () => document.getElementById("loanFilterClear").click());
+    }
+    return;
+  }
+
+  loanList.innerHTML = visibleLoans
+    .map(loan => {
+
+      const vehicleDescription = (
+        loan.loan_type === "vehicle"
+          ? `
+            <span>
+              Vehículo:
+              ${escapeHtml(loan.vehicle_make)}
+              ${escapeHtml(loan.vehicle_model)}
+              ${escapeHtml(loan.vehicle_year)}
+            </span>
+          `
+          : ""
+      );
+
+      return `
+        <article class="item-card">
+          <h3>
+            Préstamo #${loan.id}
+            · ${escapeHtml(
+              borrowerNameForLoan(loan)
+            )}
+          </h3>
+          <div class="item-meta">
+            <span>
+              Tipo: ${
+                loan.loan_type === "vehicle"
+                  ? "Vehículo"
+                  : "Personal"
+              }
+            </span>
+            ${vehicleDescription}
+            <span>
+              Financiado: ${formatMoney(
+                loan.principal_amount
+              )}
+            </span>
+            <span>
+              Total: ${formatMoney(loan.total_due)}
+            </span>
+            <span>
+              ${loan.installment_count} cuotas
+            </span>
+            <span>
+              ${escapeHtml(
+                formatStatus(loan.status)
+              )}
+            </span>
+            <span>
+              Mora: ${
+                loan.late_fee_enabled
+                  ? "Activada"
+                  : "No activada"
+              }
+            </span>
+          </div>
+          <div class="item-actions">
+            <button
+              type="button"
+              data-view-loan="${loan.id}"
+            >
+              Ver préstamo
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+const loanFilterForm = document.getElementById("loanFilterForm");
+loanFilterForm.addEventListener("submit", event => {event.preventDefault(); renderLoans();});
+document.getElementById("loanSearchQuery").addEventListener("input", renderLoans);
+document.getElementById("loanStatusFilter").addEventListener("change", renderLoans);
+document.getElementById("loanFilterClear").addEventListener("click", () => {
+  loanFilterForm.reset(); renderLoans(); document.getElementById("loanSearchQuery").focus();
+});
+
+
+function updatePortfolioSummary() {
+  const today = loanPortfolioToday();
+
+  document.getElementById(
+    "openApplicationCount"
+  ).textContent = String(
+    applications.filter(
+      item => !["rejected", "converted"].includes(
+        item.status
+      )
+    ).length
+  );
+
+  let outstanding = 0;
+  let overdue = 0;
+
+  for (const detail of loanDetails) {
+    for (const item of detail.installments) {
+      const balance =
+        Number(item.total_due)
+        - Number(item.paid_amount);
+
+      outstanding += balance;
+
+      if (
+        balance > 0
+        && item.due_date < today
+      ) {
+        overdue += 1;
+      }
+    }
+  }
+
+  document.getElementById(
+    "outstandingBalance"
+  ).textContent = formatMoney(outstanding);
+
+  document.getElementById(
+    "overdueCount"
+  ).textContent = String(overdue);
+}
+
+
+function setDefaultLateFeePolicy() {
+  lateFeePolicy = null;
+  lateFeeEnabled.checked = false;
+  lateFeeDailyRate.value = "0.1000";
+  lateFeeGraceDays.value = "5";
+  lateFeeCapPercent.value = "25.0000";
+
+  if (!lateFeeEffectiveDate.value) {
+    lateFeeEffectiveDate.value =
+      pdBusinessDate();
+  }
+
+  lateFeePolicyStatus.textContent =
+    "No configurada. Guarde para crear la política.";
+}
+
+
+function renderLateFeePolicy(policy) {
+  lateFeePolicy = policy;
+  lateFeeEnabled.checked = policy.enabled;
+  lateFeeDailyRate.value = policy.daily_rate_percent;
+  lateFeeGraceDays.value = policy.grace_days;
+  lateFeeCapPercent.value = policy.cap_percent;
+  lateFeeEffectiveDate.value = policy.effective_date;
+
+  lateFeePolicyStatus.textContent = policy.enabled
+    ? (
+      "Mora activa desde "
+      + pdDateOnly(policy.effective_date)
+      + "."
+    )
+    : "Política guardada, pero la mora está desactivada.";
+}
+
+
+async function loadLateFeePolicy() {
+  try {
+    const policy = await apiRequest(
+      `${PRODUCT_BASE}/late-fee-policy`
+    );
+    renderLateFeePolicy(policy);
+  } catch (error) {
+    if (error.status === 404) {
+      setDefaultLateFeePolicy();
+      return;
+    }
+
+    throw error;
+  }
+}
+
+
+async function loadDashboard() {
+  invalidateLoanPreview();
+  if (borrowerDetailTenantId !== tenantId || !canManageLoans()) clearBorrowerDetail();
+  applyLoanAccess();
+  loanBorrowerNames = new Map();
+  loanBorrowerDocuments = new Map();
+  if (canManageLoans()) {
+    [borrowers, loans, prospects, applications, prospectPage] = await Promise.all([
+      apiRequest(`${PRODUCT_BASE}/borrowers`),
+      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/prospects`),
+      apiRequest(`${PRODUCT_BASE}/applications`),
+      apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
+    ]);
+    await loadLateFeePolicy();
+  } else {
+    borrowers = []; prospects = []; applications = []; prospectPage = null; lateFeePolicy = null;
+    const [readableLoans, cashierLoans] = await Promise.all([
+      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/cashier/loans`)
+    ]);
+    loans = readableLoans;
+    loanBorrowerNames = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_full_name]));
+    loanBorrowerDocuments = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_document_number || ""]));
+  }
+
+  loanDetails = await Promise.all(
+    loans.map(
+      loan => apiRequest(
+        `${PRODUCT_BASE}/loans/${loan.id}`
+      )
+    )
+  );
+
+  renderApplications();
+  renderProspects();
+  renderBorrowers();
+  renderBorrowerOptions();
+  renderLoans();
+  document.getElementById("compactLoanCount").textContent = String(loans.length);
+  document.getElementById("compactBorrowerCount").textContent = String(borrowers.length);
+  document.getElementById("compactApplicationCount").textContent = String(applications.filter(item => !["rejected", "converted"].includes(item.status)).length);
+  updatePortfolioSummary();
+  borrowerStatementLoadedAt = new Date().toISOString();
+  renderBorrowerDetail();
+  restoreLoanCreation();
+}
+
+
+function renderLoanDetail(detail) {
+
+  loanDetailTitle.textContent =
+    `Préstamo #${detail.id} · `
+    + borrowerNameForLoan(detail);
+
+  const outstanding = detail.installments.reduce(
+    (total, item) => (
+      total
+      + Number(item.total_due)
+      - Number(item.paid_amount)
+    ),
+    0
+  );
+
+  const vehicleSummary = (
+    detail.loan_type === "vehicle"
+      ? `
+        <h3>Vehículo financiado</h3>
+        <div class="item-meta">
+          <span>
+            ${escapeHtml(detail.vehicle_make)}
+            ${escapeHtml(detail.vehicle_model)}
+            ${escapeHtml(detail.vehicle_year)}
+          </span>
+          <span>
+            Precio: ${formatMoney(
+              detail.vehicle_cash_price
+            )}
+          </span>
+          <span>
+            Inicial: ${formatMoney(
+              detail.vehicle_down_payment
+            )}
+          </span>
+          ${
+            detail.vehicle_color
+              ? `<span>Color: ${
+                  escapeHtml(detail.vehicle_color)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_vin
+              ? `<span>VIN/chasis: ${
+                  escapeHtml(detail.vehicle_vin)
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_license_plate
+              ? `<span>Placa: ${
+                  escapeHtml(
+                    detail.vehicle_license_plate
+                  )
+                }</span>`
+              : ""
+          }
+          ${
+            detail.vehicle_seller
+              ? `<span>Vendedor: ${
+                  escapeHtml(detail.vehicle_seller)
+                }</span>`
+              : ""
+          }
+        </div>
+        ${
+          detail.vehicle_notes
+            ? `<p>${escapeHtml(
+                detail.vehicle_notes
+              )}</p>`
+            : ""
+        }
+      `
+      : ""
+  );
+
+  loanDetailSummary.innerHTML = `
+    <div class="item-meta">
+      <span>
+        Tipo: ${
+          detail.loan_type === "vehicle"
+            ? "Vehículo"
+            : "Personal"
+        }
+      </span>
+      <span>
+        Financiado: ${formatMoney(
+          detail.principal_amount
+        )}
+      </span>
+      <span>
+        Interés: ${formatMoney(detail.total_interest)}
+      </span>
+      <span>
+        Total: ${formatMoney(detail.total_due)}
+      </span>
+      <span>
+        Saldo: ${formatMoney(outstanding)}
+      </span>
+      <span>
+        Estado: ${escapeHtml(
+          formatStatus(detail.status)
+        )}
+      </span>
+      <span>
+        Mora: ${
+          detail.late_fee_enabled
+            ? "Activada"
+            : "No activada"
+        }
+      </span>
+    </div>
+    ${vehicleSummary}
+  `;
+
+  loanLateFeeSelected.checked = (
+    detail.late_fee_enabled
+  );
+
+  installmentList.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cuota</th>
+          <th>Vence</th>
+          <th>Total</th>
+          <th>Pagado</th>
+          <th>Saldo</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${detail.installments.map(item => `
+          <tr>
+            <td>${item.sequence_number}</td>
+            <td>${escapeHtml(pdDateOnly(item.due_date))}</td>
+            <td>${formatMoney(item.total_due)}</td>
+            <td>${formatMoney(item.paid_amount)}</td>
+            <td>${formatMoney(
+              Number(item.total_due)
+              - Number(item.paid_amount)
+            )}</td>
+            <td>${escapeHtml(
+              formatStatus(item.status)
+            )}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+
+  const payable = detail.installments.filter(
+    item => (
+      Number(item.total_due)
+      > Number(item.paid_amount)
+    )
+  );
+
+  paymentInstallment.innerHTML = payable
+    .map(item => `
+      <option
+        value="${item.id}"
+        data-balance="${
+          Number(item.total_due)
+          - Number(item.paid_amount)
+        }"
+      >
+        Cuota ${item.sequence_number}
+        · vence ${escapeHtml(pdDateOnly(item.due_date))}
+        · ${formatMoney(
+          Number(item.total_due)
+          - Number(item.paid_amount)
+        )}
+      </option>
+    `)
+    .join("");
+
+  setCompactTask("loans");
+  loanDetailPanel.hidden = false;
+  paymentPanel.hidden = (
+    detail.status !== "active"
+    || payable.length === 0
+  );
+  receiptPanel.hidden = true;
+}
+
+
+async function openLoan(loanId) {
+  window.prestamodeskSchedulePrint?.clear();
+  const detail = await apiRequest(
+    `${PRODUCT_BASE}/loans/${loanId}`
+  );
+
+  const sameLoan = selectedLoanId === loanId;
+  selectedLoanId = loanId;
+  if (!sameLoan) setLoanDetailView("installments", true);
+  renderLoanDetail(detail);
+  configureLoanDetailViews();
+  window.prestamodeskSchedulePrint?.capture(detail);
+  await window.prestamodeskPaymentHistory?.load(loanId, window.prestamodeskAccess?.role);
+  loanDetailPanel.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+
+let loanLateFeeSubmitting = false;
+loanLateFeeForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    if (loanDetailBlocked()) {showError("Espere a resolver la operación pendiente."); return;}
+    clearMessages();
+
+    if (!selectedLoanId) {
+      showError("Seleccione un préstamo.");
+      return;
+    }
+
+    const loanId = selectedLoanId;
+    loanLateFeeSubmitting = true;
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/loans/${loanId}/late-fee`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            late_fee_enabled:
+              loanLateFeeSelected.checked
+          })
+        }
+      );
+
+      await loadDashboard();
+      await openLoan(loanId);
+      showSuccess(
+        "Selección de mora del préstamo guardada."
+      );
+    } catch (error) {
+      showError(error.message);
+    } finally {loanLateFeeSubmitting = false;}
+  }
+);
+
+
+lateFeePolicyForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+    clearMessages();
+
+    try {
+      const policy = await apiRequest(
+        `${PRODUCT_BASE}/late-fee-policy`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            enabled: lateFeeEnabled.checked,
+            daily_rate_percent:
+              lateFeeDailyRate.value,
+            grace_days: Number(
+              lateFeeGraceDays.value
+            ),
+            cap_percent:
+              lateFeeCapPercent.value,
+            effective_date:
+              lateFeeEffectiveDate.value
+          })
+        }
+      );
+
+      renderLateFeePolicy(policy);
+      showSuccess("Política de mora guardada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+borrowerForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest(
+        `${PRODUCT_BASE}/borrowers`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            full_name:
+              document.getElementById(
+                "borrowerName"
+              ).value.trim(),
+            document_type:
+              document.getElementById(
+                "borrowerDocumentType"
+              ).value,
+            document_number:
+              document.getElementById(
+                "borrowerDocumentNumber"
+              ).value.trim() || null,
+            phone:
+              document.getElementById(
+                "borrowerPhone"
+              ).value.trim() || null,
+            municipality:
+              document.getElementById(
+                "borrowerMunicipality"
+              ).value.trim() || null,
+            province:
+              document.getElementById(
+                "borrowerProvince"
+              ).value.trim() || null
+          })
+        }
+      );
+
+      borrowerForm.reset();
+      await loadDashboard();
+      showSuccess("Prestatario guardado.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+const loanPreviewButton = document.getElementById("loanPreviewButton");
+const loanPreviewBox = document.getElementById("loanPreview");
+const loanPreviewStatus = document.getElementById("loanPreviewStatus");
+let loanPreviewVersion = 0;
+let loanPreviewPrintSnapshot = null;
+const loanPreviewPrintPanel = document.getElementById("loanPreviewPrintPanel");
+function clearLoanPreviewPrint() {
+  document.body.classList.remove("pd-loan-preview-print");
+  loanPreviewPrintPanel.hidden = true;
+  loanPreviewPrintPanel.replaceChildren();
+}
+function printLoanPreview() {
+  if (!canManageLoans() || loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || loanPreviewBox.hidden || !loanPreviewPrintSnapshot) return;
+  if (loanPreviewPrintSnapshot.tenant !== tenantId || loanPreviewPrintSnapshot.payload !== JSON.stringify(buildLoanPayload())) {invalidateLoanPreview();return;}
+  clearLoanPreviewPrint();
+  const heading=document.createElement("h1");heading.textContent="PréstamoDesk · Propuesta de préstamo";loanPreviewPrintPanel.append(heading);
+  const business=document.createElement("p");business.textContent=`Cliente #${window.prestamodeskAccess?.client_number || ""} · ${window.prestamodeskAccess?.name || clientContext.textContent}`;loanPreviewPrintPanel.append(business);
+  const date=document.createElement("p");date.textContent="Vista previa calculada: " + loanPreviewPrintSnapshot.calculatedAt + " (República Dominicana).";loanPreviewPrintPanel.append(date);
+  for (const child of loanPreviewBox.children) if (!child.classList.contains("loan-preview-actions") && !child.textContent.startsWith("Esta vista previa no crea")) loanPreviewPrintPanel.append(child.cloneNode(true));
+  const note=document.createElement("p");note.textContent="Propuesta sin guardar. No es un contrato ni un recibo. Interés fijo total; no representa una tasa APR. No incluye mora acumulada. Los datos se validan nuevamente al crear el préstamo.";loanPreviewPrintPanel.append(note);
+  loanPreviewPrintPanel.hidden=false;
+  document.body.classList.remove("pd-borrower-print");
+  document.body.classList.add("pd-loan-preview-print");
+  try {window.print();} catch {showError("No se pudo abrir la impresión. Intente de nuevo.");} finally {clearLoanPreviewPrint();}
+}
+window.addEventListener("afterprint", clearLoanPreviewPrint);
+function invalidateLoanPreview() {
+  loanPreviewVersion++;
+  loanPreviewPrintSnapshot=null;clearLoanPreviewPrint();
+  loanPreviewBox.hidden = true;
+  loanPreviewBox.replaceChildren();
+  loanPreviewStatus.hidden = true;
+}
+loanForm.addEventListener("input", invalidateLoanPreview);
+loanForm.addEventListener("change", invalidateLoanPreview);
+loanForm.addEventListener("reset", invalidateLoanPreview);
+loanPreviewButton.addEventListener("click", async () => {
+  if (!canManageLoans() || loanCreationRequest || loanCreationPending || loanCreationStorageBlocked) return;
+  if (!loanForm.reportValidity()) return;
+  invalidateLoanPreview();
+  const version = loanPreviewVersion;
+  const payload = buildLoanPayload();
+  const snapshot = JSON.stringify(payload);
+  const tenant = tenantId;
+  loanPreviewButton.disabled = true;
+  loanPreviewStatus.textContent = "Calculando vista previa…";
+  loanPreviewStatus.hidden = false;
+  try {
+    const preview = await apiRequest(`${PRODUCT_BASE}/loans/preview`, {method:"POST",body:snapshot});
+    if (version !== loanPreviewVersion || tenant !== tenantId || !canManageLoans() || loanCreationRequest || snapshot !== JSON.stringify(buildLoanPayload())) return;
+    if (preview.borrower_id !== payload.borrower_id || preview.currency !== "DOP" || !Array.isArray(preview.installments) || preview.installments.length !== payload.installment_count) throw new Error("No se pudo verificar la vista previa. Intente de nuevo.");
+    const add = (tag, text, parent=loanPreviewBox) => {const element=document.createElement(tag);element.textContent=text;parent.append(element);return element;};
+    add("h3", "Vista previa del préstamo");
+    add("p", preview.borrower_name);
+    add("p", `Tipo: ${payload.loan_type === "vehicle" ? "Vehículo" : "Personal"} · Frecuencia: ${{daily:"Diaria",weekly:"Semanal",biweekly:"Quincenal",monthly:"Mensual"}[payload.payment_frequency]} · Fecha del préstamo: ${pdDateOnly(payload.start_date)}`);
+    if (payload.loan_type === "vehicle") add("p", `Precio: ${formatMoney(payload.vehicle_cash_price)} · Inicial: ${formatMoney(payload.vehicle_down_payment)} · ${payload.vehicle_make} ${payload.vehicle_model} ${payload.vehicle_year}`);
+    add("p", `Financiado: ${formatMoney(preview.principal_amount)} · Interés total: ${formatMoney(preview.total_interest)} · Total: ${formatMoney(preview.total_due)}`);
+    add("p", `Interés fijo total: ${payload.flat_interest_rate_percent}% · Mora: ${payload.late_fee_enabled ? "Activada según la política del negocio; no incluida en estos importes" : "No activada"}`);
+    add("p", "Esta vista previa no crea ni reserva un préstamo. Revise los datos y pulse Crear préstamo para guardarlo. Los datos se validan nuevamente al crear.");
+    const table=add("table", ""), head=add("thead", "", table), row=add("tr", "", head);
+    for (const label of ["Cuota", "Vence", "Principal", "Interés", "Total"]) {const th=add("th",label,row);th.scope="col";}
+    const body=add("tbody", "", table);
+    for (const item of preview.installments) {const tr=add("tr", "", body);for (const value of [item.sequence_number,pdDateOnly(item.due_date),formatMoney(item.principal_due),formatMoney(item.interest_due),formatMoney(item.total_due)]) add("td",String(value),tr);}
+    loanPreviewPrintSnapshot={tenant:tenantId,payload:snapshot,calculatedAt:pdDateTime(new Date().toISOString())};
+    const actions=add("div", "");actions.className="loan-preview-actions";
+    const printButton=add("button", "Imprimir vista previa", actions);printButton.id="printLoanPreviewButton";printButton.type="button";printButton.addEventListener("click",printLoanPreview);
+    loanPreviewBox.hidden=false;
+    loanPreviewStatus.textContent="Vista previa calculada. El préstamo todavía no se ha creado.";
+    loanPreviewBox.scrollIntoView?.({behavior:"instant",block:"start"});
+  } catch (error) {
+    if (version === loanPreviewVersion && tenant === tenantId) {loanPreviewStatus.textContent="No se pudo calcular la vista previa. Revise los datos e intente de nuevo.";showError(error.message);}
+  } finally {
+    if (!loanCreationRequest && !loanCreationPending && !loanCreationStorageBlocked) loanPreviewButton.disabled=false;
+  }
+});
+
+async function submitLoanCreation(){
+  if(loanCreationPending || loanCreationStorageBlocked || !canManageLoans())return;
+  if(!loanCreationRequest){
+    try{
+      const request={key:crypto.randomUUID(),payload:buildLoanPayload()};
+      sessionStorage.setItem(loanCreationStorageKey(),JSON.stringify(request));
+      loanCreationRequest=request;
+    }catch{showError("No se pudo conservar la solicitud para un reintento seguro. El préstamo no se envió.");return;}
+  }
+  invalidateLoanPreview();loanPreviewButton.disabled=false;
+  loanCreationPending=true;loanCreationControls();
+  let confirmed=false;
+  try{
+    const detail=await apiRequest(`${PRODUCT_BASE}/loans`,{method:"POST",body:JSON.stringify({...loanCreationRequest.payload,idempotency_key:loanCreationRequest.key})});
+    if(!detail || !Number.isInteger(detail.id) || !Array.isArray(detail.installments))throw new Error("Invalid loan confirmation");
+    confirmed=true;
+    sessionStorage.removeItem(loanCreationStorageKey());loanCreationRequest=null;
+    loanForm.reset();updateVehicleLoanFields();
+    try{await loadDashboard();await openLoan(detail.id);showSuccess(`Préstamo #${detail.id} confirmado.`);}
+    catch{showError(`Préstamo #${detail.id} confirmado. No se pudo actualizar la pantalla; recargue para consultar sus cuotas.`);}
+  }catch(error){
+    if(!confirmed && ([400,404,422].includes(error.status) || (error.status===409 && ["Borrower is inactive", "Configure and enable the tenant late-fee policy first"].includes(error.detail)))){
+      try{sessionStorage.removeItem(loanCreationStorageKey());loanCreationRequest=null;showError(error.message);}
+      catch{showError("No se pudo actualizar la solicitud pendiente en esta sesión. No cree otro préstamo.");}
+    }else{showError("No se pudo confirmar el resultado del préstamo. Sus datos y la solicitud se conservan; use Confirmar o recuperar el préstamo. No cree otro préstamo.");}
+  }finally{loanCreationPending=false;loanCreationControls();}
+}
+loanForm.addEventListener("submit",event=>{event.preventDefault();submitLoanCreation();});
+document.getElementById("loanCreationRetry").addEventListener("click",submitLoanCreation);
+
+
+loanType.addEventListener(
+  "change",
+  updateVehicleLoanFields
+);
+
+vehicleCashPrice.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
+);
+
+vehicleDownPayment.addEventListener(
+  "input",
+  updateVehicleFinancedAmount
+);
+
+
+const paymentDate = document.getElementById(
+  "paymentDate"
+);
+
+function setDefaultPaymentDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
+  paymentDate.value = `${year}-${month}-${day}`;
+}
+
+setDefaultPaymentDate();
+window.addEventListener("beforeunload", event => {
+  if (paymentSubmitting || paymentNeedsReview) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+
+paymentForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    if (paymentSubmitting || paymentNeedsReview || !selectedLoanId || !paymentInstallment.value) return;
+    paymentSubmitting = true;
+    const loanId = selectedLoanId;
+    const submitButton = paymentForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton.textContent;
+    const controls = Array.from(workspace.querySelectorAll("button, input, select, textarea"));
+    const disabledBefore = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    submitButton.textContent = "Registrando…";
+    let paymentSaved = false;
+    let requestStorageKey = null;
+
+    try {
+      const paymentPayload = {
+        installment_id: Number(paymentInstallment.value),
+        amount: Number(document.getElementById("paymentAmount").value).toFixed(2),
+        payment_method: document.getElementById("paymentMethod").value,
+        reference: document.getElementById("paymentReference").value.trim() || null,
+        paid_at: paymentDate.value ? `${paymentDate.value}T12:00:00Z` : null
+      };
+      requestStorageKey = "prestamodesk-payment-request:" + tenantId + ":" + JSON.stringify(paymentPayload);
+      const requestKey = sessionStorage.getItem(requestStorageKey) || crypto.randomUUID();
+      sessionStorage.setItem(requestStorageKey, requestKey);
+      const receipt = await apiRequest(
+        `${PRODUCT_BASE}/payments`,
+        {
+          method: "POST",
+          body: JSON.stringify({...paymentPayload, idempotency_key: requestKey})
+        }
+      );
+
+      paymentSaved = true;
+      sessionStorage.removeItem(requestStorageKey);
+      receiptContent.innerHTML = pdReceiptMarkup(receipt, {loanId, borrower:borrowerNameForLoan(loans.find(item => item.id === loanId) || {id:loanId}), business:clientContext.textContent, date:paymentDate.value, method:paymentPayload.payment_method, reference:paymentPayload.reference});
+
+      paymentForm.reset();
+      setDefaultPaymentDate();
+      receiptPanel.hidden = false;
+      try {
+        await loadDashboard();
+        await openLoan(loanId);
+        showSuccess("Pago registrado.");
+      } catch {
+        paymentNeedsReview = true;
+        showError("Pago registrado. No se pudo actualizar la pantalla. Conserve el recibo y recargue para consultar el saldo antes de registrar otro pago.");
+      } finally {
+        receiptPanel.hidden = false;
+        setLoanDetailView("payments", true);
+      }
+    } catch (error) {
+      if (paymentSaved || !error.status || error.status >= 500) {
+        paymentNeedsReview = true;
+        showError("No se pudo confirmar el resultado del pago. No lo repita: recargue y revise Pagos y correcciones en Caja antes de continuar.");
+      } else {
+        if (requestStorageKey && error.status !== 409) sessionStorage.removeItem(requestStorageKey);
+        showError(error.message);
+      }
+    } finally {
+      paymentSubmitting = false;
+      controls.forEach((control, index) => { control.disabled = disabledBefore[index]; });
+      submitButton.textContent = originalLabel;
+      submitButton.disabled = paymentNeedsReview || !paymentInstallment.value;
+    }
+  }
+);
+
+applicationList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-application-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-application]"
+    );
+    const loanButton = event.target.closest(
+      "button[data-application-loan]"
+    );
+
+    try {
+      if (statusButton) {
+        const nextStatus =
+          statusButton.dataset.applicationStatus;
+
+        await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            statusButton.dataset.applicationId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status: nextStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          nextStatus === "reviewing"
+            ? "Solicitud puesta en revisión."
+            : nextStatus === "approved"
+              ? "Solicitud aprobada."
+              : "Solicitud rechazada."
+        );
+        return;
+      }
+
+      if (convertButton) {
+        const confirmed = window.confirm(
+          "Esta acción creará el prestatario, "
+          + "el préstamo activo y todas sus cuotas. "
+          + "¿Desea continuar?"
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        const result = await apiRequest(
+          `${PRODUCT_BASE}/applications/${
+            convertButton.dataset.convertApplication
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Solicitud convertida en préstamo."
+        );
+        await openLoan(result.loan_id);
+        return;
+      }
+
+      if (loanButton) {
+        await openLoan(
+          Number(loanButton.dataset.applicationLoan)
+        );
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+prospectList.addEventListener(
+  "click",
+  async event => {
+    const statusButton = event.target.closest(
+      "button[data-prospect-status]"
+    );
+    const convertButton = event.target.closest(
+      "button[data-convert-prospect]"
+    );
+
+    try {
+      if (statusButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            statusButton.dataset.prospectId
+          }`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status:
+                statusButton.dataset.prospectStatus
+            })
+          }
+        );
+
+        await loadDashboard();
+        showSuccess("Prospecto actualizado.");
+        if (statusButton.dataset.prospectStatus === "qualified") {
+          openProspectApplication(Number(statusButton.dataset.prospectId));
+        }
+        return;
+      }
+
+      if (convertButton) {
+        await apiRequest(
+          `${PRODUCT_BASE}/prospects/${
+            convertButton.dataset.convertProspect
+          }/convert`,
+          {
+            method: "POST"
+          }
+        );
+
+        await loadDashboard();
+        showSuccess(
+          "Prospecto convertido en prestatario."
+        );
+      }
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+loanList.addEventListener(
+  "click",
+  async event => {
+    const button = event.target.closest(
+      "button[data-view-loan]"
+    );
+
+    if (!button) {
+      return;
+    }
+
+    await openLoan(
+      Number(button.dataset.viewLoan)
+    );
+  }
+);
+
+
+document.getElementById(
+  "closeLoanDetail"
+).addEventListener(
+  "click",
+  () => {
+    if (loanDetailBlocked()) { showError("Espere a resolver la operación pendiente antes de cerrar el préstamo."); return; }
+    receiptPanel.hidden = true;
+    selectedLoanId = null;
+    loanDetailPanel.hidden = true;
+    paymentPanel.hidden = true;
+  }
+);
+
+
+document.getElementById(
+  "printReceiptButton"
+).addEventListener(
+  "click",
+  () => {
+    if (receiptPanel.hidden || !receiptContent.textContent.trim()) return;
+    document.body.classList.add("pd-payment-receipt-print");
+    try { window.print(); }
+    catch { showError("No se pudo abrir la impresión. El pago ya está registrado; conserve el recibo e intente imprimir de nuevo."); }
+    finally { document.body.classList.remove("pd-payment-receipt-print"); }
+  }
+);
+window.addEventListener("afterprint", () => document.body.classList.remove("pd-payment-receipt-print"));
+
+
+forgotPasswordButton.addEventListener(
+  "click",
+  () => {
+    passwordResetEmail.value = loginEmail.value;
+    loginForm.hidden = true;
+    passwordResetRequestForm.hidden = false;
+    passwordResetEmail.focus();
+  }
+);
+
+
+backToSignInButton.addEventListener(
+  "click",
+  () => {
+    passwordResetRequestForm.hidden = true;
+    loginForm.hidden = false;
+    loginEmail.focus();
+  }
+);
+
+
+passwordResetRequestForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    passwordResetRequestButton.disabled = true;
+    passwordResetRequestButton.textContent =
+      "Enviando…";
+
+    try {
+      const result = await apiRequest(
+        "/auth/password-reset/request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: passwordResetEmail.value,
+            product_slug: "prestamodesk"
+          })
+        }
+      );
+
+      passwordResetRequestForm.reset();
+      passwordResetRequestForm.hidden = true;
+      loginForm.hidden = false;
+
+      showSuccess(result.message);
+      loginEmail.focus();
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      passwordResetRequestButton.disabled = false;
+      passwordResetRequestButton.textContent =
+        "Enviar enlace";
+    }
+  }
+);
+
+
+loginForm.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    try {
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email:
+              document.getElementById(
+                "loginEmail"
+              ).value,
+            password:
+              document.getElementById(
+                "loginPassword"
+              ).value
+          })
+        }
+      );
+
+      await discoverAccess();
+      await loadDashboard();
+      loginForm.reset();
+      setAuthenticatedUI(true);
+      showSuccess("Sesión iniciada.");
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+    if(loanCreationPending||loanCreationRequest||loanCreationStorageBlocked){showError(window.prestamodeskLoanCreation.leaveMessage);return;}
+    if(!leaveContact())return;
+    try {
+      await apiRequest(
+        "/auth/logout",
+        {method: "POST"}
+      );
+    } catch {
+      // Continue local sign-out.
+    }
+
+    tenantId = null;
+    localStorage.removeItem(
+      "prestamodesk_tenant_id"
+    );
+    location.reload();
+  }
+);
+
+
+async function initialize() {
+  await checkHealth();
+
+  const today = pdBusinessDate();
+  document.getElementById(
+    "loanStartDate"
+  ).value = today;
+  lateFeeEffectiveDate.value = today;
+
+  updateVehicleLoanFields();
+
+  if (!tenantId) {
+    setAuthenticatedUI(false);
+    return;
+  }
+
+  try {
+    await discoverAccess();
+    await loadDashboard();
+    setAuthenticatedUI(true);
+  } catch {
+    tenantId = null;
+    localStorage.removeItem(
+      "prestamodesk_tenant_id"
+    );
+    setAuthenticatedUI(false);
+  }
+}
+
+
+initialize();
+
+// Task changes keep the same form nodes, values and request-key state.
+function applyCompactAccess(manage) {
+  for (const button of document.querySelectorAll("[data-loan-manager]")) button.hidden = !manage;
+  if (!manage) document.getElementById("workspace").dataset.loanTask = "loans";
+}
+function openCompactForm(id) {
+  if (!canManageLoans()) return;
+  if ((id !== "compactLoanForm" && (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked)) || paymentSubmitting || paymentNeedsReview) {showError("Confirme el resultado de la operación pendiente antes de abrir otro formulario.");return;}
+  const panel = document.getElementById(id);
+  document.getElementById("workspace").dataset.activeForm = id;
+  for (const button of document.querySelectorAll("[data-loan-form]")) button.setAttribute("aria-expanded", String(button.dataset.loanForm === id));
+  panel.dataset.expanded = "true";
+  document.querySelector('[data-loan-form="'+id+'"]')?.setAttribute("aria-expanded", "true");
+}
+for (const button of document.querySelectorAll("[data-loan-form]")) {
+  button.addEventListener("click", () => {
+    if (!canManageLoans()) return;
+    openCompactForm(button.dataset.loanForm);
+    document.getElementById(button.dataset.loanForm).querySelector("input,select")?.focus();
+  });
+}
+for (const button of document.querySelectorAll("[data-loan-tab]")) {
+  button.addEventListener("click", () => {
+    const task = button.dataset.loanTab;
+    if (task !== "loans" && !canManageLoans()) return;
+    if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked || paymentSubmitting || paymentNeedsReview) {
+      showError("Confirme el resultado de la operación pendiente antes de cambiar de tarea.");return;
+    }
+    const box = document.getElementById("workspace");
+    delete box.dataset.activeForm;
+    for (const formButton of document.querySelectorAll("[data-loan-form]")) formButton.setAttribute("aria-expanded", "false");
+    setCompactTask(task === "settings" && box.dataset.loanTask === "settings" ? "loans" : task);
+    for (const tab of document.querySelectorAll("[data-loan-tab]")) {
+      tab.setAttribute(tab.dataset.loanTab === "settings" ? "aria-expanded" : "aria-pressed", String(tab.dataset.loanTab === box.dataset.loanTask));
+    }
+  });
+}
+
+function setCompactTask(task) {
+  document.getElementById("workspace").dataset.loanTask = task;
+  for (const tab of document.querySelectorAll("[data-loan-tab]")) tab.setAttribute(tab.dataset.loanTab === "settings" ? "aria-expanded" : "aria-pressed", String(tab.dataset.loanTab === task));
+}
+for (const button of document.querySelectorAll("[data-loan-close]")) button.addEventListener("click", () => {
+  if (loanCreationPending || loanCreationRequest || loanCreationStorageBlocked) {showError("Confirme el resultado del préstamo pendiente antes de ocultar el formulario.");return;}
+  delete document.getElementById("workspace").dataset.activeForm;
+  document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.setAttribute("aria-expanded", "false");
+  document.querySelector('[data-loan-form="'+button.dataset.loanClose+'"]')?.focus();
+});
+
+(() => {
+  "use strict";
+  const button = document.getElementById("printLoanScheduleButton");
+  const panel = document.createElement("article");
+  panel.id = "loanSchedulePrintPanel";
+  panel.hidden = true;
+  document.querySelector("main").append(panel);
+  let snapshot = null;
+  function cleanup() {
+    document.body.classList.remove("pd-loan-schedule-print");
+    panel.hidden = true;
+    panel.replaceChildren();
+  }
+  function clear() { snapshot = null; button.disabled = true; cleanup(); }
+  function capture(detail) {
+    clear();
+    const table = installmentList.querySelector("table");
+    if (!table || !detail.installments?.length) return;
+    snapshot = {
+      id: detail.id, title: loanDetailTitle.textContent,
+      business: clientContext.textContent,
+      loaded: pdDateTime(new Date().toISOString()),
+      summary: loanDetailSummary.cloneNode(true), table: table.cloneNode(true)
+    };
+    snapshot.summary.removeAttribute("id");
+    const headings = snapshot.table.querySelectorAll("thead th");
+    headings[2].textContent = "Cuota original";
+    headings[3].textContent = "Pagado ordinario";
+    headings[4].textContent = "Saldo ordinario";
+    button.disabled = false;
+  }
+  function add(tag, value) {
+    const node = document.createElement(tag);
+    node.textContent = value;
+    panel.append(node);
+    return node;
+  }
+  function blocked() {
+    return paymentSubmitting || paymentNeedsReview
+      || (window.prestamodeskPaymentHistory?.isBusy?.() ?? false)
+      || (window.prestamodeskLoanCreation && !window.prestamodeskLoanCreation.canLeave());
+  }
+  button.addEventListener("click", () => {
+    if (!snapshot || blocked() || loanDetailPanel.hidden
+        || window.getComputedStyle(loanDetailPanel).display === "none"
+        || snapshot.id !== selectedLoanId) return;
+    cleanup();
+    add("h1", "Calendario de cuotas");
+    add("p", "PréstamoDesk · by FieldLookers");
+    add("p", snapshot.business);
+    add("h2", snapshot.title);
+    add("p", "Datos consultados: " + snapshot.loaded + " · República Dominicana");
+    panel.append(snapshot.summary.cloneNode(true));
+    add("p", "Importes en DOP. Pagado y saldo ordinario corresponden a principal e interés; no incluyen mora. Este calendario no es un recibo de pago ni una liquidación del préstamo. Consulte Caja para revisar la mora y el total exigible.");
+    panel.append(snapshot.table.cloneNode(true));
+    add("p", "Los movimientos posteriores a esta consulta pueden cambiar los saldos. El interés indicado es fijo total del préstamo; no representa una tasa APR.");
+    document.body.classList.remove("pd-payment-receipt-print", "pd-borrower-print", "pd-loan-preview-print");
+    panel.hidden = false;
+    document.body.classList.add("pd-loan-schedule-print");
+    try { window.print(); }
+    catch { showError("No se pudo abrir la impresión del calendario. Intente de nuevo."); }
+    finally { cleanup(); }
+  });
+  window.addEventListener("afterprint", cleanup);
+  document.getElementById("closeLoanDetail").addEventListener("click", () => {if (!blocked()) clear();});
+  document.getElementById("logoutButton").addEventListener("click", clear);
+  window.prestamodeskSchedulePrint = {capture, clear};
+  clear();
+})();
+
+function loanDetailBlocked() {
+  return loanLateFeeSubmitting || paymentSubmitting || paymentNeedsReview || window.prestamodeskPaymentHistory?.isBusy?.() || window.prestamodeskLoanCreation?.canLeave?.() === false;
+}
+function setLoanDetailView(view, internal = false) {
+  if (!internal && loanDetailBlocked()) {showError("Espere a resolver la operación pendiente antes de cambiar de vista."); return;}
+  if (!["installments", "payments", "late-fee"].includes(view)) return;
+  if (view === "late-fee" && !["owner", "administrator"].includes(window.prestamodeskAccess?.role)) return;
+  document.getElementById("workspace").dataset.loanDetailView = view;
+  for (const button of document.querySelectorAll("[data-loan-detail]")) button.setAttribute("aria-pressed", String(button.dataset.loanDetail === view));
+}
+function configureLoanDetailViews() {
+  const manager = ["owner", "administrator"].includes(window.prestamodeskAccess?.role);
+  document.querySelector('[data-loan-detail="late-fee"]').hidden = !manager;
+  document.getElementById("loanReceiptGuidance").hidden = manager;
+  const view = document.getElementById("workspace").dataset.loanDetailView;
+  setLoanDetailView(!view || (!manager && view === "late-fee") ? "installments" : view, true);
+}
+document.getElementById("loanDetailViews").addEventListener("click", event => {
+  const button = event.target.closest("[data-loan-detail]");
+  if (button && !button.hidden) setLoanDetailView(button.dataset.loanDetail);
+});
+window.prestamodeskLoanDetailViews = {canLeave: () => !loanDetailBlocked(), showReceipt: () => setLoanDetailView("payments", true)};
+setLoanDetailView("installments", true);
