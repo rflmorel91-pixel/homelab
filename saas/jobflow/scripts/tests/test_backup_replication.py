@@ -33,6 +33,17 @@ class Tests(unittest.TestCase):
         self.source.write_bytes(b"PGDMP-example")
         self.now = dt.datetime(2026, 8, 27, 15, tzinfo=dt.timezone.utc).timestamp()
         os.utime(self.source, (self.now, self.now))
+        self.manifest_path = self.source.with_name(self.source.name + ".manifest.json")
+        self.manifest_path.write_text(json.dumps(self.dump_metadata()))
+        self.manifest_path.chmod(0o600)
+
+    def dump_metadata(self):
+        return {
+            "format_version": 1,
+            "source": self.source.name,
+            "bytes": self.source.stat().st_size,
+            "sha256": __import__("hashlib").sha256(self.source.read_bytes()).hexdigest(),
+        }
 
     def test_daily(self):
         result = replication.plan(self.source, self.backups, self.now)
@@ -103,6 +114,55 @@ class Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     b2.ensure_copy("platform/test", b"ciphertext", 10000)
 
+
+    def test_manifest_is_required_before_encryption_or_network(self):
+        self.manifest_path.unlink()
+        with patch.object(replication, "encrypted_copy") as encrypt, \
+             patch.object(replication, "B2") as client:
+            with self.assertRaisesRegex(ValueError, "manifest-missing"):
+                replication.replicate(self.source, self.root, self.root, self.now)
+            encrypt.assert_not_called()
+            client.assert_not_called()
+
+    def test_manifest_without_private_documents_is_paired(self):
+        self.assertEqual(
+            replication.paired_sources(self.source, self.root, self.now),
+            [self.source, self.manifest_path],
+        )
+
+    def test_mismatched_manifest_rejected_before_network(self):
+        for field, value in (
+            ("source", "jobflow-20260827-000000.dump"),
+            ("bytes", 999999),
+            ("sha256", "0" * 64),
+            ("format_version", 2),
+        ):
+            with self.subTest(field=field):
+                metadata = self.dump_metadata()
+                metadata[field] = value
+                self.manifest_path.write_text(json.dumps(metadata))
+                with patch.object(replication, "encrypted_copy") as encrypt, \
+                     patch.object(replication, "B2") as client:
+                    with self.assertRaises(ValueError):
+                        replication.replicate(self.source, self.root, self.root, self.now)
+                    encrypt.assert_not_called()
+                    client.assert_not_called()
+
+    def test_manifest_is_encrypted_with_exact_bytes(self):
+        spool = self.root / "manifest-spool"
+        spool.mkdir()
+        def encrypt(args, **kwargs):
+            self.assertEqual(kwargs["input"], self.manifest_path.read_bytes())
+            Path(args[args.index("-o") + 1]).write_bytes(b"age-encryption.org/v1\nTEST")
+        with patch.object(replication.subprocess, "run", side_effect=encrypt):
+            ciphertext, digest = replication.encrypted_copy(
+                self.manifest_path, spool, self.root / "recipient"
+            )
+        self.assertTrue(ciphertext.startswith(b"age-encryption.org/v1\n"))
+        self.assertEqual(
+            digest, __import__("hashlib").sha256(self.manifest_path.read_bytes()).hexdigest()
+        )
+
     def test_encryption_cache_reused(self):
         spool = self.root / "spool"
         spool.mkdir()
@@ -125,9 +185,10 @@ class Tests(unittest.TestCase):
             "archive": sidecar.name, "bytes": len(payload),
             "sha256": __import__("hashlib").sha256(payload).hexdigest(),
         }}
+        metadata.update(self.dump_metadata())
         self.source.with_name(self.source.name + ".manifest.json").write_text(json.dumps(metadata))
         self.assertEqual(replication.paired_sources(self.source, self.root, self.now),
-                         [self.source, sidecar])
+                         [self.source, sidecar, self.manifest_path])
         sidecar.unlink()
         with self.assertRaises(ValueError):
             replication.paired_sources(self.source, self.root, self.now)
@@ -154,6 +215,7 @@ class Tests(unittest.TestCase):
             "archive": sidecar.name, "bytes": sidecar.stat().st_size,
             "sha256": __import__("hashlib").sha256(sidecar.read_bytes()).hexdigest(),
         }}
+        manifest.update(self.dump_metadata())
         self.source.with_name(self.source.name + ".manifest.json").write_text(json.dumps(manifest))
         self.source.with_name(self.source.name + ".manifest.json").chmod(0o600)
         encrypted = b"age-encryption.org/v1\nTEST"
@@ -164,12 +226,12 @@ class Tests(unittest.TestCase):
             "retain_until_ms": until,
         }
         with patch.object(replication, "encrypted_copy",
-                          side_effect=[(encrypted, "dump-hash"), (encrypted, "private-hash")]), \
+                          side_effect=[(encrypted, "dump-hash"), (encrypted, "private-hash"), (encrypted, "manifest-hash")]), \
              patch.object(replication, "B2", return_value=b2):
             result = replication.replicate(self.source, self.root, self.root, self.now)
         self.assertEqual([item["source"] for item in result["artifacts"]],
-                         [self.source.name, sidecar.name])
-        self.assertEqual(b2.ensure_copy.call_count, 2)
+                         [self.source.name, sidecar.name, self.manifest_path.name])
+        self.assertEqual(b2.ensure_copy.call_count, 3)
         saved = json.loads((self.root / "runtime/last-offsite-success.json").read_text())
         self.assertEqual(saved["artifacts"], result["artifacts"])
 
