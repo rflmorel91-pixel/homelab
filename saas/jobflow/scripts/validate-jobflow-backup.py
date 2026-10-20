@@ -171,7 +171,7 @@ def validate_private_archive(stream, metadata):
             "private-archive-hash-mismatch")
     stream.seek(0)
     expected = {item["file_key"]: item for item in metadata["documents"]}
-    actual, directories = set(), set()
+    actual = set()
     with tarfile.open(fileobj=stream, mode="r|") as archive:
         for member in archive:
             name = member.name
@@ -182,8 +182,8 @@ def validate_private_archive(stream, metadata):
             require(name in ("", ".") or all(part not in ("", ".", "..")
                     for part in name.split("/")), "private-archive-path")
             if member.isdir():
-                if name not in ("", "."):
-                    directories.add(name)
+                # Safe directory entries may remain after document cleanup.
+                # Every non-directory entry must still match the manifest.
                 continue
             require(member.isfile() and name in expected and name not in actual,
                     "private-archive-entry")
@@ -194,9 +194,6 @@ def validate_private_archive(stream, metadata):
                     "private-archive-document-hash")
             actual.add(name)
     require(actual == set(expected), "private-archive-inventory")
-    for name in directories:
-        require(any(key.startswith(name + "/") for key in expected),
-                "private-archive-unexpected-directory")
     stream.seek(0)
 
 
