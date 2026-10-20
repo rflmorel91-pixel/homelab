@@ -145,8 +145,18 @@ def atomic_json(path, value):
 def encrypted_copy(source, spool, recipient):
     data = source.read_bytes()
     require(0 < len(data) <= MAX_BYTES, "source-size")
-    require(data.startswith(b"PGDMP") or data[257:262] == b"ustar",
-            "backup-archive-magic")
+    if source.name.endswith(".dump.manifest.json"):
+        require(len(data) <= 16 * 1024 * 1024, "manifest-size")
+        metadata = json.loads(data)
+        require(isinstance(metadata, dict), "manifest-object")
+        require(metadata.get("format_version") == 1
+                and source.name == str(metadata.get("source", "")) + ".manifest.json"
+                and re.fullmatch(r"jobflow-\d{8}-\d{6}\.dump",
+                                 metadata.get("source", "")),
+                "manifest-source")
+    else:
+        require(data.startswith(b"PGDMP") or data[257:262] == b"ustar",
+                "backup-archive-magic")
     digest = hashlib.sha256(data).hexdigest()
     target = spool / (source.name + "." + digest + ".age")
     if not target.exists():
@@ -163,21 +173,27 @@ def encrypted_copy(source, spool, recipient):
 
 
 def paired_sources(source, project, now):
-    """Return dump and any manifest-required private archive as one set."""
+    """Return the dump, required private archive, and recovery manifest."""
     manifest_path = source.with_name(source.name + ".manifest.json")
-    if not manifest_path.exists():
-        return [source]
+    require(manifest_path.exists(), "manifest-missing")
     require(not manifest_path.is_symlink(), "manifest-symlink")
     manifest_info = manifest_path.stat()
     require(stat.S_ISREG(manifest_info.st_mode) and manifest_info.st_uid == os.getuid()
             and stat.S_IMODE(manifest_info.st_mode) == 0o600
             and manifest_info.st_size <= 16 * 1024 * 1024, "manifest-permissions")
     metadata = json.loads(manifest_path.read_text())
+    require(isinstance(metadata, dict), "manifest-object")
+    require(metadata.get("format_version") == 1
+            and metadata.get("source") == source.name, "manifest-source")
+    require(type(metadata.get("bytes")) is int
+            and metadata["bytes"] == source.stat().st_size, "manifest-dump-size")
+    require(metadata.get("sha256") == hashlib.sha256(source.read_bytes()).hexdigest(),
+            "manifest-dump-hash")
     private = metadata.get("private_documents")
     sidecar = source.with_name(source.name + ".private.tar")
     if private is None:
         require(not sidecar.exists(), "unexpected-private-archive")
-        return [source]
+        return [source, manifest_path]
     require(private.get("archive") == sidecar.name, "private-archive-name")
     require(not sidecar.is_symlink() and sidecar.is_file(), "private-archive-missing")
     info = sidecar.stat()
@@ -188,7 +204,7 @@ def paired_sources(source, project, now):
     digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
     require(private.get("sha256") == digest, "private-archive-hash")
     require(0 <= now - info.st_mtime <= MAX_AGE, "private-archive-freshness")
-    return [source, sidecar]
+    return [source, sidecar, manifest_path]
 
 
 def replicate(source, project, config, now):
