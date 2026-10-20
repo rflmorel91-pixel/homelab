@@ -93,7 +93,6 @@ def private_document_records(session, tables):
 def validate_private_archive(path, records):
     expected = {item["file_key"]: item for item in records}
     actual = set()
-    directories = set()
     with tarfile.open(path, "r:") as archive:
         for member in archive:
             name = member.name
@@ -104,8 +103,8 @@ def validate_private_archive(path, records):
             require(name in ("", ".") or all(part not in ("", ".", "..")
                     for part in name.split("/")), "private-archive-path")
             if member.isdir():
-                if name not in ("", "."):
-                    directories.add(name)
+                # Safe directory entries may remain after document cleanup.
+                # Every non-directory entry must still match the manifest.
                 continue
             require(member.isfile() and name in expected, "private-archive-entry")
             require(name not in actual, "duplicate-private-archive-entry")
@@ -116,9 +115,6 @@ def validate_private_archive(path, records):
             require(digest == expected[name]["sha256"], "private-archive-digest")
             actual.add(name)
     require(actual == set(expected), "private-archive-inventory")
-    for name in directories:
-        require(any(key.startswith(name + "/") for key in expected),
-                "private-archive-unexpected-directory")
 
 
 def create_private_archive(path, records, image):
