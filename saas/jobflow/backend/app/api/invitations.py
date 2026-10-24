@@ -1,3 +1,4 @@
+from app.platform.membership_limits import require_membership_capacity
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -460,6 +461,8 @@ def create_client_user_invitation(
                 "for this client and email"
             ),
         )
+
+    require_membership_capacity(db, tenant.id)
 
     token, token_hash = create_invitation_token()
 
@@ -1040,13 +1043,20 @@ def accept_user_invitation(
 ):
     response.headers["Cache-Control"] = "no-store"
 
-    invitation = db.scalar(
-        select(UserInvitation)
-        .where(
-            UserInvitation.token_hash
-            == hash_invitation_token(payload.token)
+    invitation_statement = select(UserInvitation).where(
+        UserInvitation.token_hash == hash_invitation_token(payload.token)
+    )
+    invitation = db.scalar(invitation_statement)
+    if invitation is not None and invitation.tenant_id is not None:
+        # Team operations lock tenant before invitation. Use the same order.
+        db.scalar(
+            select(Tenant)
+            .where(Tenant.id == invitation.tenant_id)
+            .with_for_update()
         )
-        .with_for_update()
+    invitation = db.scalar(
+        invitation_statement.with_for_update()
+        .execution_options(populate_existing=True)
     )
 
     now = utc_now_naive()
@@ -1203,6 +1213,7 @@ def accept_user_invitation(
     membership = None
 
     if tenant is not None:
+        require_membership_capacity(db, tenant.id)
         membership = TenantMembership(
             tenant_id=tenant.id,
             user_id=user.id,

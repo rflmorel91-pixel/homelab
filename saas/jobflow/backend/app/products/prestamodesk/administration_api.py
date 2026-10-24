@@ -1,3 +1,4 @@
+from app.platform.membership_limits import require_membership_capacity
 """Tenant-scoped team management; platform administrators are a separate concern."""
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from datetime import datetime, timezone
@@ -109,6 +110,8 @@ def change_status(membership_id: int, payload: MembershipStatusUpdate,
             if another is None:
                 raise HTTPException(status_code=409, detail="Client must retain at least one active owner")
         require_released_portfolio(db, tenant.id, target.user_id)
+    if payload.is_active and not target.is_active:
+        require_membership_capacity(db, tenant.id)
     before = target.is_active
     target.is_active = payload.is_active
     if before != target.is_active:

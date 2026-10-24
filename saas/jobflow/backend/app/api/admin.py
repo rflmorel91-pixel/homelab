@@ -1,3 +1,4 @@
+from app.platform.membership_limits import require_membership_capacity
 from datetime import datetime, timezone
 import re
 from zoneinfo import (
@@ -1892,6 +1893,8 @@ def admin_create_membership(
             status_code=409,
             detail="User is already a tenant member",
         )
+
+    require_membership_capacity(db, tenant.id)
 
     membership = TenantMembership(
         tenant_id=tenant_id,
