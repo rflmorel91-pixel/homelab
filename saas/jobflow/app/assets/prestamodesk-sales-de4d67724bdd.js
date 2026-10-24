@@ -44,9 +44,11 @@ form.addEventListener("submit", async event => {
     message: "Préstamos activos: " + values.portfolio_size + "\nNecesidad: " + (values.message.trim() || "No indicada") + "\nTipo de solicitud: " + (values.request_type === "pilot" ? "Piloto gratuito de 30 días" : "Demostración") + (values.request_type === "pilot" ? "\nAceptó comentarios semanales y revisión final. Inicio y alcance sujetos a acuerdo." : "") + "\nAutorizó contacto sobre su solicitud. Aviso: 2026-10-08."
   };
   let received = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
   try {
     const response = await fetch("/api/v1/public/products/prestamodesk/leads", {
-      method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)
+      signal:controller.signal, method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)
     });
     if (!response.ok) {
       status.className = "small error";
@@ -57,15 +59,17 @@ form.addEventListener("submit", async event => {
     }
     // A successful response means the request was accepted, even if its body cannot be read.
     received = true;
-    const data = await response.json().catch(() => null);
+    // Confirmation must not depend on downloading the response body.
+    if (response.body) response.body.cancel().catch(() => {});
     form.reset();
     updateRequestType();
     status.className = "small success";
-    status.textContent = "Solicitud recibida" + (data && Number.isInteger(data.lead_id) ? " · #" + data.lead_id : "") + ". FieldLookers revisará su solicitud para coordinar los próximos pasos. El envío no confirma el inicio de un piloto.";
+    status.textContent = "Solicitud recibida" + ". FieldLookers revisará su solicitud para coordinar los próximos pasos. El envío no confirma el inicio de un piloto.";
   } catch {
     status.className = "small error";
     status.textContent = "No pudimos confirmar el envío. La solicitud podría haberse recibido; no la repita de inmediato.";
   } finally {
+    clearTimeout(timeout);
     submitting = false;
     button.disabled = received;
     if (received) button.textContent = "Solicitud recibida";
