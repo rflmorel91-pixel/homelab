@@ -259,6 +259,7 @@ def confirm_password_reset(
     user = db.get(
         User,
         reset_record.user_id,
+        with_for_update=True,
     )
 
     definition = get_product(
@@ -278,6 +279,7 @@ def confirm_password_reset(
     user.password_hash = hash_password(
         payload.password
     )
+    user.session_version += 1
 
     unused_tokens = db.scalars(
         select(PasswordResetToken).where(
