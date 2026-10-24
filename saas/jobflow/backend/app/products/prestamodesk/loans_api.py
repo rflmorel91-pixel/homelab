@@ -334,6 +334,53 @@ def list_loans(
     return result.scalars().all()
 
 
+@router.get("/details", response_model=list[LoanDetail])
+def list_loan_details(
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+):
+    loans = db.scalars(
+        select(Loan)
+        .where(Loan.tenant_id == tenant.id)
+        .order_by(Loan.id)
+    ).all()
+
+    if not loans:
+        return []
+
+    installments = db.scalars(
+        select(Installment)
+        .join(
+            Loan,
+            (Loan.id == Installment.loan_id)
+            & (Loan.tenant_id == Installment.tenant_id),
+        )
+        .where(
+            Loan.tenant_id == tenant.id,
+            Installment.tenant_id == tenant.id,
+        )
+        .order_by(
+            Installment.loan_id,
+            Installment.sequence_number,
+            Installment.id,
+        )
+    ).all()
+
+    schedules: dict[int, list[InstallmentRead]] = {}
+    for item in installments:
+        schedules.setdefault(item.loan_id, []).append(
+            InstallmentRead.model_validate(item)
+        )
+
+    return [
+        LoanDetail(
+            **LoanRead.model_validate(loan).model_dump(),
+            installments=schedules.get(loan.id, []),
+        )
+        for loan in loans
+    ]
+
+
 @router.get("/{loan_id}", response_model=LoanDetail)
 def get_loan(
     loan_id: int,

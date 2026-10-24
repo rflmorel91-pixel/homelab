@@ -522,3 +522,187 @@ def test_owner_can_create_selected_mora_loan(
     )
     assert stored is not None
     assert stored.late_fee_enabled is True
+
+
+def test_bulk_details_match_individual_loans(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session, product,
+        "Bulk Details Tenant", "bulk-details-tenant",
+    )
+    borrower = create_borrower(db_session, tenant)
+    headers = client.owner_headers(tenant)
+    loan_ids = []
+
+    for count in (2, 5, 7):
+        payload = loan_payload(borrower.id)
+        payload["installment_count"] = count
+        response = client.post(
+            LOANS_URL, headers=headers, json=payload,
+        )
+        assert response.status_code == 201
+        loan_ids.append(response.json()["id"])
+
+    expected = []
+    for loan_id in loan_ids:
+        response = client.get(
+            f"{LOANS_URL}/{loan_id}", headers=headers,
+        )
+        assert response.status_code == 200
+        expected.append(response.json())
+
+    response = client.get(
+        f"{LOANS_URL}/details", headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == expected
+
+
+def test_bulk_details_are_isolated_by_tenant(
+    authenticated_client,
+    db_session,
+):
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenants = [
+        create_tenant(
+            db_session, product,
+            f"Bulk Tenant {suffix}", f"bulk-tenant-{suffix}",
+        )
+        for suffix in ("a", "b", "empty")
+    ]
+    created = {}
+
+    for tenant in tenants[:2]:
+        borrower = create_borrower(db_session, tenant)
+        response = client.post(
+            LOANS_URL,
+            headers=client.owner_headers(tenant),
+            json=loan_payload(borrower.id),
+        )
+        assert response.status_code == 201
+        loan_id = response.json()["id"]
+        detail = client.get(
+            f"{LOANS_URL}/{loan_id}",
+            headers=client.owner_headers(tenant),
+        )
+        assert detail.status_code == 200
+        created[tenant.id] = detail.json()
+
+    for tenant in tenants:
+        response = client.get(
+            f"{LOANS_URL}/details",
+            headers=client.owner_headers(tenant),
+        )
+        assert response.status_code == 200
+        expected = (
+            [created[tenant.id]]
+            if tenant.id in created else []
+        )
+        assert response.json() == expected
+
+
+def test_bulk_details_query_count_is_constant(
+    authenticated_client,
+    db_session,
+):
+    from sqlalchemy import event
+    from app.products.prestamodesk.loans_api import list_loan_details
+
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session, product, "Bulk Query Count", "bulk-query-count",
+    )
+    borrower = create_borrower(db_session, tenant)
+    headers = client.owner_headers(tenant)
+
+    def add_loan():
+        response = client.post(
+            LOANS_URL, headers=headers,
+            json=loan_payload(borrower.id),
+        )
+        assert response.status_code == 201
+
+    def measured_details():
+        # Resolve expired attributes before measuring portfolio queries.
+        tenant.id
+        statements = []
+
+        def capture(state):
+            if state.is_select:
+                statements.append(state.statement)
+
+        event.listen(db_session, "do_orm_execute", capture)
+        try:
+            result = list_loan_details(db=db_session, tenant=tenant)
+        finally:
+            event.remove(db_session, "do_orm_execute", capture)
+        return result, len(statements)
+
+    add_loan()
+    details, count = measured_details()
+    assert len(details) == 1
+    assert count == 2
+
+    for _ in range(7):
+        add_loan()
+
+    details, count = measured_details()
+    assert len(details) == 8
+    assert all(len(item.installments) == 5 for item in details)
+    assert count == 2
+
+
+def test_bulk_details_preserve_existing_role_permissions(
+    authenticated_client,
+    db_session,
+):
+    from app.models import TenantMembership
+
+    client = authenticated_client
+    product = get_product(db_session, "prestamodesk")
+    tenant = create_tenant(
+        db_session, product, "Bulk Permissions", "bulk-permissions",
+    )
+    borrower = create_borrower(db_session, tenant)
+    headers = client.owner_headers(tenant)
+    response = client.post(
+        LOANS_URL, headers=headers,
+        json=loan_payload(borrower.id),
+    )
+    assert response.status_code == 201
+    loan_id = response.json()["id"]
+    membership = db_session.scalar(
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant.id,
+            TenantMembership.user_id == client.auth_user.id,
+        )
+    )
+
+    for role in (
+        "owner", "administrator", "member",
+        "supervisor", "collector", "cashier",
+    ):
+        membership.role = role
+        db_session.commit()
+        expected = 200 if role in {
+            "owner", "administrator", "member",
+        } else 403
+        for suffix in ("", "/details", f"/{loan_id}"):
+            response = client.get(
+                LOANS_URL + suffix, headers=headers,
+            )
+            assert response.status_code == expected, (role, suffix)
+
+    membership.role = "owner"
+    membership.is_active = False
+    db_session.commit()
+    response = client.get(
+        f"{LOANS_URL}/details", headers=headers,
+    )
+    assert response.status_code == 403

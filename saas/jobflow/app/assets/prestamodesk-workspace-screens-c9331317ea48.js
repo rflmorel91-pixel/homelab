@@ -1494,7 +1494,7 @@ async function loadDashboard() {
   if (canManageLoans()) {
     [borrowers, loans, prospects, applications, prospectPage] = await Promise.all([
       apiRequest(`${PRODUCT_BASE}/borrowers`),
-      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/loans/details`),
       apiRequest(`${PRODUCT_BASE}/prospects`),
       apiRequest(`${PRODUCT_BASE}/applications`),
       apiRequest(`${PRODUCT_BASE}/prospects/public-page`)
@@ -1503,7 +1503,7 @@ async function loadDashboard() {
   } else {
     borrowers = []; prospects = []; applications = []; prospectPage = null; lateFeePolicy = null;
     const [readableLoans, cashierLoans] = await Promise.all([
-      apiRequest(`${PRODUCT_BASE}/loans`),
+      apiRequest(`${PRODUCT_BASE}/loans/details`),
       apiRequest(`${PRODUCT_BASE}/cashier/loans`)
     ]);
     loans = readableLoans;
@@ -1511,13 +1511,7 @@ async function loadDashboard() {
     loanBorrowerDocuments = new Map(cashierLoans.map(loan => [loan.id, loan.borrower_document_number || ""]));
   }
 
-  loanDetails = await Promise.all(
-    loans.map(
-      loan => apiRequest(
-        `${PRODUCT_BASE}/loans/${loan.id}`
-      )
-    )
-  );
+  loanDetails = loans;
 
   renderApplications();
   renderProspects();
