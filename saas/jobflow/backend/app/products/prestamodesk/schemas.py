@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from pydantic import (
     BaseModel,
@@ -182,6 +182,18 @@ class LoanCreate(BaseModel):
     first_payment_date: date
     late_fee_enabled: bool = False
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_minimum_installment(self):
+        interest = (
+            self.principal_amount
+            * self.flat_interest_rate_percent
+            / Decimal("100")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total = self.principal_amount + interest
+        if total < Decimal("0.01") * self.installment_count:
+            raise ValueError("Every installment must be at least RD$0.01")
+        return self
 
     @model_validator(mode="after")
     def validate_vehicle_financing(self):
