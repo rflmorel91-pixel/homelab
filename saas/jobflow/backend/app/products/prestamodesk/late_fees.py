@@ -92,7 +92,8 @@ def calculate_late_fee(
             ),
             days_assessed=0,
             fee_added=Decimal("0.00"),
-            fee_accrued=min(accrued, fee_cap),
+            # Policy changes must not silently reverse accrued fees.
+            fee_accrued=accrued,
             fee_cap=fee_cap,
         )
 

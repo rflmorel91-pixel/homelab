@@ -131,3 +131,24 @@ def test_invalid_late_fee_terms_are_rejected(
 ):
     with pytest.raises(ValueError, match=message):
         calculate(**{field: value})
+
+
+@pytest.mark.parametrize("cap", ["0", "5", "10"])
+@pytest.mark.parametrize("paid", ["0.00", "60.00", "100.00"])
+def test_lowered_cap_preserves_accrued_and_paid_fees(cap, paid):
+    result = calculate(
+        installment_total=Decimal("1000.00"),
+        ordinary_balance=Decimal("500.00"),
+        cap_percent=Decimal(cap),
+        previously_accrued=Decimal("100.00"),
+        previously_assessed_through=date(2026, 10, 8),
+        assessment_through=date(2026, 10, 10),
+    )
+
+    assert result.fee_accrued == Decimal("100.00")
+    assert result.fee_added == Decimal("0.00")
+    assert result.assessment_through == date(2026, 10, 8)
+    assert (
+        result.fee_accrued - Decimal(paid)
+        == Decimal("100.00") - Decimal(paid)
+    )
