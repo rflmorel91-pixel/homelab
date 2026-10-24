@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import Tenant, TenantResourceLimit
 
 
-def lock_tenant_capacity(db: Session, tenant_id: int) -> Tenant:
+def lock_tenant_capacity(db: Session, tenant_id: int, *, require_active: bool = True) -> Tenant:
     tenant = db.scalar(
         select(Tenant)
         .where(Tenant.id == tenant_id)
@@ -16,7 +16,7 @@ def lock_tenant_capacity(db: Session, tenant_id: int) -> Tenant:
     )
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    if tenant.status != "active":
+    if require_active and tenant.status != "active":
         raise HTTPException(status_code=403, detail="Tenant is suspended")
     return tenant
 
@@ -28,9 +28,10 @@ def require_resource_capacity(
     usage_statement,
     *,
     detail: str,
+    require_active: bool = True,
 ) -> None:
     # Hold the tenant lock through the caller's creation and commit.
-    lock_tenant_capacity(db, tenant_id)
+    lock_tenant_capacity(db, tenant_id, require_active=require_active)
     maximum = db.scalar(
         select(TenantResourceLimit.maximum_count).where(
             TenantResourceLimit.tenant_id == tenant_id,
