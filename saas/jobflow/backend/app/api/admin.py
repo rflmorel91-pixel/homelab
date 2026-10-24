@@ -2088,3 +2088,158 @@ def admin_delete_membership(
     db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Limit assignment remains a platform-operator action.
+from pydantic import (
+    BaseModel as LimitBaseModel,
+    ConfigDict as LimitConfigDict,
+    Field as LimitField,
+    field_validator as limit_field_validator,
+)
+from app.models import TenantResourceLimit
+
+
+LIMIT_RESOURCE_KEYS = {
+    "active_memberships": "platform.active_memberships",
+    "active_loans": "prestamodesk.active_loans",
+}
+
+
+class TenantLimitValues(LimitBaseModel):
+    model_config = LimitConfigDict(extra="forbid")
+
+    active_memberships: int | None = LimitField(
+        ge=0, le=2147483647, strict=True,
+    )
+    active_loans: int | None = LimitField(
+        ge=0, le=2147483647, strict=True,
+    )
+
+
+class TenantLimitUpdate(LimitBaseModel):
+    model_config = LimitConfigDict(extra="forbid")
+
+    expected_limits: TenantLimitValues
+    limits: TenantLimitValues
+    reason: str = LimitField(min_length=10, max_length=1000)
+
+    @limit_field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise ValueError("Provide a meaningful reason for the limit change")
+        return value
+
+
+def resource_limit_tenant(db, tenant_id, *, lock=False):
+    statement = select(Tenant).where(Tenant.id == tenant_id)
+    if lock:
+        statement = statement.with_for_update().execution_options(
+            populate_existing=True,
+        )
+    tenant = db.scalar(statement)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    product = db.get(Product, tenant.product_id)
+    if product is None or product.slug != "prestamodesk":
+        raise HTTPException(
+            status_code=422,
+            detail="This limit-assignment workflow supports PrestamoDesk only",
+        )
+    return tenant
+
+
+def assigned_resource_limits(db, tenant_id):
+    records = {
+        record.resource_key: record
+        for record in db.scalars(
+            select(TenantResourceLimit).where(
+                TenantResourceLimit.tenant_id == tenant_id,
+                TenantResourceLimit.resource_key.in_(
+                    tuple(LIMIT_RESOURCE_KEYS.values())
+                ),
+            )
+        ).all()
+    }
+    values = {
+        name: (
+            records[key].maximum_count if key in records else None
+        )
+        for name, key in LIMIT_RESOURCE_KEYS.items()
+    }
+    return records, values
+
+
+@router.get("/tenants/{tenant_id}/resource-limits")
+def admin_get_resource_limits(
+    tenant_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    response.headers["Cache-Control"] = "no-store"
+    resource_limit_tenant(db, tenant_id)
+    _, values = assigned_resource_limits(db, tenant_id)
+    return {"tenant_id": tenant_id, "limits": values}
+
+
+@router.put("/tenants/{tenant_id}/resource-limits")
+def admin_set_resource_limits(
+    tenant_id: int,
+    payload: TenantLimitUpdate,
+    response: Response,
+    db: Session = Depends(get_db),
+    operator: User = Depends(get_current_operator),
+):
+    response.headers["Cache-Control"] = "no-store"
+    resource_limit_tenant(db, tenant_id, lock=True)
+    db.refresh(operator)
+    if not operator.is_active or not operator.is_platform_admin:
+        raise HTTPException(
+            status_code=403, detail="Platform operator access required",
+        )
+
+    records, before = assigned_resource_limits(db, tenant_id)
+    if before != payload.expected_limits.model_dump():
+        raise HTTPException(
+            status_code=409,
+            detail="Limits changed since review; reload before saving",
+        )
+    after = payload.limits.model_dump()
+    if before == after:
+        return {"tenant_id": tenant_id, "limits": after}
+
+    try:
+        for name, resource_key in LIMIT_RESOURCE_KEYS.items():
+            maximum = after[name]
+            record = records.get(resource_key)
+            if maximum is None:
+                if record is not None:
+                    db.delete(record)
+            elif record is None:
+                db.add(TenantResourceLimit(
+                    tenant_id=tenant_id,
+                    resource_key=resource_key,
+                    maximum_count=maximum,
+                ))
+            else:
+                record.maximum_count = maximum
+
+        add_admin_audit(
+            db,
+            operator_user_id=operator.id,
+            action="tenant.resource_limits_changed",
+            target_type="tenant",
+            target_id=tenant_id,
+            tenant_id=tenant_id,
+            before_data={"limits": before},
+            after_data={"limits": after, "reason": payload.reason},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return {"tenant_id": tenant_id, "limits": after}
