@@ -43,11 +43,12 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, session_version: int = 0) -> str:
     now = datetime.now(timezone.utc)
 
     payload = {
         "sub": str(user_id),
+        "session_version": session_version,
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
@@ -59,11 +60,19 @@ def create_access_token(user_id: int) -> str:
     )
 
 
-def decode_access_token(token: str) -> int:
+def decode_access_token_claims(token: str) -> tuple[int, int]:
     payload = jwt.decode(
         token,
         JWT_SECRET,
         algorithms=[JWT_ALGORITHM],
     )
 
-    return int(payload["sub"])
+    version = payload.get("session_version", 0)
+    if type(version) is not int or version < 0:
+        raise jwt.InvalidTokenError("Invalid session version")
+    return int(payload["sub"]), version
+
+
+def decode_access_token(token: str) -> int:
+    user_id, _ = decode_access_token_claims(token)
+    return user_id

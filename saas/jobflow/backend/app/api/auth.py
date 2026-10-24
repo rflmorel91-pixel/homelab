@@ -70,7 +70,7 @@ def login(
             detail="Invalid email or password",
         )
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.session_version)
 
     response.set_cookie(
         key="jobflow_access_token",

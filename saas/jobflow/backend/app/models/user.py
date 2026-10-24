@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -28,6 +28,13 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
+    )
+
+    session_version: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
     )
 
     is_active: Mapped[bool] = mapped_column(

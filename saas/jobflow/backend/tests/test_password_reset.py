@@ -299,3 +299,100 @@ def test_password_reset_rejects_expired_token(
     assert response.json()["detail"] == (
         "Reset link is invalid or expired"
     )
+
+
+def test_password_reset_revokes_preexisting_access_token(
+    raw_client, monkeypatch, db_session,
+):
+    user, reset_token, _ = request_reset(
+        raw_client, monkeypatch, db_session,
+    )
+    login = raw_client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "original-password",
+        },
+    )
+    assert login.status_code == 200
+    old_token = login.cookies["jobflow_access_token"]
+    access_url = "/api/v1/auth/products/renewaldesk/access"
+
+    before = raw_client.get(
+        access_url,
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert before.status_code == 200
+
+    renewed = raw_client.get(access_url)
+    assert renewed.status_code == 200
+    renewed_token = renewed.cookies["jobflow_access_token"]
+
+    reset = raw_client.post(
+        "/api/v1/auth/password-reset/confirm",
+        json={
+            "token": reset_token,
+            "password": "replacement-password",
+        },
+    )
+    assert reset.status_code == 200
+
+    after = raw_client.get(
+        access_url,
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert after.status_code == 401, (
+        "A token issued before password reset still authenticates"
+    )
+
+    # Both the original and renewed cookie must stop authenticating.
+    for token in (old_token, renewed_token):
+        raw_client.cookies.clear()
+        denied = raw_client.get(
+            access_url,
+            headers={"Cookie": f"jobflow_access_token={token}"},
+        )
+        assert denied.status_code == 401
+        assert "set-cookie" not in denied.headers
+
+    old_login = raw_client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "original-password"},
+    )
+    assert old_login.status_code == 401
+
+    fresh_login = raw_client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "replacement-password"},
+    )
+    assert fresh_login.status_code == 200
+    fresh_token = fresh_login.cookies["jobflow_access_token"]
+
+    from app.security import decode_access_token_claims
+    assert decode_access_token_claims(fresh_token) == (user.id, 1)
+
+    fresh_access = raw_client.get(access_url)
+    assert fresh_access.status_code == 200
+    refreshed = fresh_access.cookies["jobflow_access_token"]
+    assert decode_access_token_claims(refreshed) == (user.id, 1)
+
+    # A legacy signed token without a session-version claim is also revoked.
+    from datetime import datetime, timedelta, timezone
+    import jwt
+    from app.security import JWT_SECRET, JWT_ALGORITHM
+
+    now = datetime.now(timezone.utc)
+    legacy_token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "iat": now,
+            "exp": now + timedelta(minutes=30),
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
+    denied = raw_client.get(
+        access_url,
+        headers={"Authorization": f"Bearer {legacy_token}"},
+    )
+    assert denied.status_code == 401
