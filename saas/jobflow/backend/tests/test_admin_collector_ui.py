@@ -7,7 +7,7 @@ ADMIN_SCRIPT = (
     ROOT
     / "app"
     / "assets"
-    / "admin-9b4f98001df2.js"
+    / "admin-bbebf992ec3d.js"
 )
 
 
@@ -16,7 +16,7 @@ def test_admin_uses_external_fingerprinted_script():
 
     assert ADMIN_SCRIPT.is_file()
     assert (
-        "/assets/admin-9b4f98001df2.js"
+        "/assets/admin-bbebf992ec3d.js"
         in html
     )
 
