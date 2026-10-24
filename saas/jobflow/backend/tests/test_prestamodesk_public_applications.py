@@ -242,3 +242,119 @@ def test_public_application_rejects_server_fields(
     assert db_session.scalar(
         select(LoanApplication.id)
     ) is None
+
+
+def test_public_quote_rejects_zero_value_installments(raw_client, db_session):
+    tenant = create_tenant(db_session, slug="minimum-public-quote")
+    payload = {
+        **terms(),
+        "vehicle_cash_price": "1.00",
+        "vehicle_down_payment": "0.00",
+        "principal_amount": "1.00",
+        "flat_interest_rate_percent": "0.0000",
+        "installment_count": 120,
+    }
+    response = raw_client.post(
+        f"{BASE_URL}/{tenant.slug}/quote", json=payload,
+    )
+    assert response.status_code == 422
+
+
+def test_public_application_rejects_zero_value_installments(
+    raw_client, db_session,
+):
+    tenant = create_tenant(db_session, slug="minimum-public-application")
+    payload = {
+        **application_payload(),
+        "vehicle_cash_price": "1.00",
+        "vehicle_down_payment": "0.00",
+        "principal_amount": "1.00",
+        "flat_interest_rate_percent": "0.0000",
+        "installment_count": 120,
+    }
+    response = raw_client.post(
+        f"{BASE_URL}/{tenant.slug}/applications", json=payload,
+    )
+    assert response.status_code == 422
+    assert db_session.scalar(select(LoanApplication.id)) is None
+
+
+def test_public_quote_accepts_minimum_installment_boundary(
+    raw_client, db_session,
+):
+    tenant = create_tenant(db_session, slug="minimum-quote-boundary")
+    payload = {
+        **terms(),
+        "vehicle_cash_price": "1.00",
+        "vehicle_down_payment": "0.00",
+        "principal_amount": "1.00",
+        "flat_interest_rate_percent": "0.0000",
+        "installment_count": 100,
+    }
+    response = raw_client.post(
+        f"{BASE_URL}/{tenant.slug}/quote", json=payload,
+    )
+    assert response.status_code == 200
+    installments = response.json()["installments"]
+    assert len(installments) == 100
+    assert all(Decimal(item["total_due"]) == Decimal("0.01")
+               for item in installments)
+    assert db_session.scalar(select(LoanApplication.id)) is None
+
+
+def test_public_application_accepts_minimum_installment_boundary(
+    raw_client, db_session,
+):
+    tenant = create_tenant(db_session, slug="minimum-application-boundary")
+    payload = {
+        **application_payload(),
+        "vehicle_cash_price": "1.00",
+        "vehicle_down_payment": "0.00",
+        "principal_amount": "1.00",
+        "flat_interest_rate_percent": "0.0000",
+        "installment_count": 100,
+    }
+    response = raw_client.post(
+        f"{BASE_URL}/{tenant.slug}/applications", json=payload,
+    )
+    assert response.status_code == 201
+    stored = db_session.get(
+        LoanApplication, response.json()["application_id"],
+    )
+    assert stored.total_due == Decimal("1.00")
+    assert stored.installment_count == 100
+
+
+def test_internal_personal_application_validates_minimum_and_rounding():
+    import pytest
+    from pydantic import ValidationError
+    from app.products.prestamodesk.application_schemas import (
+        InternalApplicationTerms,
+    )
+    from app.products.prestamodesk.amortization import build_fixed_schedule
+
+    payload = {
+        "loan_type": "personal",
+        "principal_amount": "0.01",
+        "flat_interest_rate_percent": "50.0000",
+        "installment_count": 2,
+        "payment_frequency": "monthly",
+        "start_date": "2026-09-30",
+        "first_payment_date": "2026-10-29",
+    }
+    valid = InternalApplicationTerms.model_validate(payload)
+    calculation = build_fixed_schedule(
+        principal_amount=valid.principal_amount,
+        flat_interest_rate_percent=valid.flat_interest_rate_percent,
+        installment_count=valid.installment_count,
+        payment_frequency=valid.payment_frequency,
+        first_payment_date=valid.first_payment_date,
+    )
+    assert calculation.total_due == Decimal("0.02")
+    assert all(item.total_due == Decimal("0.01")
+               for item in calculation.installments)
+
+    with pytest.raises(ValidationError, match="Every installment"):
+        InternalApplicationTerms.model_validate(
+            {**payload, "installment_count": 3}
+        )
