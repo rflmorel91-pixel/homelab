@@ -1,3 +1,5 @@
+from app.platform.resource_limits import lock_tenant_capacity
+from app.products.prestamodesk.loan_limits import require_new_loan_capacity
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
@@ -455,6 +457,7 @@ def convert_application(
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
+    lock_tenant_capacity(db, tenant.id)
     application = get_tenant_application(
         db,
         tenant.id,
@@ -513,6 +516,8 @@ def convert_application(
         ).with_for_update())
         if prospect is None or prospect.status != "qualified" or prospect.converted_borrower_id is not None:
             raise HTTPException(status_code=409, detail="Source prospect cannot be converted")
+
+    require_new_loan_capacity(db, tenant.id)
 
     calculation = build_fixed_schedule(
         principal_amount=application.principal_amount,

@@ -1,3 +1,4 @@
+from app.models.tenant_resource_limit import TenantResourceLimit
 from app.models.product import Product
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import User
@@ -10,6 +11,7 @@ from app.models.billing_account import BillingAccount
 from app.models.billing_offer import BillingOffer
 
 __all__ = [
+    "TenantResourceLimit",
     "Product",
     "PasswordResetToken",
     "AdminAuditLog",
