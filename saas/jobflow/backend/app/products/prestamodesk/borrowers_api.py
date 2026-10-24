@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -32,6 +33,40 @@ router = APIRouter(
         Depends(require_current_tenant_owner),
     ],
 )
+
+
+def commit_borrower_change(db: Session, *, deleting: bool = False) -> None:
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        state = getattr(error.orig, "sqlstate", None)
+        diagnostics = getattr(error.orig, "diag", None)
+        constraint = getattr(diagnostics, "constraint_name", None)
+
+        if (
+            state == "23505"
+            and constraint == "uq_prestamodesk_borrower_tenant_document"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Ya existe un prestatario con ese número de documento "
+                    "en este negocio."
+                ),
+            ) from None
+
+        if deleting and state == "23503":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "No se puede eliminar este prestatario porque tiene "
+                    "registros relacionados. Márquelo como inactivo "
+                    "para conservar su historial."
+                ),
+            ) from None
+
+        raise
 
 
 def get_borrower_or_404(
@@ -67,7 +102,7 @@ def create_borrower(
     )
 
     db.add(borrower)
-    db.commit()
+    commit_borrower_change(db)
     db.refresh(borrower)
 
     return borrower
@@ -109,7 +144,7 @@ def update_borrower(
         setattr(borrower, field, value)
 
     borrower.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    db.commit()
+    commit_borrower_change(db)
     db.refresh(borrower)
 
     return borrower
@@ -127,7 +162,7 @@ def delete_borrower(
     borrower = get_borrower_or_404(borrower_id, tenant, db)
 
     db.delete(borrower)
-    db.commit()
+    commit_borrower_change(db, deleting=True)
 
 
 @router.patch("/{borrower_id}/contact", response_model=BorrowerRead)
