@@ -1016,6 +1016,217 @@
     }
   }
 
+
+  async function loadTenantLimitControls(tenantId, mount) {
+    const current = () => (
+      mount.isConnected && state.currentTenantId === tenantId
+    );
+    let snapshot = null;
+    let busy = false;
+
+    mount.innerHTML = `
+      <h3>PréstamoDesk resource limits</h3>
+      <p class="row-secondary">
+        Limits apply to active loans and active memberships, including
+        the owner. Pending invitations do not reserve membership slots.
+        Removing a limit means unlimited. Existing records are preserved.
+      </p>
+      <form class="invitation-form">
+        <fieldset disabled>
+          <label>
+            <input type="checkbox" name="membersUnlimited">
+            Unlimited active memberships
+          </label>
+          <label>
+            Maximum active memberships
+            <input name="members" type="number" min="0"
+              max="2147483647" step="1" required>
+          </label>
+          <label>
+            <input type="checkbox" name="loansUnlimited">
+            Unlimited active loans
+          </label>
+          <label>
+            Maximum active loans
+            <input name="loans" type="number" min="0"
+              max="2147483647" step="1" required>
+          </label>
+          <label>
+            Reason for this change
+            <textarea name="reason" minlength="10" maxlength="1000"
+              rows="3" required></textarea>
+          </label>
+          <button type="submit" class="btn primary">Save limits</button>
+        </fieldset>
+      </form>
+      <button type="button" class="btn" data-reload-limits>
+        Reload assigned limits
+      </button>
+      <p role="status" aria-live="polite"></p>
+    `;
+
+    const form = mount.querySelector("form");
+    const fields = form.querySelector("fieldset");
+    const status = mount.querySelector('[role="status"]');
+    const reload = mount.querySelector("[data-reload-limits]");
+    const input = name => form.elements.namedItem(name);
+
+    function syncInputs() {
+      input("members").disabled = input("membersUnlimited").checked;
+      input("loans").disabled = input("loansUnlimited").checked;
+    }
+
+    function validLimits(data) {
+      return data && ["active_memberships", "active_loans"].every(
+        key => Object.hasOwn(data, key) && (
+          data[key] === null || (
+            Number.isInteger(data[key])
+            && data[key] >= 0 && data[key] <= 2147483647
+          )
+        )
+      );
+    }
+
+    async function request(options = {}) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      try {
+        const response = await fetch(
+          `${API_BASE}/admin/tenants/${tenantId}/resource-limits`,
+          {
+            ...options,
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: controller.signal,
+            headers: {"Content-Type": "application/json"},
+          }
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            typeof data.detail === "string"
+              ? data.detail
+              : `Request failed (${response.status})`
+          );
+        }
+        if (data.tenant_id !== tenantId || !validLimits(data.limits)) {
+          throw new Error("Unexpected limit response");
+        }
+        return data.limits;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function display(limits) {
+      snapshot = {...limits};
+      for (const [name, key] of [
+        ["members", "active_memberships"],
+        ["loans", "active_loans"],
+      ]) {
+        input(name + "Unlimited").checked = limits[key] === null;
+        input(name).value = limits[key] === null ? "" : String(limits[key]);
+      }
+      fields.disabled = false;
+      syncInputs();
+    }
+
+    async function refresh() {
+      if (busy || !current()) return;
+      busy = true;
+      snapshot = null;
+      fields.disabled = true;
+      reload.disabled = true;
+      status.textContent = "Loading assigned limits...";
+      try {
+        const limits = await request();
+        if (!current()) return;
+        display(limits);
+        status.textContent = "Assigned limits loaded.";
+      } catch {
+        if (current()) {
+          status.textContent =
+            "Could not load limits. Reload before making changes.";
+        }
+      } finally {
+        busy = false;
+        if (current()) reload.disabled = false;
+      }
+    }
+
+    form.addEventListener("change", syncInputs);
+    reload.addEventListener("click", refresh);
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (busy || !snapshot || !current()) return;
+      const reason = input("reason").value.trim();
+      if (reason.length < 10 || reason.length > 1000) {
+        status.textContent = "Enter a reason of 10–1000 characters.";
+        return;
+      }
+      const limits = {};
+      for (const [name, key] of [
+        ["members", "active_memberships"],
+        ["loans", "active_loans"],
+      ]) {
+        const value = Number(input(name).value);
+        if (!input(name + "Unlimited").checked && (
+          input(name).value.trim() === ""
+          || !Number.isInteger(value)
+          || value < 0 || value > 2147483647
+        )) {
+          status.textContent = "Use whole-number limits from 0 to 2147483647.";
+          return;
+        }
+        limits[key] = input(name + "Unlimited").checked ? null : value;
+      }
+      if (Object.keys(limits).every(key => limits[key] === snapshot[key])) {
+        status.textContent = "No limit changes to save.";
+        return;
+      }
+      const label = value => value === null ? "Unlimited" : String(value);
+      if (!window.confirm(
+        `Save limits for tenant #${tenantId}?\n`
+        + `Active memberships: ${label(snapshot.active_memberships)}`
+        + ` → ${label(limits.active_memberships)}\n`
+        + `Active loans: ${label(snapshot.active_loans)}`
+        + ` → ${label(limits.active_loans)}\nReason: ${reason}`
+      )) return;
+
+      busy = true;
+      fields.disabled = true;
+      reload.disabled = true;
+      status.textContent = "Saving limits...";
+      try {
+        const saved = await request({
+          method: "PUT",
+          body: JSON.stringify({
+            expected_limits: snapshot,
+            limits,
+            reason,
+          }),
+        });
+        if (!current()) return;
+        display(saved);
+        input("reason").value = "";
+        status.textContent = "Limits saved. The change was recorded in Activity.";
+      } catch {
+        if (current()) {
+          snapshot = null;
+          status.textContent =
+            "Save was not confirmed. Reload assigned limits to check the "
+            + "current values before attempting another change.";
+        }
+      } finally {
+        busy = false;
+        if (current()) reload.disabled = false;
+      }
+    });
+
+    await refresh();
+  }
+
   async function openTenant(tenantId) {
     const navigationGeneration =
       ++state.tenantNavigationGeneration;
@@ -1666,6 +1877,8 @@
           </button>
         </div>
 
+        <section id="tenantResourceLimits"></section>
+
         ${membershipControl}
 
         <h3>Memberships</h3>
@@ -1679,6 +1892,13 @@
         document.getElementById("tenantDetailPanel");
 
       tenantDetailPanel.classList.remove("hidden");
+      if (tenantProductSlug === "prestamodesk") {
+        void loadTenantLimitControls(
+          tenantId,
+          document.getElementById("tenantResourceLimits")
+        );
+      }
+
 
       const billingOfferSelect =
         document.getElementById(
