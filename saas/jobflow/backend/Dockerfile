@@ -19,4 +19,6 @@ COPY scripts ./scripts
 
 EXPOSE 8001
 
+USER 10001:10001
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
