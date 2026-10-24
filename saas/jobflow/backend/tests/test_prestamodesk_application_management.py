@@ -680,3 +680,116 @@ def test_private_application_document_upload_and_tenant_scoped_download(
         content=b"%PDF-1.7\n" + b"x" * MAX_PRIVATE_DOCUMENT_BYTES,
     )
     assert oversized.status_code == 413
+
+
+def test_private_document_role_permissions(authenticated_client, db_session):
+    from sqlalchemy import select
+    from app.models import TenantMembership
+
+    client = authenticated_client
+    tenant = create_tenant(
+        db_session, get_product(db_session),
+        "Document Roles", "document-roles",
+    )
+    application = create_application(db_session, tenant, status="reviewing")
+    headers = client.owner_headers(tenant)
+    ref = upload_document(client, headers, application, "identity")
+    upload_url = f"{APPLICATIONS_URL}/{application.id}/documents/identity"
+    download_url = f"{upload_url}/{ref}"
+    membership = db_session.scalar(select(TenantMembership).where(
+        TenantMembership.tenant_id == tenant.id,
+        TenantMembership.user_id == client.auth_user.id,
+    ))
+
+    for role in (
+        "owner", "administrator", "member",
+        "cashier", "collector", "supervisor",
+    ):
+        membership.role = role
+        db_session.commit()
+        allowed = role in {"owner", "administrator"}
+
+        downloaded = client.get(download_url, headers=headers)
+        assert downloaded.status_code == (200 if allowed else 403), role
+        if allowed:
+            assert downloaded.content.startswith(b"%PDF-")
+            assert downloaded.headers["cache-control"] == "private, no-store"
+        else:
+            assert b"%PDF-" not in downloaded.content
+
+        uploaded = client.put(
+            upload_url,
+            headers={**headers, "Content-Type": "application/pdf"},
+            content=b"%PDF-1.4\nSynthetic role test\n",
+        )
+        assert uploaded.status_code == (201 if allowed else 403), role
+
+    membership.role = "owner"
+    membership.is_active = False
+    db_session.commit()
+    assert client.get(download_url, headers=headers).status_code == 403
+    assert client.put(
+        upload_url,
+        headers={**headers, "Content-Type": "application/pdf"},
+        content=b"%PDF-1.4\nInactive membership\n",
+    ).status_code == 403
+
+
+def test_private_documents_require_auth_and_matching_url(
+    authenticated_client, db_session, raw_client,
+):
+    from uuid import uuid4
+
+    client = authenticated_client
+    tenant = create_tenant(
+        db_session, get_product(db_session),
+        "Document URLs", "document-urls",
+    )
+    application = create_application(db_session, tenant, status="reviewing")
+    other_application = create_application(
+        db_session, tenant, status="reviewing",
+    )
+    headers = client.owner_headers(tenant)
+    ref = upload_document(client, headers, application, "identity")
+    upload_url = f"{APPLICATIONS_URL}/{application.id}/documents/identity"
+    download_url = f"{upload_url}/{ref}"
+
+    response = raw_client.get(download_url)
+    assert response.status_code == 401
+    assert b"%PDF-" not in response.content
+    assert raw_client.put(
+        upload_url, headers={"Content-Type": "application/pdf"},
+        content=b"%PDF-1.4\nUnauthenticated upload\n",
+    ).status_code == 401
+
+    for url in (
+        f"{APPLICATIONS_URL}/{other_application.id}/documents/identity/{ref}",
+        f"{APPLICATIONS_URL}/{application.id}/documents/income/{ref}",
+        f"{upload_url}/{uuid4()}",
+    ):
+        response = client.get(url, headers=headers)
+        assert response.status_code == 404
+        assert b"%PDF-" not in response.content
+
+    response = client.get(f"{upload_url}/invalid-reference", headers=headers)
+    assert response.status_code == 422
+
+
+def test_private_storage_rejects_paths_outside_root(tmp_path, monkeypatch):
+    import pytest
+    from app.products.prestamodesk.private_documents import private_document_path
+
+    root = tmp_path / "private"
+    root.mkdir()
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"%PDF-1.4\nSynthetic outside file\n")
+    monkeypatch.setenv("PRESTAMODESK_PRIVATE_STORAGE_PATH", str(root))
+
+    inside = root / "inside.pdf"
+    inside.write_bytes(b"%PDF-1.4\nSynthetic inside file\n")
+    assert private_document_path("inside.pdf") == inside
+
+    (root / "escape.pdf").symlink_to(outside)
+    for key in ("../outside.pdf", str(outside), "escape.pdf", "missing.pdf"):
+        with pytest.raises(FileNotFoundError):
+            private_document_path(key)
