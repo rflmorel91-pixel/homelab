@@ -1,3 +1,4 @@
+from app.products.prestamodesk.loan_limits import require_new_loan_capacity
 from decimal import Decimal
 import hashlib
 import json
@@ -219,6 +220,7 @@ def create_loan(
                 raise HTTPException(status_code=409, detail="Loan request key was used with different details")
             return LoanDetail.model_validate(existing.creation_snapshot)
     borrower, calculation = calculate_new_loan(payload, tenant, db)
+    require_new_loan_capacity(db, tenant.id)
 
     loan = Loan(
         idempotency_key=key,
