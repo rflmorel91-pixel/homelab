@@ -105,6 +105,34 @@
       status.hidden=!reads&&!readFailed;
       status.textContent=reads?"Cargando datos de la sección…":readFailed?"No se pudieron cargar todos los datos. Puede volver a intentar con Actualizar acceso.":"";
     }
+    async function boundedFetch(url,options){
+      const request=new AbortController();
+      let timedOut=false;
+      const signals=[controller.signal,options.signal].filter(Boolean);
+      const abort=()=>request.abort();
+      for(const signal of signals){
+        if(signal.aborted)abort();
+        else signal.addEventListener('abort',abort,{once:true});
+      }
+      const timeout=setTimeout(()=>{timedOut=true;request.abort();},20000);
+      try{
+        const response=await fetch(url,{...options,signal:request.signal});
+        const empty=options.method==='HEAD'||[204,205,304].includes(response.status);
+        const body=empty?null:await response.arrayBuffer();
+        const headers=new Headers(response.headers);
+        headers.delete('Content-Length');headers.delete('Content-Encoding');
+        return new Response(body,{status:response.status,statusText:response.statusText,headers});
+      }catch(error){
+        if(timedOut){
+          const failure=new Error("La solicitud tardó demasiado. Si estaba registrando una operación, no la repita: revise el historial y confirme el resultado antes de continuar.");
+          failure.name='TimeoutError';throw failure;
+        }
+        throw error;
+      }finally{
+        clearTimeout(timeout);
+        for(const signal of signals)signal.removeEventListener('abort',abort);
+      }
+    }
     async function scopedFetch(input,options={}){
       if(epoch!==generation)throw new DOMException("Sección cerrada","AbortError");
       const url=new URL(input,location.origin);if(url.origin!==location.origin||!url.pathname.startsWith('/api/v1/'))throw new Error("Destino no permitido.");
@@ -123,7 +151,7 @@
       if(reading){reads++;readState();}
 
       try{
-        const response=await fetch(url,{...options,headers,credentials:'same-origin',signal:controller.signal});
+        const response=await boundedFetch(url,{...options,method,headers,credentials:'same-origin'});
         if(mutating && response.ok && epoch===generation && !/\/borrowers\/\d+\/contact$/.test(url.pathname))dirty=false;
         if(response.status===401&&epoch===generation){teardown();selected=null;updateAccess();note("Su sesión venció. Inicie sesión para continuar.");}
         else if(response.status===403&&epoch===generation)note("Revise sus permisos. Puede actualizar el acceso desde el menú.");
