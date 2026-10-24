@@ -16,8 +16,36 @@
   function note(text){$("pdMessage").textContent=text;$("pdMessage").hidden=!text;}
   function controls(){for(const node of document.querySelectorAll('[data-pd-view],[data-pd-summary-view],#pdClient,#pdLogout,#pdRefresh'))node.disabled=loading||writes>0;}
   async function api(path,options={}) {
-    const response=await fetch("/api/v1"+path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
-    const data=await response.json();if(!response.ok){const error=new Error(typeof data.detail==="string"?data.detail:"No se pudo completar la solicitud.");error.status=response.status;throw error;}return data;
+    const controller=new AbortController();
+    const abort=()=>controller.abort();
+    const externalSignal=options.signal;
+    if(externalSignal?.aborted)abort();
+    else externalSignal?.addEventListener('abort',abort,{once:true});
+    const timeout=setTimeout(abort,20000);
+    try {
+      const response=await fetch("/api/v1"+path,{credentials:"same-origin",...options,signal:controller.signal,headers:{"Content-Type":"application/json",...(options.headers||{})}});
+      let data=null;
+      try {data=response.status===204?null:await response.json();}
+      catch(error){
+        if(controller.signal.aborted)throw error;
+        if(response.ok)throw new Error("La respuesta del servidor no se pudo leer. Si estaba enviando datos, revise el resultado antes de repetir la operación.");
+      }
+      if(!response.ok){
+        const error=new Error(typeof data?.detail==="string"?data.detail:response.status===401?"Inicie sesión para continuar.":"No se pudo completar la solicitud ("+response.status+"). Intente nuevamente.");
+        error.status=response.status;throw error;
+      }
+      return data;
+    } catch(error) {
+      if(controller.signal.aborted){
+        const failure=new Error("La solicitud se interrumpió o tardó demasiado. Revise su conexión. Si estaba enviando datos, confirme el resultado antes de repetir la operación.");
+        failure.name="AbortError";throw failure;
+      }
+      if(error instanceof TypeError)throw new Error("No se pudo conectar con PréstamoDesk. Revise su conexión e intente nuevamente.");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener('abort',abort);
+    }
   }
   function allowed(view){return Boolean(selected&&definitions[view]?.roles.includes(selected.role));}
   function defaultView(){return Object.keys(definitions).find(allowed);}
@@ -136,7 +164,7 @@
       $("pdTitle").textContent=definition.label;$("pdHint").textContent=view==='summary'?"Su negocio, de un vistazo.":"Trabaje en esta sección sin salir de PréstamoDesk.";
       $("pdSummaryActions").hidden=view!=="summary";
       history.replaceState(null,'','#'+view);$("pdTitle").focus();
-    }catch(error){note(error.status===401?"Inicie sesión para continuar.":error.message);if([401,403].includes(error.status)){teardown();selected=null;updateAccess();}}
+    }catch(error){note(error.status===401?"Inicie sesión para continuar.":error.message);if([401,403].includes(error.status)){teardown();selected=null;updateAccess();}else if(!selected){teardown();updateAccess();}}
     finally{loading=false;controls();}
   }
   $("pdSkip").addEventListener("click",event=>{event.preventDefault();$("pdTitle").focus();});
