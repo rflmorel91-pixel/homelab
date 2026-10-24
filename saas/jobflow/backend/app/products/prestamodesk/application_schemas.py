@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Literal
 from uuid import UUID
 
@@ -91,6 +91,21 @@ class VehicleApplicationTerms(BaseModel):
         if not normalized:
             raise ValueError("Value cannot be blank")
         return normalized
+
+    @model_validator(mode="after")
+    def validate_minimum_installment(self):
+        cent = Decimal("0.01")
+        interest = (
+            self.principal_amount
+            * self.flat_interest_rate_percent
+            / Decimal("100")
+        ).quantize(cent, rounding=ROUND_HALF_UP)
+        total = (self.principal_amount + interest).quantize(
+            cent, rounding=ROUND_HALF_UP
+        )
+        if total < cent * self.installment_count:
+            raise ValueError("Every installment must be at least RD$0.01")
+        return self
 
     @model_validator(mode="after")
     def validate_financing(self):
