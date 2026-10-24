@@ -142,6 +142,9 @@ def build_fixed_schedule(
         principal + total_interest
     )
 
+    if total_due < MONEY * installment_count:
+        raise ValueError("Every installment must be at least RD$0.01")
+
     total_parts = split_amount(
         total_due,
         installment_count,
