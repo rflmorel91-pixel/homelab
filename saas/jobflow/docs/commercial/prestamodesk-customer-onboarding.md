@@ -15,6 +15,13 @@ Fecha: 2026-10-25
 - Mantener las condiciones existentes del piloto de PrestAuto.
 - Acordar impuestos y las demás condiciones pendientes antes de cobrar.
 
+## Proveedor
+
+- FieldLookers LLC.
+- Dirección postal: 3 E Evergreen Rd, Suite 101, PMB 1142,
+  New City, NY 10956.
+- Confirmar los datos oficiales de facturación antes de emitir documentos.
+
 ## Antes de aceptar el cliente
 
 - Confirmar negocio, responsable autorizado y correo del propietario.

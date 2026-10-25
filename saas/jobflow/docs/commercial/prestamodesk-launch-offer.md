@@ -3,6 +3,14 @@
 Fecha: 2026-10-25
 Estado: Borrador interno. No publicado ni habilitado para cobros.
 
+## Proveedor
+
+- Nombre comercial/legal indicado: FieldLookers LLC.
+- Dirección postal: 3 E Evergreen Rd, Suite 101, PMB 1142,
+  New City, NY 10956.
+- Confirmar que el nombre y la dirección coinciden con los datos
+  oficiales de facturación antes de emitir acuerdos o facturas.
+
 ## Cliente objetivo
 
 Negocios pequeños de préstamos personales o financiamiento vehicular
