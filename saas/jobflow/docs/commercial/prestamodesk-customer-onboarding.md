@@ -35,14 +35,14 @@ Fecha: 2026-10-25
 - No habilitar renovación o cobro automático. Exigir aceptación afirmativa y
   registrar la factura y el pago en el proceso manual existente.
 
-## Modelo local propuesto — pendiente de formalizar
+## Estructura local — para revisión profesional
 
-EMPRENDEDORES SIGLO XXI SRL realizaría mercadeo y referidos en República
-Dominicana. No atribuirle autoridad para negociar o firmar contratos,
-facturar, recibir pagos ni acceder a datos de clientes. Definir por escrito
-la comisión, autorización de marca y responsabilidades antes de iniciar.
-El vendedor, la parte contratante y quien recibe pagos siguen pendientes de
-revisión contable/legal.
+Para esta planificación, tratar a EMPRENDEDORES SIGLO XXI SRL como una
+empresa dominicana activa. Comparar una licencia de PréstamoDesk a la SRL
+con una cesión documentada de los derechos de software desde FieldLookers LLC.
+Antes de contratar clientes, definir quién vende, firma, factura y recibe
+pagos, además de impuestos, derechos de marca y responsabilidades sobre
+datos. No se ha seleccionado ni ejecutado una transferencia.
 
 ## Antes de aceptar el cliente
 

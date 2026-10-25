@@ -3,25 +3,27 @@
 Fecha: 2026-10-25
 Estado: Borrador interno. No publicado ni habilitado para cobros.
 
-## Estructura comercial prevista — pendiente de validación
+## Estructura comercial prevista — para revisión profesional
 
-- Empresa dominicana prevista para mercadeo local: EMPRENDEDORES SIGLO XXI SRL.
-- Nombre comercial registrado a nombre de esa sociedad: EMPRENDEDORES SIGLO XXI.
-- Certificado indicado por el propietario: registrado hasta el 2028-12-13.
-- RNC 131875181: activo, confirmado por el propietario para esta
-  planificación el 2026-10-25.
-- Modelo inicial propuesto: EMPRENDEDORES SIGLO XXI SRL realiza
-  actividades de mercadeo y referidos en República Dominicana.
-- No asumir que la sociedad local puede negociar términos, firmar contratos,
-  emitir facturas, recibir pagos ni acceder a datos de clientes.
-- Definir por escrito cualquier comisión, autorización de marca,
-  responsabilidades y tratamiento de datos antes de iniciar esa actividad.
-- El vendedor, la parte contratante y quien recibe pagos quedan pendientes
-  de revisión contable/legal.
-- FieldLookers LLC continúa como propietario previsto del software. La
-  relación de licencia, mercadeo, contratación, facturación, impuestos y
-  manejo de datos entre ambas entidades requiere acuerdo escrito y revisión
-  profesional antes del lanzamiento.
+EMPRENDEDORES SIGLO XXI SRL (RNC 131875181) se considera una empresa
+dominicana activa para esta planificación. El propietario confirma el
+estado del RNC. El nombre comercial indicado es EMPRENDEDORES SIGLO XXI;
+el certificado se reporta vigente hasta el 2028-12-13.
+
+Evaluar estas alternativas antes de contratar clientes:
+
+1. **Licencia:** FieldLookers LLC conserva la propiedad de PréstamoDesk y
+   otorga a la SRL derechos definidos para operar y comercializar el servicio
+   en República Dominicana.
+2. **Cesión:** FieldLookers LLC transfiere a la SRL los derechos de software
+   acordados, mediante una cesión documentada y con valoración y revisión
+   tributaria en ambas jurisdicciones.
+
+En cualquiera de las alternativas, definir quién será vendedor y parte
+contratante, quién facturará y recibirá pagos, el tratamiento tributario,
+los derechos de marca, la remuneración entre las entidades y sus
+responsabilidades sobre datos de clientes. No se ha seleccionado ni ejecutado
+una transferencia de propiedad.
 
 ## Proveedor
 
