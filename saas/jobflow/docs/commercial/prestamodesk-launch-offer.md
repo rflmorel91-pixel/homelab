@@ -10,20 +10,19 @@ dominicana activa para esta planificación. El propietario confirma el
 estado del RNC. El nombre comercial indicado es EMPRENDEDORES SIGLO XXI;
 el certificado se reporta vigente hasta el 2028-12-13.
 
-Evaluar estas alternativas antes de contratar clientes:
+**Ruta recomendada para preparar el lanzamiento: licencia limitada, sin
+transferir la propiedad.** FieldLookers LLC conservaría PréstamoDesk y
+otorgaría a la SRL derechos definidos para operar y comercializar el servicio
+en República Dominicana, sujetos a un acuerdo y revisión profesional.
 
-1. **Licencia:** FieldLookers LLC conserva la propiedad de PréstamoDesk y
-   otorga a la SRL derechos definidos para operar y comercializar el servicio
-   en República Dominicana.
-2. **Cesión:** FieldLookers LLC transfiere a la SRL los derechos de software
-   acordados, mediante una cesión documentada y con valoración y revisión
-   tributaria en ambas jurisdicciones.
+Una cesión documentada a la SRL queda como alternativa futura; requeriría
+valoración y revisión tributaria en ambas jurisdicciones. No se ha ejecutado
+ni aprobado una transferencia.
 
-En cualquiera de las alternativas, definir quién será vendedor y parte
-contratante, quién facturará y recibirá pagos, el tratamiento tributario,
-los derechos de marca, la remuneración entre las entidades y sus
-responsabilidades sobre datos de clientes. No se ha seleccionado ni ejecutado
-una transferencia de propiedad.
+Antes de contratar clientes, definir quién será vendedor y parte contratante,
+quién facturará y recibirá pagos, el tratamiento tributario, los derechos de
+marca, la remuneración entre las entidades y sus responsabilidades sobre
+datos de clientes.
 
 ## Proveedor
 

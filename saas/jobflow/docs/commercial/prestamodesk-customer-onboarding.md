@@ -37,12 +37,13 @@ Fecha: 2026-10-25
 
 ## Estructura local — para revisión profesional
 
-Para esta planificación, tratar a EMPRENDEDORES SIGLO XXI SRL como una
-empresa dominicana activa. Comparar una licencia de PréstamoDesk a la SRL
-con una cesión documentada de los derechos de software desde FieldLookers LLC.
+Para preparar el lanzamiento, se recomienda que FieldLookers LLC conserve
+la propiedad de PréstamoDesk y otorgue a EMPRENDEDORES SIGLO XXI SRL una
+licencia limitada, sujeta a acuerdo y revisión profesional. Una cesión a la
+SRL queda como alternativa futura; no se ha ejecutado ni aprobado.
+
 Antes de contratar clientes, definir quién vende, firma, factura y recibe
-pagos, además de impuestos, derechos de marca y responsabilidades sobre
-datos. No se ha seleccionado ni ejecutado una transferencia.
+pagos, además de impuestos, derechos de marca y responsabilidades sobre datos.
 
 ## Antes de aceptar el cliente
 
