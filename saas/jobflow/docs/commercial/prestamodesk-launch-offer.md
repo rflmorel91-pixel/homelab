@@ -13,6 +13,14 @@ Estado: Borrador interno. No publicado ni habilitado para cobros.
   independiente.
 - Confirmar el estado actual del RNC y las facultades de la sociedad antes
   de firmar contratos, emitir facturas o recibir pagos.
+- Modelo inicial propuesto: EMPRENDEDORES SIGLO XXI SRL realiza
+  actividades de mercadeo y referidos en República Dominicana.
+- No asumir que la sociedad local puede negociar términos, firmar contratos,
+  emitir facturas, recibir pagos ni acceder a datos de clientes.
+- Definir por escrito cualquier comisión, autorización de marca,
+  responsabilidades y tratamiento de datos antes de iniciar esa actividad.
+- El vendedor, la parte contratante y quien recibe pagos quedan pendientes
+  de revisión contable/legal.
 - FieldLookers LLC continúa como propietario previsto del software. La
   relación de licencia, mercadeo, contratación, facturación, impuestos y
   manejo de datos entre ambas entidades requiere acuerdo escrito y revisión
