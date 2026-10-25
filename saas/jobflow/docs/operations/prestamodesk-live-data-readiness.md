@@ -77,3 +77,17 @@ of the following are evidenced:
 - Public quote/application rate limits work through the actual public route.
 - The API runs as non-root and private-document access still works.
 - Database and document storage encryption and key recovery are verified.
+- A recent backup restores successfully, and measured RPO/RTO meet the agreed
+  limits.
+- The exact release passes tenant, role, payment, export, and recovery checks.
+- The customer owner approves access, data fields, retention, support, and exit
+  terms; resolve local privacy requirements before live data.
+
+## Current recovery evidence
+
+On October 25, 2026, isolated restore validation passed for
+`jobflow-20261024-200315.dump`: 40 table counts matched and the temporary
+container was removed. This validated the local backup selected by the
+off-site success record; it did not retrieve or decrypt a new B2 object.
+Off-site recovery remains open until that separate drill is completed on the
+authorized recovery machine.
