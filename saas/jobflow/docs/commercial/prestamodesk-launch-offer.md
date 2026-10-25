@@ -8,9 +8,11 @@ Estado: Borrador interno. No publicado ni habilitado para cobros.
 - Empresa dominicana prevista para mercadeo local: EMPRENDEDORES SIGLO XXI SRL.
 - Nombre comercial registrado a nombre de esa sociedad: EMPRENDEDORES SIGLO XXI.
 - Certificado indicado por el propietario: registrado hasta el 2028-12-13.
-- El RNC de la sociedad se encuentra suspendido. No presentarla como
-  vendedora activa, emitir facturas ni recibir pagos hasta completar la
-  reactivación y la revisión contable/legal.
+- Para planificación, asumir que el RNC de la sociedad está activo,
+  según instrucción del propietario; el estado no se ha verificado de forma
+  independiente.
+- Confirmar el estado actual del RNC y las facultades de la sociedad antes
+  de firmar contratos, emitir facturas o recibir pagos.
 - FieldLookers LLC continúa como propietario previsto del software. La
   relación de licencia, mercadeo, contratación, facturación, impuestos y
   manejo de datos entre ambas entidades requiere acuerdo escrito y revisión
