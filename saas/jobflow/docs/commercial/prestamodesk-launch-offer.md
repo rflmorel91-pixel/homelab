@@ -1,6 +1,6 @@
 # PréstamoDesk — Oferta comercial inicial
 
-Fecha: 2026-10-24
+Fecha: 2026-10-25
 Estado: Borrador interno. No publicado ni habilitado para cobros.
 
 ## Cliente objetivo
@@ -16,11 +16,11 @@ Su cartera clara. Sus cobros en orden.
 Software administrativo para consultar saldos, registrar abonos,
 emitir recibos y mantener un historial de las operaciones.
 
-## Paquete propuesto
+## Paquete aprobado para preparar el lanzamiento
 
-- Precio de prueba comercial: RD$1,500 por mes.
+- Precio de lanzamiento aprobado: RD$1,500 por mes.
 - Una empresa y hasta tres usuarios identificados.
-- Hasta 100 préstamos activos, sujeto a validación de capacidad.
+- Hasta 100 préstamos activos.
 - Acceso a las funciones existentes de Préstamos, Caja, Cobros
   y Administración, según los permisos de cada usuario.
 - Una sesión guiada de configuración y capacitación.
@@ -55,8 +55,15 @@ El cliente debe aceptar previamente precio, alcance y condiciones.
 
 ## Soporte y salida
 
+- Correo de soporte: soporte@prestamodesk.com.do.
+- Horario: lunes a viernes, de 9:00 a. m. a 12:00 p. m.
+- Zona horaria: America/Santo_Domingo (República Dominicana).
+- El horario indica atención de soporte; no es una garantía de respuesta
+  o resolución inmediata.
+- Envío y recepción del buzón verificados el 2026-10-25.
+  SPF y DKIM pasan; la comprobación final de DMARC en Gmail sigue pendiente.
+
 Antes de contratar se entregarán:
-- Canal y horario de soporte.
 - Objetivo de respuesta y procedimiento para incidentes.
 - Condiciones de cancelación y reembolso.
 - Procedimiento de devolución o exportación de datos.
@@ -72,7 +79,7 @@ No hay conversión automática ni cobros retroactivos.
 
 ## Validación comercial
 
-Presentar esta hipótesis a tres prospectos calificados.
+Presentar la oferta aprobada a tres prospectos calificados.
 Registrar de forma privada:
 - Necesidad y tamaño de cartera.
 - Precio presentado y aceptación o rechazo.
@@ -89,7 +96,10 @@ en el repositorio.
 - [ ] Confirmar identidad comercial y datos de facturación.
 - [ ] Aprobar precio final, moneda y tratamiento de impuestos.
 - [ ] Verificar capacidad para el alcance ofrecido.
-- [ ] Definir y verificar control de límites de usuarios y cartera.
+- [x] Verificar controles de límites de usuarios y cartera.
+  APIs y controles de operador desplegados mediante PR #143–#146.
+  Los límites se asignan por acuerdo y con motivo de auditoría;
+  no se han aplicado automáticamente a clientes existentes.
 - [ ] Aprobar términos del servicio y aviso de privacidad.
 - [ ] Definir soporte, cancelación, devolución de datos y retención.
 - [ ] Verificar cobro, conciliación y procedimiento de reembolso.

@@ -1,7 +1,19 @@
 # PréstamoDesk — Incorporación de clientes comerciales
 
 Estado: Borrador interno
-Fecha: 2026-10-24
+Fecha: 2026-10-25
+
+## Oferta y soporte aprobados
+
+- RD$1,500 por mes: una empresa, hasta tres usuarios identificados
+  y hasta 100 préstamos activos.
+- Incluye configuración y una sesión guiada de capacitación.
+- Soporte: soporte@prestamodesk.com.do.
+- Atención: lunes a viernes, 9:00 a. m.–12:00 p. m.,
+  zona America/Santo_Domingo.
+- No prometer tiempos de respuesta o resolución todavía no acordados.
+- Mantener las condiciones existentes del piloto de PrestAuto.
+- Acordar impuestos y las demás condiciones pendientes antes de cobrar.
 
 ## Antes de aceptar el cliente
 
