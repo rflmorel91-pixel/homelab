@@ -22,6 +22,19 @@ Fecha: 2026-10-25
   New City, NY 10956.
 - Confirmar los datos oficiales de facturación antes de emitir documentos.
 
+## Términos que requieren decisión antes de aceptar pagos
+
+- Confirmar con asesor fiscal el tratamiento de impuestos y facturación en
+  Nueva York y República Dominicana; no asumir que RD$1,500 es un total final.
+- Aprobar por escrito cancelación, reembolsos, acceso tras cancelar y fechas
+  de período de servicio.
+- Aprobar un procedimiento de exportación, retención y eliminación de datos,
+  incluyendo respaldos.
+- Acordar por escrito responsabilidades sobre datos de prestatarios y el canal
+  seguro para transferir cualquier cartera.
+- No habilitar renovación o cobro automático. Exigir aceptación afirmativa y
+  registrar la factura y el pago en el proceso manual existente.
+
 ## Antes de aceptar el cliente
 
 - Confirmar negocio, responsable autorizado y correo del propietario.

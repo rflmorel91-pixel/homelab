@@ -61,6 +61,39 @@ pagos que los prestatarios realizan a cada negocio.
 No se activa una suscripción de pago por enviar el formulario público.
 El cliente debe aceptar previamente precio, alcance y condiciones.
 
+## Términos propuestos — requieren aprobación
+
+- Servicio mensual, sin compromiso anual.
+- No activar renovación ni cobro automático. El proceso actual es manual;
+  cobrar únicamente después de aceptación afirmativa del cliente y emisión
+  de la factura correspondiente.
+- El cliente puede solicitar cancelación por correo. Propuesta: cancelar
+  antes del próximo período mensual; acceso hasta el final del período ya pagado.
+- No ofrecer reembolso prorrateado por períodos iniciados, salvo cuando lo
+  exija la ley o se acuerde por escrito. Confirmar esta regla con asesoría legal.
+- Propuesta de salida de datos: habilitar la exportación disponible y coordinar
+  la entrega antes de cerrar el acceso. Definir formato, plazo, tratamiento de
+  copias de respaldo y eliminación con el cliente y asesoría legal.
+- Antes del alta, acordar por escrito qué datos de prestatarios se almacenan,
+  quién puede acceder y cómo se atienden solicitudes, incidentes y cancelaciones.
+  No enviar carteras, cédulas ni datos financieros por correo ordinario.
+- No prometer cifrado, disponibilidad, plazos de respuesta o eliminación
+  que no estén documentados y verificados.
+
+### Impuestos — pendiente de revisión profesional
+
+No se ha determinado si RD$1,500 incluye impuestos, qué impuestos aplican,
+ni las obligaciones de registro, retención o facturación de FieldLookers LLC
+en Nueva York o República Dominicana. Obtener asesoría fiscal en ambas
+jurisdicciones antes de cotizar un total definitivo o emitir facturas.
+
+Referencias oficiales para iniciar esa revisión:
+- NY Tax Department, software: https://www.tax.ny.gov/pubs_and_bulls/tg_bulletins/st/computer_software.htm
+- DGII, ITBIS: https://dgii.gov.do/cicloContribuyente/obligacionesTributarias/principalesImpuestos/Paginas/itbis.aspx
+- DGII, material sobre servicios digitales extranjeros (página de proyecto): https://dgii.gov.do/noticias/Paginas/ConociendoProyectoReglamentoITBISServiciosDigitales.aspx
+- República Dominicana, Ley 172-13: https://www.consultoria.gov.do/Consulta/Home/FileManagement?documentId=3371232&managementType=1
+- FTC, guía de privacidad y seguridad para negocios: https://www.ftc.gov/business-guidance/privacy-security
+
 ## Soporte y salida
 
 - Correo de soporte: soporte@prestamodesk.com.do.
