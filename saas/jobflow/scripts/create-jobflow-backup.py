@@ -145,8 +145,21 @@ def create_private_archive(path, records, image):
             ["findmnt", "-n", "-o", "SOURCE", "--target", source],
             check=True, capture_output=True, text=True, timeout=30,
         ).stdout.strip()
-        require(backing_device == PRIVATE_STORAGE_BACKING_DEVICE,
-                "private-bind-storage")
+        expected_uuid = os.environ.get("JOBFLOW_PRIVATE_STORAGE_UUID", "")
+        if expected_uuid:
+            require(re.fullmatch(
+                r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+                expected_uuid,
+            ) is not None, "private-bind-uuid-format")
+            actual_uuid = subprocess.run(
+                ["findmnt", "-n", "-o", "UUID", "--target", source],
+                check=True, capture_output=True, text=True, timeout=30,
+            ).stdout.strip()
+            require(actual_uuid.lower() == expected_uuid.lower(),
+                    "private-bind-storage-uuid")
+        else:
+            require(backing_device == PRIVATE_STORAGE_BACKING_DEVICE,
+                    "private-bind-storage")
         mount_spec = f"type=bind,source={source},target=/data,readonly"
     with path.open("xb") as stream:
         subprocess.run([
