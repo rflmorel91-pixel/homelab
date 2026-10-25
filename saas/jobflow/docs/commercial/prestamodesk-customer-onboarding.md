@@ -35,6 +35,15 @@ Fecha: 2026-10-25
 - No habilitar renovación o cobro automático. Exigir aceptación afirmativa y
   registrar la factura y el pago en el proceso manual existente.
 
+## Modelo local propuesto — pendiente de formalizar
+
+EMPRENDEDORES SIGLO XXI SRL realizaría mercadeo y referidos en República
+Dominicana. No atribuirle autoridad para negociar o firmar contratos,
+facturar, recibir pagos ni acceder a datos de clientes. Definir por escrito
+la comisión, autorización de marca y responsabilidades antes de iniciar.
+El vendedor, la parte contratante y quien recibe pagos siguen pendientes de
+revisión contable/legal.
+
 ## Antes de aceptar el cliente
 
 - Confirmar negocio, responsable autorizado y correo del propietario.
