@@ -20,6 +20,8 @@ CORE_TABLES = {"alembic_version", "users", "tenants", "tenant_memberships", "pro
 MAX_DUMP_BYTES = 256 * 1024 * 1024
 MAX_PRIVATE_ARCHIVE_BYTES = 256 * 1024 * 1024
 PRIVATE_STORAGE_PATH = "/var/lib/jobflow-private/prestamodesk"
+PRIVATE_STORAGE_HOST_PATH = "/srv/fieldlookers-data/prestamodesk-private-documents"
+PRIVATE_STORAGE_BACKING_DEVICE = "/dev/mapper/fieldlookers_data"
 DB_CONTAINER = os.environ.get("JOBFLOW_DB_CONTAINER", "jobflow-db")
 API_CONTAINER = os.environ.get("JOBFLOW_API_CONTAINER", "jobflow-api")
 DB_USER = os.environ.get("JOBFLOW_DB_USER", "jobflow")
@@ -127,14 +129,29 @@ def create_private_archive(path, records, image):
         check=True, capture_output=True, text=True, timeout=30,
     ).stdout)
     matches = [m for m in mounts if m.get("Destination") == PRIVATE_STORAGE_PATH]
-    require(len(matches) == 1 and matches[0].get("Type") == "volume"
-            and re.fullmatch(r"[A-Za-z0-9_.-]+", matches[0].get("Name", "")),
-            "private-volume-mount")
-    volume = matches[0]["Name"]
+    require(len(matches) == 1, "private-storage-mount")
+    mount = matches[0]
+    mount_type = mount.get("Type")
+    require(mount_type in ("volume", "bind"), "private-storage-mount-type")
+    if mount_type == "volume":
+        volume = mount.get("Name", "")
+        require(re.fullmatch(r"[A-Za-z0-9_.-]+", volume) is not None,
+                "private-volume-name")
+        mount_spec = f"type=volume,source={volume},target=/data,readonly"
+    else:
+        source = mount.get("Source", "")
+        require(source == PRIVATE_STORAGE_HOST_PATH, "private-bind-source")
+        backing_device = subprocess.run(
+            ["findmnt", "-n", "-o", "SOURCE", "--target", source],
+            check=True, capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
+        require(backing_device == PRIVATE_STORAGE_BACKING_DEVICE,
+                "private-bind-storage")
+        mount_spec = f"type=bind,source={source},target=/data,readonly"
     with path.open("xb") as stream:
         subprocess.run([
             "docker", "run", "--rm", "--network", "none", "--user", "0",
-            "--mount", f"type=volume,source={volume},target=/data,readonly",
+            "--mount", mount_spec,
             "--entrypoint", "tar", image, "--xattrs", "--acls", "--numeric-owner",
             "-cpf", "-", "-C", "/data", ".",
         ], stdout=stream, stderr=subprocess.DEVNULL, check=True, timeout=300)
