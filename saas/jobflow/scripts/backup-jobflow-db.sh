@@ -45,18 +45,25 @@ BACKUP_FILES=("$BACKUP_FILE" "$BACKUP_FILE.manifest.json")
 if [[ -f "$PRIVATE_FILE" ]]; then
   BACKUP_FILES+=("$PRIVATE_FILE")
 fi
-scp \
+if scp \
   -i "$OMV_KEY" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
+  -o ConnectTimeout=10 \
   "${BACKUP_FILES[@]}" \
-  "$OMV_USER@$OMV_HOST:$OMV_BACKUP_DIR/"
-ssh \
-  -i "$OMV_KEY" \
-  -o IdentitiesOnly=yes \
-  -o BatchMode=yes \
-  "$OMV_USER@$OMV_HOST" \
-  "find '$OMV_BACKUP_DIR' -type f \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' -o -name 'jobflow-*.dump.private.tar' \) -mtime +7 -delete"
+  "$OMV_USER@$OMV_HOST:$OMV_BACKUP_DIR/"; then
+  if ! ssh \
+    -i "$OMV_KEY" \
+    -o IdentitiesOnly=yes \
+    -o BatchMode=yes \
+    -o ConnectTimeout=10 \
+    "$OMV_USER@$OMV_HOST" \
+    "find '$OMV_BACKUP_DIR' -type f \( -name 'jobflow-*.dump' -o -name 'jobflow-*.dump.manifest.json' -o -name 'jobflow-*.dump.private.tar' \) -mtime +7 -delete"; then
+    echo "WARNING: OMV retention cleanup failed; continuing to required B2 replication." >&2
+  fi
+else
+  echo "WARNING: OMV secondary copy unavailable; continuing to required B2 replication." >&2
+fi
 
 find "$BACKUP_DIR" \
   -type f \
