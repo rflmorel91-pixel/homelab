@@ -8,11 +8,8 @@ Estado: Borrador interno. No publicado ni habilitado para cobros.
 - Empresa dominicana prevista para mercadeo local: EMPRENDEDORES SIGLO XXI SRL.
 - Nombre comercial registrado a nombre de esa sociedad: EMPRENDEDORES SIGLO XXI.
 - Certificado indicado por el propietario: registrado hasta el 2028-12-13.
-- Para planificación, asumir que el RNC de la sociedad está activo,
-  según instrucción del propietario; el estado no se ha verificado de forma
-  independiente.
-- Confirmar el estado actual del RNC y las facultades de la sociedad antes
-  de firmar contratos, emitir facturas o recibir pagos.
+- RNC 131875181: activo, confirmado por el propietario para esta
+  planificación el 2026-10-25.
 - Modelo inicial propuesto: EMPRENDEDORES SIGLO XXI SRL realiza
   actividades de mercadeo y referidos en República Dominicana.
 - No asumir que la sociedad local puede negociar términos, firmar contratos,
