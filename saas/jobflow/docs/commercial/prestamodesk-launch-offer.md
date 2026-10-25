@@ -3,26 +3,16 @@
 Fecha: 2026-10-25
 Estado: Borrador interno. No publicado ni habilitado para cobros.
 
-## Estructura comercial prevista — para revisión profesional
+## Etapa actual de comercialización
 
-EMPRENDEDORES SIGLO XXI SRL (RNC 131875181) se considera una empresa
-dominicana activa para esta planificación. El propietario confirma el
-estado del RNC. El nombre comercial indicado es EMPRENDEDORES SIGLO XXI;
-el certificado se reporta vigente hasta el 2028-12-13.
+El propietario realizará personalmente el mercadeo de PréstamoDesk.
+EMPRENDEDORES SIGLO XXI SRL no participa en esta etapa. FieldLookers LLC
+conserva la propiedad prevista del software; no se ha transferido ni
+otorgado una licencia a la SRL.
 
-**Ruta recomendada para preparar el lanzamiento: licencia limitada, sin
-transferir la propiedad.** FieldLookers LLC conservaría PréstamoDesk y
-otorgaría a la SRL derechos definidos para operar y comercializar el servicio
-en República Dominicana, sujetos a un acuerdo y revisión profesional.
-
-Una cesión documentada a la SRL queda como alternativa futura; requeriría
-valoración y revisión tributaria en ambas jurisdicciones. No se ha ejecutado
-ni aprobado una transferencia.
-
-Antes de contratar clientes, definir quién será vendedor y parte contratante,
-quién facturará y recibirá pagos, el tratamiento tributario, los derechos de
-marca, la remuneración entre las entidades y sus responsabilidades sobre
-datos de clientes.
+Esta etapa cubre promoción, consultas y demostraciones. La contratación,
+facturación y cobro de un servicio pagado se definirán antes de aceptar
+clientes comerciales.
 
 ## Proveedor
 

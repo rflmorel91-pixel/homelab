@@ -35,15 +35,15 @@ Fecha: 2026-10-25
 - No habilitar renovación o cobro automático. Exigir aceptación afirmativa y
   registrar la factura y el pago en el proceso manual existente.
 
-## Estructura local — para revisión profesional
+## Etapa actual
 
-Para preparar el lanzamiento, se recomienda que FieldLookers LLC conserve
-la propiedad de PréstamoDesk y otorgue a EMPRENDEDORES SIGLO XXI SRL una
-licencia limitada, sujeta a acuerdo y revisión profesional. Una cesión a la
-SRL queda como alternativa futura; no se ha ejecutado ni aprobado.
+El propietario realiza personalmente el mercadeo y coordina las
+demostraciones. EMPRENDEDORES SIGLO XXI SRL no participa en esta etapa.
+FieldLookers LLC conserva la propiedad prevista de PréstamoDesk; no se ha
+realizado una transferencia ni una licencia a la SRL.
 
-Antes de contratar clientes, definir quién vende, firma, factura y recibe
-pagos, además de impuestos, derechos de marca y responsabilidades sobre datos.
+Este proceso cubre consultas y demostraciones. La contratación, facturación
+y cobro se definirán antes de incorporar clientes comerciales pagados.
 
 ## Antes de aceptar el cliente
 
