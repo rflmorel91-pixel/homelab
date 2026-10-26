@@ -26,6 +26,12 @@ services:
   staging-db:
     image: ${STAGING_DB_IMAGE:?Initialize staging}
     restart: "no"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+      - /run/postgresql:rw,noexec,nosuid,size=16m,mode=3775
     environment:
       POSTGRES_DB: fieldlookers_staging
       POSTGRES_USER: staging_user
@@ -46,6 +52,7 @@ services:
     build:
       context: ../backend
     restart: "no"
+    user: "10001:10001"
     environment: *app-environment
     command: [python, scripts/platform_alembic.py, upgrade, head]
     networks: [isolated]
@@ -55,11 +62,33 @@ services:
       staging-db:
         condition: service_healthy
 
+  staging-private-storage-init:
+    image: fieldlookers-staging-api:local
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    command: ["chown", "-R", "10001:10001", "/var/lib/jobflow-private/prestamodesk"]
+    volumes:
+      - staging_private_documents:/var/lib/jobflow-private/prestamodesk
+    networks: [isolated]
+    mem_limit: 128m
+    cpus: 0.25
+
   staging-api:
     image: fieldlookers-staging-api:local
     build:
       context: ../backend
     restart: "no"
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
     environment: *app-environment
     volumes:
       - ./bootstrap_admin.py:/staging/bootstrap_admin.py:ro
@@ -68,6 +97,8 @@ services:
     cpus: 1.0
     depends_on:
       staging-migrate:
+        condition: service_completed_successfully
+      staging-private-storage-init:
         condition: service_completed_successfully
       staging-mail:
         condition: service_started
@@ -81,6 +112,9 @@ services:
   staging-mail:
     image: ${STAGING_MAIL_IMAGE:?Initialize staging}
     restart: "no"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     environment:
       MP_MAX_MESSAGES: "100"
       MP_SMTP_RELAY_CONFIG: ""
@@ -91,7 +125,18 @@ services:
 
   staging-web:
     image: ${STAGING_WEB_IMAGE:?Initialize staging}
+    build:
+      context: ./web-image
+      dockerfile: Dockerfile
     restart: "no"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, DAC_OVERRIDE, SETUID, SETGID, CHOWN]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /run:rw,noexec,nosuid,size=16m,mode=0755
+      - /var/cache/nginx:rw,noexec,nosuid,size=64m,mode=0755
     volumes:
       - ../app:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
@@ -115,3 +160,5 @@ networks:
 
 volumes:
   staging_database:
+    name: fieldlookers-staging_isolated_staging_database
+  staging_private_documents:
