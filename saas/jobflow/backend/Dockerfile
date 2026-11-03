@@ -10,6 +10,7 @@ RUN apt-get update \
        --home-dir /app --no-create-home --shell /usr/sbin/nologin jobflow \
     && install -d --owner=10001 --group=10001 --mode=0750 \
        /var/lib/jobflow-private/prestamodesk \
+    && apt-get purge -y mount \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
