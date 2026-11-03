@@ -1,6 +1,6 @@
 # FieldNest staging security review ? 2026-11-03
 
-Status: PR #154 remains draft pending CI and review.
+Status: CI and local staging verification passed. PR #154 remains draft pending review.
 
 ## Verified in existing staging
 - API and migration containers run as UID/GID 10001.
@@ -19,7 +19,9 @@ Status: PR #154 remains draft pending CI and review.
 - Removed 40 obsolete Debian API image exceptions; none remain.
 - Test configuration accepts an explicit TEST_DATABASE_URL.
 
-## Pending
-- CI must rebuild and validate the committed replacement.
-- Existing staging still uses its previous image.
+## CI and local staging verification
+- All six CI checks passed for commit 483caf2, including Security Scanning.
+- Local staging now runs Alpine 3.24.3; database, migrations and product readiness passed.
+- Owner sign-in and existing portfolio data verified.
+- Synthetic work-order creation, vendor assignment, completion and persistence after refresh verified.
 - No production deployment or risk exception approval is recorded.
