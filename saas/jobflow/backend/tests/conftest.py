@@ -15,7 +15,7 @@ if not POSTGRES_PASSWORD:
         "POSTGRES_PASSWORD environment variable is required for tests"
     )
 
-TEST_DATABASE_URL = (
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL") or (
     f"postgresql+psycopg://jobflow:{POSTGRES_PASSWORD}"
     "@127.0.0.1:5433/jobflow_test"
 )
