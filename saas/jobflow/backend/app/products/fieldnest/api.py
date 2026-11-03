@@ -129,7 +129,7 @@ def update_work_order(work_order_id: int, payload: WorkOrderUpdate, db: Session 
     if row is None:
         raise HTTPException(status_code=404, detail="Work order not found")
     _validate_update_links(db, tenant.id, row, payload)
-    for key, value in payload.model_dump().items():
+    for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(row, key, value)
     db.commit()
     db.refresh(row)

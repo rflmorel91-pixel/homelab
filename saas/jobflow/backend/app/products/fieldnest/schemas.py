@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PropertyCreate(BaseModel):
@@ -64,13 +64,20 @@ class WorkOrderCreate(BaseModel):
 class WorkOrderUpdate(BaseModel):
     resident_id: int | None = None
     vendor_id: int | None = None
-    title: str = Field(min_length=1, max_length=180)
-    unit: str = Field(default="", max_length=80)
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    unit: str | None = Field(default=None, max_length=80)
     description: str | None = Field(default=None, max_length=5000)
-    priority: Literal["low", "normal", "high", "emergency"] = "normal"
-    status: Literal["open", "scheduled", "in_progress", "waiting", "completed", "cancelled"] = "open"
+    priority: Literal["low", "normal", "high", "emergency"] | None = None
+    status: Literal["open", "scheduled", "in_progress", "waiting", "completed", "cancelled"] | None = None
     target_date: date | None = None
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def reject_null_required_fields(self):
+        for name in ("title", "unit", "priority", "status"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
 
 
 class WorkOrderRead(WorkOrderCreate):
