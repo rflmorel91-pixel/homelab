@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Product, Tenant
 from app.products.fieldnest.models import FieldNestProperty, FieldNestWorkOrder
+from app.products.fieldnest.notifications import queue_request_notifications
 from app.tenant_context import get_current_tenant, require_current_tenant_owner
 
 public_router = APIRouter(prefix="/public/maintenance", tags=["FieldNest Resident Requests"])
@@ -31,6 +32,10 @@ class ResidentIssue(LinkToken):
     unit: str = Field(min_length=1, max_length=80)
     title: str = Field(min_length=1, max_length=180)
     description: str = Field(min_length=10, max_length=3000)
+    receipt_email: str | None = Field(
+        default=None, max_length=254,
+        pattern=r"^[A-Za-z0-9.!#$%&'*+/=?^_{|}~-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$",
+    )
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
@@ -114,6 +119,8 @@ def report_issue(payload: ResidentIssue, response: Response, db: Session = Depen
     )
     db.add(row)
     try:
+        db.flush()
+        queue_request_notifications(db, row, payload.receipt_email)
         db.commit()
     except IntegrityError:
         # Concurrent retries with the same submission ID create only one order.

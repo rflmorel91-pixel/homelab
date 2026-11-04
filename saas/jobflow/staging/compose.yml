@@ -5,6 +5,7 @@ x-app-environment: &app-environment
   DATABASE_URL: postgresql+psycopg://staging_user:${STAGING_DB_PASSWORD:?Initialize staging}@staging-db:5432/fieldlookers_staging
   JWT_SECRET: ${STAGING_JWT_SECRET:?Initialize staging}
   FIELDLOOKERS_STAGING_ONLY: "1"
+  FIELDNEST_EMAIL_NOTIFICATIONS_ENABLED: "1"
   PYTHONDONTWRITEBYTECODE: "1"
   PRESTAMODESK_PRIVATE_STORAGE_PATH: /var/lib/jobflow-private/prestamodesk
   PLATFORM_PUBLIC_BASE_URL: https://prestamodesk-staging.fieldlookers.com

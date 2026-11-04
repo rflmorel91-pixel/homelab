@@ -1,3 +1,5 @@
+import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -52,9 +54,19 @@ async def lifespan(application: FastAPI):
         list_products(),
         list_products,
     )
+    stop_notifications = asyncio.Event()
+    notification_task = None
+    if os.getenv("FIELDNEST_EMAIL_NOTIFICATIONS_ENABLED") == "1" and any(
+        product.slug == "fieldnest" for product in list_products()
+    ):
+        from app.products.fieldnest.notifications import notification_loop
+        notification_task = asyncio.create_task(notification_loop(stop_notifications))
     try:
         yield
     finally:
+        stop_notifications.set()
+        if notification_task is not None:
+            await notification_task
         application.state.platform_readiness = None
 
 
