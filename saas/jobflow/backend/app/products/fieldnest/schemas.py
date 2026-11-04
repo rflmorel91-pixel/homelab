@@ -83,7 +83,7 @@ class WorkOrderUpdate(BaseModel):
 class WorkOrderRead(WorkOrderCreate):
     id: int
     status: str
-    created_by_user_id: int
+    created_by_user_id: int | None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
