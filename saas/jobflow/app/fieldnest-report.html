@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+<title>Report a maintenance issue · FieldNest</title>
+<link rel="stylesheet" href="/assets/fieldnest-report-8f0e6cd11eb5.css">
+<script src="/assets/fieldnest-report-9d619a3485a9.js" defer></script></head>
+<body><header class="site-header"><a href="/fieldnest" class="brand"><span>F</span>FieldNest</a><span class="header-note">Resident maintenance requests</span></header>
+<main>
+<section class="intro"><p class="eyebrow">A LITTLE HELP AT HOME</p><h1>Let’s get it<br><em>taken care of.</em></h1>
+<p class="intro-copy">Tell your property manager what needs attention. Keep the details together, from the first report to the next repair.</p>
+<aside class="emergency"><strong>Is there immediate danger?</strong><p>For an emergency, contact emergency services or your property’s emergency number directly. This form is for routine maintenance and is not monitored for emergencies.</p></aside>
+<p class="privacy">Your report goes to your property management workspace. Contact details help the team follow up; they do not create a resident account.</p></section>
+<section class="form-card" aria-labelledby="formHeading"><div class="card-top"><p class="eyebrow">YOUR MAINTENANCE REQUEST</p><h2 id="formHeading">What needs attention?</h2><p id="propertyName" class="property-name">Checking your property link…</p></div>
+<p id="pageMessage" class="message" role="status" aria-live="polite"></p>
+<form id="residentForm" hidden>
+<div class="form-grid"><label>Your name<input name="name" autocomplete="name" maxlength="120" required></label><label>Unit / apartment<input name="unit" autocomplete="off" placeholder="e.g. 3B" maxlength="80" required></label>
+<label class="wide">Phone or email<input name="contact" autocomplete="off" placeholder="How can the team reach you?" minlength="3" maxlength="200" required></label>
+<label class="wide">Issue<input name="title" placeholder="e.g. Kitchen sink draining slowly" maxlength="180" required></label>
+<label class="wide">Tell us a little more<textarea name="description" rows="5" minlength="10" maxlength="3000" placeholder="Where is the issue? When did it start? What have you noticed?" required></textarea><small>Please avoid sensitive personal information, entry codes or payment details.</small></label></div>
+<p class="access-note">Your manager will contact you if they need more information or to coordinate access. Sending this report does not authorize entry.</p>
+<button type="submit" id="sendButton">Send maintenance request <span aria-hidden="true">↗</span></button>
+</form>
+<div id="successPanel" hidden tabindex="-1"><span class="success-mark" aria-hidden="true">✓</span><h2>We’ve received your report.</h2><p>Your property manager can now review the issue and coordinate the next step.</p><p class="reference">Your reference <strong id="reference"></strong></p><p>For urgent changes, contact your property manager directly.</p><button type="button" id="anotherButton" class="secondary">Report another issue</button></div>
+</section></main><footer>FieldNest <span>Property operations, rooted in clarity.</span></footer></body></html>
