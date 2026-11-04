@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(root, "app/fieldnest-report.html"), "utf8
 const asset = html.match(/assets\/fieldnest-report-[a-f0-9]+\.js/)[0];
 const source = fs.readFileSync(path.join(root, "app", asset), "utf8");
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function harness(token, failOnce = false) {
+function harness(token, failOnce = false, receiptEmail = "") {
   const elements = new Map(), calls = [];
   const element = id => {
     if (!elements.has(id)) elements.set(id, {
@@ -24,7 +24,7 @@ function harness(token, failOnce = false) {
     document: {getElementById: element}, location: {hash: token ? "#" + token : ""},
     crypto: {randomUUID: () => crypto.randomUUID()},
     FormData: class {entries() {return Object.entries({
-      name: "Demo", contact: "demo@example.test", unit: "3B",
+      name: "Demo", contact: "demo@example.test", unit: "3B", receipt_email: receiptEmail,
       title: "Slow sink", description: "Synthetic maintenance issue."
     });}},
     async fetch(url, options) {
@@ -55,6 +55,10 @@ function harness(token, failOnce = false) {
   h.element("anotherButton").events.click();
   await submit();
   assert.notEqual(h.calls[2].payload.submission_id, h.calls[3].payload.submission_id);
+  assert.equal(h.calls[1].payload.receipt_email, null);
+  const optedIn = harness("a".repeat(43), false, "receipt@example.test"); await tick();
+  await optedIn.element("residentForm").events.submit({preventDefault() {}});
+  assert.equal(optedIn.calls[1].payload.receipt_email, "receipt@example.test");
   assert(h.calls.every(c => c.options.credentials === "omit"));
   assert(h.calls.every(c => !c.url.includes("a".repeat(43))));
   console.log("Resident form checks passed: missing link, context, retry, confirmation, new report, token privacy.");
