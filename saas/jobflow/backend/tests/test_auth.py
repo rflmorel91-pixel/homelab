@@ -336,6 +336,38 @@ def test_logout_clears_authentication_cookie(raw_client, db_session):
     assert "Path=/" in set_cookie
 
 
+def test_logout_revokes_copied_tokens_with_postgresql(raw_client, db_session):
+    user = create_login_user(db_session, email="replay@example.com")
+    login = raw_client.post("/api/v1/auth/login", json={
+        "email": user.email, "password": "correct-password",
+    })
+    assert login.status_code == 200
+    original = login.cookies["jobflow_access_token"]
+    url = "/api/v1/auth/products/jobflow/access"
+    access = raw_client.get(url)
+    assert access.status_code == 200
+    renewed = access.cookies["jobflow_access_token"]
+    assert raw_client.post("/api/v1/auth/logout").status_code == 200
+    db_session.refresh(user)
+    assert user.session_version == 1
+
+    for token in (original, renewed):
+        for headers in (
+            {"Authorization": f"Bearer {token}"},
+            {"Cookie": f"jobflow_access_token={token}"},
+        ):
+            raw_client.cookies.clear()
+            denied = raw_client.get(url, headers=headers)
+            assert denied.status_code == 401
+            assert "set-cookie" not in denied.headers
+
+    fresh = raw_client.post("/api/v1/auth/login", json={
+        "email": user.email, "password": "correct-password",
+    })
+    assert fresh.status_code == 200
+    assert raw_client.get(url).status_code == 200
+
+
 def test_authenticated_user_discovers_product_client_access(
     raw_client,
     db_session,

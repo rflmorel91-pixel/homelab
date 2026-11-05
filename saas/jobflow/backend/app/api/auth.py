@@ -1,11 +1,11 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.auth_context import get_current_user_id
+from app.auth_context import authenticate_user, get_current_user_id
 from app.database import get_db
 from app.models import (
     Product,
@@ -161,7 +161,33 @@ def product_access(
 
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(
+    response: Response,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    jobflow_access_token: str | None = Cookie(default=None, alias="jobflow_access_token"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user, _, _ = authenticate_user(
+            authorization=authorization,
+            jobflow_access_token=jobflow_access_token,
+            db=db,
+        )
+    except HTTPException as error:
+        if error.status_code != 401:
+            raise
+        # Missing, expired or already revoked sessions still clear the cookie.
+    else:
+        # Revoke every device atomically. A stale logout cannot revoke a newer
+        # generation already created by password reset or another logout.
+        db.execute(
+            update(User).where(
+                User.id == user.id,
+                User.session_version == user.session_version,
+            ).values(session_version=User.session_version + 1)
+        )
+        db.commit()
+
     response.delete_cookie(
         key="jobflow_access_token",
         path="/",
