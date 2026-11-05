@@ -22,7 +22,8 @@ function harness(token, failOnce = false, receiptEmail = "") {
   let postCount = 0;
   vm.runInNewContext(source, {
     document: {getElementById: element}, location: {hash: token ? "#" + token : ""},
-    crypto: {randomUUID: () => crypto.randomUUID()},
+    crypto: {randomUUID: () => crypto.randomUUID(), getRandomValues: bytes => crypto.randomFillSync(bytes)},
+    btoa: value => Buffer.from(value, "binary").toString("base64"),
     FormData: class {entries() {return Object.entries({
       name: "Demo", contact: "demo@example.test", unit: "3B", receipt_email: receiptEmail,
       title: "Slow sink", description: "Synthetic maintenance issue."
@@ -31,7 +32,7 @@ function harness(token, failOnce = false, receiptEmail = "") {
       const payload = JSON.parse(options.body); calls.push({url, payload, options});
       if (url.endsWith("/context")) return {ok: true, status: 200, json: async () => ({property_name: "Maple Court"})};
       if (failOnce && ++postCount === 1) throw new Error("Network interrupted");
-      return {ok: true, status: 201, json: async () => ({reference: "FN-24", status: "received"})};
+      return {ok: true, status: 201, json: async () => ({reference: "FN-24", status: "received", tracking_path: "/fieldnest/resident#" + payload.tracking_secret})};
     }
   });
   return {element, calls};
@@ -50,11 +51,15 @@ function harness(token, failOnce = false, receiptEmail = "") {
   await submit();
   assert.equal(h.calls[1].payload.submission_id, h.calls[2].payload.submission_id);
   assert.equal(h.element("reference").textContent, "FN-24");
+  assert.equal(h.element("trackingLinkPanel").hidden, false);
+  assert.match(h.calls[1].payload.tracking_secret, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(h.calls[1].payload.tracking_secret, h.calls[2].payload.tracking_secret);
   assert.equal(h.element("successPanel").hidden, false);
   assert.equal(h.element("residentForm").hidden, true);
   h.element("anotherButton").events.click();
   await submit();
   assert.notEqual(h.calls[2].payload.submission_id, h.calls[3].payload.submission_id);
+  assert.notEqual(h.calls[2].payload.tracking_secret, h.calls[3].payload.tracking_secret);
   assert.equal(h.calls[1].payload.receipt_email, null);
   const optedIn = harness("a".repeat(43), false, "receipt@example.test"); await tick();
   await optedIn.element("residentForm").events.submit({preventDefault() {}});

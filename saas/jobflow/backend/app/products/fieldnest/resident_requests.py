@@ -14,6 +14,8 @@ from app.database import get_db
 from app.models import Product, Tenant
 from app.products.fieldnest.models import FieldNestProperty, FieldNestWorkOrder
 from app.products.fieldnest.notifications import queue_request_notifications
+from app.products.fieldnest.models import FieldNestPhoto
+from app.products.fieldnest.resident_tracking import PhotoInput, prepare_photos, tracking_result
 from app.tenant_context import get_current_tenant, require_current_tenant_owner
 
 public_router = APIRouter(prefix="/public/maintenance", tags=["FieldNest Resident Requests"])
@@ -27,6 +29,8 @@ class LinkToken(BaseModel):
 
 class ResidentIssue(LinkToken):
     submission_id: UUID
+    tracking_secret: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{43}$")
+    photos: list[PhotoInput] = Field(default_factory=list, max_length=3)
     name: str = Field(min_length=1, max_length=120)
     contact: str = Field(min_length=3, max_length=200)
     unit: str = Field(min_length=1, max_length=80)
@@ -107,7 +111,8 @@ def report_issue(payload: ResidentIssue, response: Response, db: Session = Depen
         if existing.tenant_id != prop.tenant_id or existing.property_id != prop.id:
             raise HTTPException(409, "Please reload the form and try again.")
         no_store(response)
-        return {"reference": f"FN-{existing.id}", "status": "received"}
+        return tracking_result(existing, payload.tracking_secret)
+    normalized_photos = prepare_photos(db, prop.tenant_id, payload.photos)
     row = FieldNestWorkOrder(
         tenant_id=prop.tenant_id, property_id=prop.id, created_by_user_id=None,
         resident_id=None, vendor_id=None, title=payload.title, unit=payload.unit,
@@ -117,9 +122,14 @@ def report_issue(payload: ResidentIssue, response: Response, db: Session = Depen
             f"Name: {payload.name}\nContact: {payload.contact}\n\n{payload.description}"
         ),
     )
+    if payload.tracking_secret:
+        row.tracking_token_hash = sha256(payload.tracking_secret.encode()).hexdigest()
+        row.tracking_token_expires_at = datetime.now(timezone.utc) + timedelta(days=90)
     db.add(row)
     try:
         db.flush()
+        for content in normalized_photos:
+            db.add(FieldNestPhoto(tenant_id=row.tenant_id, work_order_id=row.id, content=content, byte_size=len(content)))
         queue_request_notifications(db, row, payload.receipt_email)
         db.commit()
     except IntegrityError:
@@ -134,4 +144,4 @@ def report_issue(payload: ResidentIssue, response: Response, db: Session = Depen
             raise HTTPException(409, "Please reload the form and try again.")
         row = existing
     no_store(response)
-    return {"reference": f"FN-{row.id}", "status": "received"}
+    return tracking_result(row, payload.tracking_secret)

@@ -21,6 +21,8 @@ class FieldNestWorkOrder(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    tracking_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    tracking_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     intake_key: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
