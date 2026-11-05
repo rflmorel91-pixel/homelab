@@ -1,5 +1,5 @@
 FROM python:3.14-alpine3.24 AS builder
-RUN apk add --no-cache build-base libffi-dev postgresql-dev
+RUN apk add --no-cache build-base libffi-dev postgresql-dev jpeg-dev zlib-dev
 WORKDIR /build
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --prefix=/install -r requirements.txt
@@ -7,7 +7,7 @@ RUN python -m pip install --no-cache-dir --prefix=/install "psycopg[c]==3.3.4"
 
 FROM python:3.14-alpine3.24
 RUN apk upgrade --no-cache \
-    && apk add --no-cache libpq ca-certificates \
+    && apk add --no-cache libpq ca-certificates libjpeg-turbo zlib \
     && addgroup -S -g 10001 jobflow \
     && adduser -S -D -H -u 10001 -G jobflow jobflow \
     && mkdir -p /var/lib/jobflow-private/prestamodesk \
