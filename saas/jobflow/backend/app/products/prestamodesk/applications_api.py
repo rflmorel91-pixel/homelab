@@ -46,6 +46,7 @@ from app.products.prestamodesk.private_documents import (
     remove_private_document,
     store_private_document,
 )
+from app.products.prestamodesk.document_capacity import require_document_capacity
 from app.tenant_context import (
     get_current_tenant,
 )
@@ -76,7 +77,7 @@ def get_tenant_application(
     )
 
     if lock:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
 
     application = db.scalar(statement)
 
@@ -143,6 +144,13 @@ def approval_gaps(
 DocumentUploadType = Literal["identity", "income", "vehicle_registration", "contract"]
 
 
+def require_reviewable_document(application: LoanApplication, document_type: str) -> None:
+    if application.status in {"rejected", "converted"}:
+        raise HTTPException(status_code=409, detail="This application can no longer be reviewed")
+    if application.status == "approved" and document_type != "contract":
+        raise HTTPException(status_code=409, detail="Approved review evidence is read-only")
+
+
 @router.put(
     "/{application_id}/documents/{document_type}",
     response_model=PrivateReviewDocumentRead,
@@ -155,11 +163,8 @@ async def upload_application_document(
     db: Session = Depends(get_db),
     tenant: Tenant = Depends(get_current_tenant),
 ):
-    application = get_tenant_application(db, tenant.id, application_id, lock=True)
-    if application.status in {"rejected", "converted"}:
-        raise HTTPException(status_code=409, detail="This application can no longer be reviewed")
-    if application.status == "approved" and document_type != "contract":
-        raise HTTPException(status_code=409, detail="Approved review evidence is read-only")
+    application = get_tenant_application(db, tenant.id, application_id)
+    require_reviewable_document(application, document_type)
 
     content_length = request.headers.get("content-length")
     if content_length and content_length.isdigit() and int(content_length) > MAX_PRIVATE_DOCUMENT_BYTES:
@@ -170,27 +175,32 @@ async def upload_application_document(
         if len(data) > MAX_PRIVATE_DOCUMENT_BYTES:
             raise HTTPException(status_code=413, detail="Document exceeds the 8 MiB limit")
     extension, content_type = detect_document(request.headers.get("content-type", ""), bytes(data))
+    # Read the bounded body before taking row locks. No await occurs while the
+    # synchronous DB lock is held, so another upload cannot block this stream.
+    require_document_capacity(db, tenant.id, application_id, document_type, len(data))
+    application = get_tenant_application(db, tenant.id, application_id, lock=True)
+    require_reviewable_document(application, document_type)
     storage_ref, file_key, digest = store_private_document(
         tenant.id, application.id, bytes(data), extension,
     )
-    record = ApplicationReviewDocument(
-        storage_ref=str(storage_ref),
-        tenant_id=tenant.id,
-        application_id=application.id,
-        document_type=document_type,
-        content_type=content_type,
-        byte_size=len(data),
-        sha256=digest,
-        file_key=file_key,
-    )
-    db.add(record)
-    write_review_event(db, application, tenant.id, "document_uploaded", {
-        "document_type": document_type,
-        "storage_ref": str(storage_ref),
-        "byte_size": len(data),
-        "sha256": digest,
-    })
     try:
+        record = ApplicationReviewDocument(
+            storage_ref=str(storage_ref),
+            tenant_id=tenant.id,
+            application_id=application.id,
+            document_type=document_type,
+            content_type=content_type,
+            byte_size=len(data),
+            sha256=digest,
+            file_key=file_key,
+        )
+        db.add(record)
+        write_review_event(db, application, tenant.id, "document_uploaded", {
+            "document_type": document_type,
+            "storage_ref": str(storage_ref),
+            "byte_size": len(data),
+            "sha256": digest,
+        })
         db.commit()
     except Exception:
         db.rollback()
