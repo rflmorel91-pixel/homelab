@@ -23,7 +23,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.models import Product, Tenant, User, TenantMembership
-from app.products.fieldnest.models import FieldNestProperty, FieldNestResident, FieldNestVendor, FieldNestWorkOrder, FieldNestNotification, FieldNestPhoto
+from app.products.fieldnest.models import FieldNestProperty, FieldNestResident, FieldNestVendor, FieldNestWorkOrder, FieldNestNotification, FieldNestPhoto, FieldNestEmailAttempt
 from app.products.fieldnest.resident_requests import public_router, link_router
 from app.tenant_context import get_current_tenant, require_current_tenant_owner
 
@@ -34,7 +34,7 @@ class ResidentRequests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         tables = [Product.__table__, Tenant.__table__, User.__table__, TenantMembership.__table__,
-                  FieldNestNotification.__table__, FieldNestPhoto.__table__, FieldNestProperty.__table__,
+                  FieldNestNotification.__table__, FieldNestEmailAttempt.__table__, FieldNestPhoto.__table__, FieldNestProperty.__table__,
                   FieldNestResident.__table__, FieldNestVendor.__table__, FieldNestWorkOrder.__table__]
         Base.metadata.create_all(self.engine, tables=tables)
         self.db = Session(self.engine)

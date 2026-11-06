@@ -44,6 +44,7 @@ def clean_test_database():
         connection.execute(
             text(
                 "TRUNCATE TABLE "
+                "fieldnest_email_attempts, "
                 "workflow_automation_prospect_candidates, "
                 "workflow_automation_prospecting_campaigns, "
                 "platform_billing_accounts, "

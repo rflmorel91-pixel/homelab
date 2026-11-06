@@ -17,12 +17,22 @@ from app.platform_email import smtp_config
 from app.products.fieldnest.models.notification import FieldNestNotification
 from app.products.fieldnest.models.property import FieldNestProperty
 from app.products.fieldnest.models.work_order import FieldNestWorkOrder
+from app.products.fieldnest import email_limits
 
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 5
 
 
 def queue_request_notifications(db, order, receipt_email=None):
+    # A bounded pending queue per business; report persistence is independent
+    # of whether any particular notification is admitted for delivery.
+    # NO KEY UPDATE also avoids lock-upgrade deadlocks with concurrent inserts
+    # whose foreign-key checks hold KEY SHARE on this tenant.
+    db.scalar(select(Tenant.id).where(Tenant.id == order.tenant_id).with_for_update(key_share=True))
+    pending = db.scalar(select(func.count()).select_from(FieldNestNotification).where(
+        FieldNestNotification.tenant_id == order.tenant_id,
+        FieldNestNotification.status == "pending",
+    ))
     owners = db.scalars(select(User.id).join(
         TenantMembership, TenantMembership.user_id == User.id
     ).where(
@@ -32,13 +42,18 @@ def queue_request_notifications(db, order, receipt_email=None):
     )).all()
     recipients = [("owner", user_id, None) for user_id in owners]
     if receipt_email:
-        recipients.append(("receipt", None, receipt_email))
+        recipients.append(("receipt", None, receipt_email.strip().casefold()))
     for kind, user_id, email in recipients:
         key = sha256(f"{order.id}:{kind}:{user_id or email}".encode()).hexdigest()
+        suppressed = pending >= email_limits.EMAIL_LIMITS.tenant_pending
         db.add(FieldNestNotification(
             tenant_id=order.tenant_id, work_order_id=order.id,
             owner_user_id=user_id, receipt_email=email, kind=kind, event_key=key,
+            status="suppressed" if suppressed else "pending",
+            last_error="TenantPendingLimit" if suppressed else None,
         ))
+        if not suppressed:
+            pending += 1
 
 
 def workspace_url(tenant_id):
@@ -132,15 +147,21 @@ def deliver_one(session_factory=SessionLocal, sender=send_message, config_factor
         row.attempts += 1
         try:
             config = config_factory()
+            email_limits.lock_email_delivery(db)
             message = make_message(db, row, config)
             if message is None:
                 row.status = "skipped"
                 row.last_error = "RecipientOrWorkspaceUnavailable"
             else:
-                sender(message, config)
-                row.status = "sent"
-                row.sent_at = datetime.now(timezone.utc)
-                row.last_error = None
+                reason = email_limits.reserve_email_attempt(db, row, message, datetime.now(timezone.utc))
+                if reason:
+                    row.status = "suppressed"
+                    row.last_error = reason
+                else:
+                    sender(message, config)
+                    row.status = "sent"
+                    row.sent_at = datetime.now(timezone.utc)
+                    row.last_error = None
         except Exception as error:
             # Configuration failures count too. Never store SMTP exception text or credentials.
             row.last_error = type(error).__name__[:80]
