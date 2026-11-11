@@ -15,3 +15,6 @@ __all__ = [
     "FieldNestVendor",
     "FieldNestWorkOrder",
 ]
+
+from app.products.fieldnest.models.maintenance import FieldNestMaintenancePlan, FieldNestMaintenanceOccurrence
+__all__ += ["FieldNestMaintenancePlan", "FieldNestMaintenanceOccurrence"]

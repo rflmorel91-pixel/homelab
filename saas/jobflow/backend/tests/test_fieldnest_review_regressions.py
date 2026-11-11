@@ -3,7 +3,7 @@ import ast
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import shutil
 import subprocess
 
@@ -36,6 +36,8 @@ def call_handler(payload, row):
             return self
         def where(self, *args):
             return self
+        def with_for_update(self):
+            return self
     db = Mock()
     db.scalar.return_value = row
     validate = Mock()
@@ -46,14 +48,15 @@ def call_handler(payload, row):
     }
     module = ast.Module(body=[fn], type_ignores=[])
     exec(compile(ast.fix_missing_locations(module), str(BACKEND / "app/products/fieldnest/api.py"), "exec"), namespace)
-    result = namespace["update_work_order"](1, payload, db, SimpleNamespace(id=7))
+    with patch("app.products.fieldnest.maintenance.record_completion"):
+        result = namespace["update_work_order"](1, payload, db, SimpleNamespace(id=7))
     validate.assert_called_once_with(db, 7, row, payload)
     db.commit.assert_called_once()
     return result
 
 
 def existing_order():
-    return SimpleNamespace(title="Leak", unit="3B", description="Keep description",
+    return SimpleNamespace(id=1, title="Leak", unit="3B", description="Keep description",
                            priority="high", status="completed", vendor_id=10,
                            resident_id=11, target_date="2026-11-10")
 

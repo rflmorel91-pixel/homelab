@@ -125,9 +125,12 @@ def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), t
 
 @router.patch("/work-orders/{work_order_id}", response_model=WorkOrderRead)
 def update_work_order(work_order_id: int, payload: WorkOrderUpdate, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant)):
-    row = db.scalar(select(FieldNestWorkOrder).where(FieldNestWorkOrder.id == work_order_id, FieldNestWorkOrder.tenant_id == tenant.id))
+    row = db.scalar(select(FieldNestWorkOrder).where(FieldNestWorkOrder.id == work_order_id, FieldNestWorkOrder.tenant_id == tenant.id).with_for_update())
     if row is None:
         raise HTTPException(status_code=404, detail="Work order not found")
+    from app.products.fieldnest.maintenance import record_completion
+    if "status" in payload.model_fields_set:
+        record_completion(db, tenant.id, row.id, payload.status)
     _validate_update_links(db, tenant.id, row, payload)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(row, key, value)
@@ -140,8 +143,10 @@ def update_work_order(work_order_id: int, payload: WorkOrderUpdate, db: Session 
 def delete_work_order(work_order_id: int, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant), membership: TenantMembership = Depends(get_current_tenant_membership)):
     if membership.role != "owner":
         raise HTTPException(status_code=403, detail="Tenant owner access required")
-    row = db.scalar(select(FieldNestWorkOrder).where(FieldNestWorkOrder.id == work_order_id, FieldNestWorkOrder.tenant_id == tenant.id))
+    row = db.scalar(select(FieldNestWorkOrder).where(FieldNestWorkOrder.id == work_order_id, FieldNestWorkOrder.tenant_id == tenant.id).with_for_update())
     if row is None:
         raise HTTPException(status_code=404, detail="Work order not found")
+    from app.products.fieldnest.maintenance import protect_occurrence
+    protect_occurrence(db, tenant.id, row.id)
     db.delete(row)
     db.commit()
