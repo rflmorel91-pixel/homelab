@@ -20,7 +20,7 @@ function block(start, end) {
   return source.slice(a, b);
 }
 const context = vm.createContext({state, $: get, renderMaintenance() {}, workOrderListMarkup: () => ''});
-vm.runInContext(block('  const esc =', '  const msg =') + block('  function render() {', '  function renderMaintenance()'), context);
+vm.runInContext(block('  const esc =', '  const msg =') + block('  function renderWorkOrderPropertyFilter(', '  function workOrderListMarkup(') + block('  function render() {', '  function renderMaintenance()'), context);
 context.render();
 assert.match(get('workVendor').innerHTML, /^<option value="">Unassigned<\/option>/);
 assert.match(get('workVendor').innerHTML, /value="11">&lt;Acme&gt; · Plumbing &amp; heating/);
