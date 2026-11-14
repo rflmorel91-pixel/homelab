@@ -40,6 +40,23 @@ permissions:
   contents: read
 
 jobs:
+  fieldnest-browser-regressions:
+    name: FieldNest Browser Regression Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check FieldNest request recovery and workspace isolation
+        run: |
+          node saas/jobflow/scripts/tests/test_fieldnest_request_timeout.cjs
+          node saas/jobflow/scripts/tests/test_fieldnest_workspace_races.cjs
+          node saas/jobflow/scripts/tests/test_fieldnest_resident_form.cjs
+          node saas/jobflow/scripts/tests/test_fieldnest_resident_tracking.cjs
+
   nginx-security-headers:
     name: Nginx Security Headers
     runs-on: ubuntu-latest
