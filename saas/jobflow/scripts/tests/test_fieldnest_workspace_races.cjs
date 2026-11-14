@@ -13,6 +13,7 @@ function harness() {
   const pending = [];
   const elements = new Map();
   const context = vm.createContext({
+    AbortController, setTimeout, clearTimeout,
     document: {getElementById(id) {
       if (!elements.has(id)) elements.set(id, {textContent: "", classList: {toggle() {}}});
       return elements.get(id);
