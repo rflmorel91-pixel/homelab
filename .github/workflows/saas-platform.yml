@@ -55,6 +55,7 @@ jobs:
           node saas/jobflow/scripts/tests/test_fieldnest_request_timeout.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_logout.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_attention.cjs
+          node saas/jobflow/scripts/tests/test_fieldnest_create_target_date.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_workspace_races.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_resident_form.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_resident_tracking.cjs
