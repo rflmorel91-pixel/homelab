@@ -14,7 +14,7 @@ function between(start, end) {
 const context = vm.createContext({});
 vm.runInContext(between('  const esc =', '  const msg =') +
   between('  function workOrderTargetLabel(', '  function renderOverview(') +
-  between('  function workOrderListMarkup(', '  function render()'), context);
+  between('  function renderWorkOrderPropertyFilter(', '  function render()'), context);
 const properties = [{id: 2, name: 'Building A'}];
 const vendors = [{id: 3, name: 'Smith Plumbing'}];
 const order = {id: 9, property_id: 2, vendor_id: 3, title: 'Leaking faucet', unit: '4B', priority: 'high', status: 'open', target_date: '2026-11-13'};
