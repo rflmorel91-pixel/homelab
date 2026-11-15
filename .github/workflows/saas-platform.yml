@@ -64,6 +64,7 @@ jobs:
           node saas/jobflow/scripts/tests/test_fieldnest_unsaved_work_order.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_work_order_sort.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_work_order_summary.cjs
+          node saas/jobflow/scripts/tests/test_fieldnest_property_edit.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_workspace_races.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_resident_form.cjs
           node saas/jobflow/scripts/tests/test_fieldnest_resident_tracking.cjs
