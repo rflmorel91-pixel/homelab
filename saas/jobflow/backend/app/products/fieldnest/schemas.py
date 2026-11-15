@@ -19,6 +19,21 @@ class PropertyRead(PropertyCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PropertyUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    address: str | None = Field(default=None, min_length=1, max_length=300)
+    property_type: Literal["residential", "multifamily", "commercial"] | None = None
+    total_units: int | None = Field(default=None, ge=1, le=10000)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    @model_validator(mode="after")
+    def reject_null_fields(self):
+        for name in ("name", "address", "property_type", "total_units"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
+
+
 class ResidentCreate(BaseModel):
     property_id: int
     name: str = Field(min_length=1, max_length=160)
