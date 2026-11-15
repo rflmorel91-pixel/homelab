@@ -60,4 +60,10 @@ Server upload/download receipt: `/home/linuxuser/fieldlookers-property-edit-offs
 
 This image recovery check loaded and inspected the image. It did **not** start the recovered API against a restored database, perform a new full-stack restore, or change production containers during the recovery check. The earlier November 14 full-stack drill remains separate evidence for its earlier release.
 
-Routine backups and this separate image receipt do not prove that the newly added Compose override and edited redeploy script have been incorporated into an updated off-site configuration archive. Include those files in the next configuration recovery checkpoint. Keep recovery identities private and outside the public repository.
+## Configuration recovery follow-up completed
+
+After PR #180, the operator completed the remaining configuration recovery check. A two-file supplement containing the new API Compose override and updated redeploy script was encrypted, uploaded off-site, and freshly downloaded. On Windows, decryption and archive/file hash checks passed. The recovered override referenced the deployed API image, and the recovered redeploy script included the release override.
+
+No configuration was applied or containers changed during this check. The supplement complements the earlier full configuration backup; it does not replace the remaining environment, Compose, Nginx and recovery prerequisites. These manual checks do not establish automatic image or configuration backup scheduling, and no new full-stack restore was performed.
+
+Keep recovery identities private and outside the public repository.
