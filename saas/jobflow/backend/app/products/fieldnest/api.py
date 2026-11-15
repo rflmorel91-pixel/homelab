@@ -14,6 +14,7 @@ from app.products.fieldnest.models import (
 from app.products.fieldnest.schemas import (
     PropertyCreate,
     PropertyRead,
+    PropertyUpdate,
     ResidentCreate,
     ResidentRead,
     VendorCreate,
@@ -43,6 +44,18 @@ def list_properties(db: Session = Depends(get_db), tenant: Tenant = Depends(get_
 def create_property(payload: PropertyCreate, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant)):
     row = FieldNestProperty(tenant_id=tenant.id, **payload.model_dump())
     db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.patch("/properties/{property_id}", response_model=PropertyRead)
+def update_property(property_id: int, payload: PropertyUpdate, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant)):
+    row = db.scalar(select(FieldNestProperty).where(FieldNestProperty.id == property_id, FieldNestProperty.tenant_id == tenant.id).with_for_update())
+    if row is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(row, key, value)
     db.commit()
     db.refresh(row)
     return row
