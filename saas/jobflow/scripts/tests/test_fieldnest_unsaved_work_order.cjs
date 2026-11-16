@@ -45,7 +45,7 @@ const context = vm.createContext({state, $: get,
   },
   reportError: (_form, error) => {dialog.message.textContent = error.message;},
 });
-vm.runInContext(block('  const esc =', '  const msg =') +
+vm.runInContext(block('  const esc =', '  const msg =') + block('  function vendorInsuranceStatus(', '  function workOrderListMarkup(') +
   block('  let workOrderDraftBaseline =', '  let linkProperty ='), context);
 const closer = source.split('\n').find(line => line.includes('const opener = event.target.closest("[data-open]")'));
 assert.ok(closer); vm.runInContext(closer, context);
