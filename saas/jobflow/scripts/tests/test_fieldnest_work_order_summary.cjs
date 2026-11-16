@@ -34,7 +34,7 @@ function setup() {
     draft: 'saved', loadManagerPhotos() {}, msg() {},
     navigator: {clipboard: {writeText: async text => {copied.push(text); if (pending) await pending; if (failure) throw new Error('Permission denied');}}},
   });
-  vm.runInContext(block('  const esc =', '  const msg =') + block('  function workOrderSummaryText(', '  let workOrderDraftBaseline ='), context);
+  vm.runInContext(block('  const esc =', '  const msg =') + block('  function vendorInsuranceStatus(', '  function workOrderListMarkup(') + block('  function workOrderSummaryText(', '  let workOrderDraftBaseline ='), context);
   const openStart = source.indexOf('  function openWorkOrder(');
   const openEnd = source.indexOf('  document.addEventListener("click", event => { const row', openStart);
   assert.ok(openStart >= 0 && openEnd > openStart);
