@@ -1,0 +1,748 @@
+(() => {
+  const API = "/api/v1";
+  const $ = (id) => document.getElementById(id);
+  const state = { tenantId: null, loadVersion: 0, clients: [], properties: [], residents: [], vendors: [], orders: [], plans: [], occurrences: [] };
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const msg = (id, text, good = false) => { const el = $(id); el.textContent = text; el.classList.toggle("success", good); };
+
+  async function request(path, options = {}) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (state.tenantId && !headers["X-Tenant-ID"]) headers["X-Tenant-ID"] = String(state.tenantId);
+    const controller = new AbortController();
+    const mutation = !["GET", "HEAD"].includes((options.method || "GET").toUpperCase());
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(mutation
+          ? "The request timed out. Your change may have been saved. Refresh the workspace and check before trying again."
+          : "The request timed out. Check your connection and refresh the workspace."));
+        controller.abort();
+      }, 30000);
+    });
+    const perform = async () => {
+      const response = await fetch(`${API}${path}`, { credentials: "same-origin", ...options, headers, signal: controller.signal });
+      if (!response.ok) {
+        let detail = `Request failed (${response.status})`;
+        try { const body = await response.json(); detail = body.detail || detail; } catch (_) {}
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+      return response.status === 204 ? null : await response.json();
+    };
+    try { return await Promise.race([perform(), deadline]); }
+    finally { clearTimeout(timer); }
+  }
+
+  function showLogin() { document.querySelectorAll("dialog[open]").forEach(d => d.close()); $("loginPanel").hidden = false; $("appPanel").hidden = true; $("logoutButton").hidden = true; $("tenantLabel").textContent = ""; }
+  function showApp() { route(); $("loginPanel").hidden = true; $("appPanel").hidden = false; $("logoutButton").hidden = false; }
+
+  async function discover() {
+    const access = await request("/auth/products/fieldnest/access");
+    state.clients = access.clients || [];
+    if (!state.clients.length) throw new Error("No active FieldNest company workspace is connected to this account yet.");
+    const select = $("tenantSelect");
+    select.innerHTML = state.clients.map(c => `<option value="${esc(c.tenant_id)}">${esc(c.name)} · ${esc(c.role)}</option>`).join("");
+    const requestedCompany = new URLSearchParams(location.search).get("company");
+    const saved = requestedCompany || localStorage.getItem("fieldnest_tenant_id");
+    state.tenantId = state.clients.some(c => String(c.tenant_id) === saved) ? saved : String(state.clients[0].tenant_id);
+    select.value = state.tenantId;
+    await loadAll();
+  }
+
+  async function loadAll() {
+    const tenantId = String(state.tenantId);
+    const propertyFilter = $("workOrderPropertyFilter")?.value || "";
+    const version = ++state.loadVersion;
+    const isCurrent = () => version === state.loadVersion && tenantId === String(state.tenantId);
+    const client = state.clients.find(c => String(c.tenant_id) === tenantId);
+    $("tenantLabel").textContent = client ? client.name : "";
+    localStorage.setItem("fieldnest_tenant_id", tenantId);
+    // Remove the previous company's records before awaiting the next response.
+    Object.assign(state, { properties: [], residents: [], vendors: [], orders: [], plans: [], occurrences: [] });
+    render(); renderOverview(); applySearch();
+    msg("appMessage", "Loading workspace…", true);
+    try {
+      const options = { headers: { "X-Tenant-ID": tenantId } };
+      const [properties, residents, vendors, orders, plans, occurrences] = await Promise.all([
+        request("/products/fieldnest/properties", options), request("/products/fieldnest/residents", options),
+        request("/products/fieldnest/vendors", options), request("/products/fieldnest/work-orders", options),
+        request("/products/fieldnest/maintenance-plans", options), request("/products/fieldnest/maintenance-occurrences", options)
+      ]);
+      if (!isCurrent()) return;
+      Object.assign(state, { properties, residents, vendors, orders, plans, occurrences });
+      render();
+      if (propertyFilter && properties.some(property => String(property.id) === propertyFilter)) {
+        $("workOrderPropertyFilter").value = propertyFilter;
+      }
+      renderOverview(); applySearch();
+      msg("appMessage", "", true);
+    } catch (error) {
+      if (isCurrent()) throw error;
+    }
+  }
+
+  function renderWorkOrderPropertyFilter() {
+    const select = $("workOrderPropertyFilter");
+    if (!select) return;
+    const selected = select.value || "";
+    select.innerHTML = '<option value="">All properties</option>' + state.properties.map(property =>
+      `<option value="${esc(property.id)}">${esc(property.name)}</option>`
+    ).join("");
+    select.value = state.properties.some(property => String(property.id) === selected) ? selected : "";
+  }
+
+  function orderedWorkOrderList(orders, mode, today) {
+    const newest = items => [...items].sort((a, b) => b.id - a.id);
+    if (mode !== "attention") return newest(orders);
+    const closed = orders.filter(order => ["completed", "cancelled"].includes(order.status));
+    return [...orderedOpenWorkOrders(orders, today), ...newest(closed)];
+  }
+
+  function vendorInsuranceStatus(vendor, today = new Date().toISOString().slice(0, 10)) {
+    const expiry = vendor.insurance_expires;
+    if (expiry == null || expiry === "") return {kind: "missing", text: "No expiry recorded"};
+    const utcDay = value => {
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+      const stamp = Date.parse(value + "T00:00:00Z");
+      return Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === value ? stamp : null;
+    };
+    const expiryDay = utcDay(expiry), currentDay = utcDay(today);
+    if (expiryDay === null || currentDay === null) return {kind: "unknown", text: "Expiry date unavailable"};
+    const days = (expiryDay - currentDay) / 86400000;
+    const date = expiry + " (UTC)";
+    if (days < 0) return {kind: "past", text: "Expiry passed · " + date};
+    if (days === 0) return {kind: "today", text: "Expiry today · " + date};
+    if (days <= 30) return {kind: "soon", text: "Expiry within 30 days · " + date};
+    return {kind: "recorded", text: "Expiry recorded · " + date};
+  }
+  function vendorOptionMarkup(vendors, today = new Date().toISOString().slice(0, 10)) {
+    return '<option value="">Unassigned</option>' + vendors.map(v => `<option value="${esc(v.id)}">${esc(v.name)} · ${esc(v.trade)} · ${esc(vendorInsuranceStatus(v, today).text)}</option>`).join("");
+  }
+
+  function workOrderListMarkup(orders, properties, vendors, today) {
+    if (!orders.length) return '<div class="empty-state">No work orders yet. Add the next maintenance item above.</div>';
+    return orders.map(order => {
+      const property = properties.find(item => item.id === order.property_id);
+      const vendor = vendors.find(item => item.id === order.vendor_id);
+      const assigned = order.vendor_id != null;
+      const vendorLabel = assigned ? "Vendor: " + (vendor?.name || "Assigned vendor unavailable") : "Unassigned vendor";
+      const closed = ["completed", "cancelled"].includes(order.status);
+      const targetLabel = closed && order.target_date
+        ? "Target " + order.target_date + " (UTC)"
+        : workOrderTargetLabel(order, today);
+      return `<button type="button" class="record work-order-row" data-order-id="${esc(order.id)}"><span><strong>${esc(order.title)}</strong><small>${esc(property?.name || "Property")}${order.unit ? ` · Unit ${esc(order.unit)}` : ""} · ${esc(order.priority)} priority</small><small>${esc(targetLabel)} · ${esc(vendorLabel)}</small></span><span class="badge">${esc(order.status.replaceAll("_", " "))}</span></button>`;
+    }).join("");
+  }
+
+  function render() {
+    renderMaintenance();
+    renderWorkOrderPropertyFilter();
+    $("propertyCount").textContent = state.properties.length;
+    $("residentCount").textContent = state.residents.length;
+    $("vendorCount").textContent = state.vendors.length;
+    $("openCount").textContent = state.orders.filter(x => !["completed", "cancelled"].includes(x.status)).length;
+    $("properties").innerHTML = state.properties.length ? state.properties.map(p => `<div class="record property-row"><span><strong>${esc(p.name)}</strong><small>${esc(p.address)} · ${esc(p.total_units)} units</small></span><span class="badge">${esc(p.property_type)}</span><button type="button" class="button secondary" data-edit-property="${esc(p.id)}">Edit property</button>${state.clients.find(c => String(c.tenant_id) === String(state.tenantId))?.role === "owner" ? `<button type="button" class="button secondary" data-resident-link="${esc(p.id)}">Resident request link</button>` : ""}</div>`).join("") : `<div class="empty-state">Add your first property to start organizing work.</div>`;
+    $("vendors").innerHTML = state.vendors.length ? state.vendors.map(v => `<div class="record vendor-row" data-vendor-id="${esc(v.id)}"><span><strong>${esc(v.name)}</strong><small>${esc(v.trade)}${v.email ? ` · ${esc(v.email)}` : ""}</small></span><span class="badge">${esc(vendorInsuranceStatus(v).text)}</span><button type="button" class="button secondary" data-edit-vendor="${esc(v.id)}">Edit vendor</button></div>`).join("") : `<div class="empty-state">Your trusted service contacts will appear here.</div>`;
+    $("residents").innerHTML = state.residents.length ? state.residents.map(r => { const p = state.properties.find(x => x.id === r.property_id); return `<div class="record"><span><strong>${esc(r.name)}</strong><small>${esc(p?.name || "Property")} · Unit ${esc(r.unit)}${r.email ? ` · ${esc(r.email)}` : ""}</small></span></div>`; }).join("") : `<div class="empty-state">Add residents to connect people with the properties they call home.</div>`;
+    const workOrderDay = new Date().toISOString().slice(0, 10);
+    const visibleOrder = orderedWorkOrderList(state.orders, $("workOrderSort")?.value || "newest", workOrderDay);
+    $("workOrders").innerHTML = workOrderListMarkup(visibleOrder, state.properties, state.vendors, workOrderDay);
+    const pOpts = state.properties.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+    $("workProperty").innerHTML = pOpts || `<option value="">Add a property first</option>`;
+    $("residentProperty").innerHTML = pOpts || `<option value="">Add a property first</option>`;
+    $("workVendor").innerHTML = vendorOptionMarkup(state.vendors);
+  }
+
+  function renderMaintenance() {
+    const day = new Date().toISOString().slice(0, 10);
+    $("maintenanceProperty").innerHTML = state.properties.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("") || '<option value="">Add a property first</option>';
+    $("maintenanceVendor").innerHTML = vendorOptionMarkup(state.vendors);
+    $("maintenancePlans").innerHTML = state.plans.map(p => {
+      const occurrence = state.occurrences.find(o => o.plan_id === p.id && o.scheduled_date === p.next_due);
+      const property = state.properties.find(x => x.id === p.property_id);
+      const vendor = state.vendors.find(x => x.id === p.vendor_id);
+      return `<div class="record"><span><strong>${esc(p.title)}</strong><small>${esc(property?.name)} · ${esc(vendor?.name || "Unassigned")} · Every ${p.interval_months} month(s)<br>Due ${esc(p.next_due)} · ${p.paused ? "Paused" : p.next_due < day ? "Overdue" : p.next_due === day ? "Due today" : "Upcoming"}</small></span><span>${occurrence ? `<button type="button" class="button secondary" data-order-id="${occurrence.work_order_id}">Open work order #${occurrence.work_order_id}</button>` : `<button type="button" class="button primary" data-generate-plan="${p.id}" ${p.paused || p.next_due > day ? "disabled" : ""}>${p.paused ? "Plan paused" : p.next_due > day ? "Available " + esc(p.next_due) : "Generate due work order"}</button>`}<button type="button" class="button secondary" data-pause-plan="${p.id}">${p.paused ? "Resume" : "Pause"}</button></span></div>`;
+    }).join("") || '<div class="empty-state">Add a maintenance plan to schedule repeat work.</div>';
+    $("maintenanceHistory").innerHTML = state.occurrences.map(o => { const p = state.plans.find(p => p.id === o.plan_id); return `<button type="button" class="record work-order-row" data-order-id="${o.work_order_id}"><span><strong>${esc(p?.title || "Maintenance occurrence")}</strong><small>Scheduled ${esc(o.scheduled_date)} · Work order #${o.work_order_id}</small></span><span class="badge">${o.completed_at ? "Completed " + esc(o.completed_at.slice(0, 10)) : "In progress"}</span></button>`; }).join("") || '<div class="empty-state">Generated work orders and completions will appear here.</div>';
+  }
+
+  $("maintenanceForm").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    if (form.dataset.busy) return;
+    const tenantId = String(state.tenantId);
+    form.dataset.busy = "1"; form.querySelector("button[type=submit]").disabled = true;
+    try {
+      const data = payload(form); data.property_id = Number(data.property_id); data.vendor_id = data.vendor_id ? Number(data.vendor_id) : null; data.interval_months = Number(data.interval_months);
+      await request("/products/fieldnest/maintenance-plans", {method: "POST", headers: {"X-Tenant-ID": tenantId}, body: JSON.stringify(data)});
+      if (tenantId !== String(state.tenantId)) return;
+      form.reset(); form.closest("dialog").close(); await loadAll();
+    } catch (error) { if (tenantId === String(state.tenantId)) reportError(form, error); } finally { releaseForm(form); }
+  });
+  $("maintenancePlans").addEventListener("click", async event => {
+    const button = event.target.closest("[data-generate-plan], [data-pause-plan]"); if (!button || button.disabled) return;
+    const tenantId = String(state.tenantId);
+    const plan = state.plans.find(p => String(p.id) === (button.dataset.generatePlan || button.dataset.pausePlan)); if (!plan) return;
+    button.disabled = true;
+    const generating = !!button.dataset.generatePlan;
+    try {
+      await request(`/products/fieldnest/maintenance-plans/${plan.id}${generating ? "/generate" : ""}`, { method: generating ? "POST" : "PATCH", headers: {"X-Tenant-ID": tenantId}, body: JSON.stringify(generating ? {scheduled_date: plan.next_due} : {paused: !plan.paused}) });
+      if (tenantId === String(state.tenantId)) await loadAll();
+    } catch(error) { if (tenantId === String(state.tenantId)) msg("appMessage", error.message); } finally { button.disabled = false; }
+  });
+
+  function payload(form) { return Object.fromEntries(new FormData(form).entries()); }
+  $("loginForm").addEventListener("submit", async (event) => {
+    event.preventDefault(); const form = event.currentTarget; if (form.dataset.busy) return; form.dataset.busy = "1"; form.querySelector("button[type=submit], button").disabled = true; msg("loginMessage", "Signing in…", true);
+    try {
+      const data = payload(form);
+      await request("/auth/login", { method: "POST", body: JSON.stringify(data) });
+      form.reset(); await discover(); showApp();
+    } catch (error) { msg("loginMessage", error.message); } finally { releaseForm(form); }
+  });
+  let refreshBusy = false;
+  async function refreshWorkspace() {
+    if (refreshBusy || !state.tenantId) return;
+    refreshBusy = true;
+    const button = $("refreshWorkspaceButton");
+    const tenantId = String(state.tenantId);
+    const version = state.loadVersion + 1;
+    const current = () => tenantId === String(state.tenantId) && version === state.loadVersion;
+    button.disabled = true;
+    button.textContent = "Refreshing…";
+    try {
+      await loadAll();
+      if (current()) msg("appMessage", "Workspace refreshed.", true);
+    } catch (error) {
+      if (current()) msg("appMessage", "Could not refresh the workspace. " + error.message);
+    } finally {
+      refreshBusy = false;
+      button.disabled = false;
+      button.textContent = "Refresh workspace";
+    }
+  }
+  $("refreshWorkspaceButton").addEventListener("click", refreshWorkspace);
+
+  $("tenantSelect").addEventListener("change", async (event) => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); state.tenantId = event.target.value; $("workOrderPropertyFilter").value = ""; try { await loadAll(); } catch (e) { msg("appMessage", e.message); } });
+  let logoutBusy = false;
+  async function signOut() {
+    if (logoutBusy) return;
+    logoutBusy = true;
+    // Invalidate in-flight loads before awaiting the server's response.
+    state.loadVersion++;
+    state.tenantId = null;
+    Object.assign(state, { clients: [], properties: [], residents: [], vendors: [], orders: [], plans: [], occurrences: [] });
+    showLogin(); render(); renderOverview(); applySearch();
+    $("loginForm").reset();
+    $("loginForm").hidden = true;
+    $("retryLogoutButton").hidden = true;
+    $("retryLogoutButton").disabled = true;
+    msg("loginMessage", "Signing out…");
+    try {
+      const result = await request("/auth/logout", { method: "POST" });
+      if (result?.status !== "signed_out") throw new Error("Sign-out was not confirmed.");
+      $("loginForm").hidden = false;
+      msg("loginMessage", "You have signed out.", true);
+    } catch (_) {
+      msg("loginMessage", "We couldn’t confirm sign-out. Your session may still be active. Check your connection and try signing out again.");
+      $("retryLogoutButton").hidden = false;
+    } finally {
+      logoutBusy = false;
+      $("retryLogoutButton").disabled = false;
+    }
+  }
+  $("logoutButton").addEventListener("click", signOut);
+  $("retryLogoutButton").addEventListener("click", signOut);
+  $("propertyForm").addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; if (form.dataset.busy) return; form.dataset.busy = "1"; form.querySelector("button[type=submit], button").disabled = true; try { const d = payload(form); d.total_units = Number(d.total_units); d.property_type = "residential"; await request("/products/fieldnest/properties", { method: "POST", body: JSON.stringify(d) }); form.reset(); form.total_units.value = "1"; form.closest("dialog")?.close(); await loadAll(); } catch (e) { reportError(form, e); } finally { releaseForm(form); } });
+  $("vendorForm").addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; if (form.dataset.busy) return; form.dataset.busy = "1"; form.querySelector("button[type=submit], button").disabled = true; try { const d = payload(form); d.email ||= null; d.insurance_expires ||= null; d.phone = null; await request("/products/fieldnest/vendors", { method: "POST", body: JSON.stringify(d) }); form.reset(); form.closest("dialog")?.close(); await loadAll(); } catch (e) { reportError(form, e); } finally { releaseForm(form); } });
+  $("residentForm").addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; if (form.dataset.busy) return; form.dataset.busy = "1"; form.querySelector("button[type=submit], button").disabled = true; try { if (!state.properties.length) throw new Error("Add a property before adding residents."); const d = payload(form); d.property_id = Number(d.property_id); d.email ||= null; await request("/products/fieldnest/residents", { method: "POST", body: JSON.stringify(d) }); form.reset(); form.closest("dialog")?.close(); await loadAll(); } catch (e) { reportError(form, e); } finally { releaseForm(form); } });
+  $("workOrderForm").addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; if (form.dataset.busy) return; form.dataset.busy = "1"; form.querySelector("button[type=submit], button").disabled = true; try { if (!state.properties.length) throw new Error("Add a property before creating a work order."); const d = payload(form); d.property_id = Number(d.property_id); d.resident_id = null; d.vendor_id = d.vendor_id ? Number(d.vendor_id) : null; d.unit ||= ""; d.description ||= null; d.target_date ||= null; await request("/products/fieldnest/work-orders", { method: "POST", body: JSON.stringify(d) }); form.reset(); form.closest("dialog")?.close(); await loadAll(); } catch (e) { reportError(form, e); } finally { releaseForm(form); } });
+
+
+  function releaseForm(form) { delete form.dataset.busy; form.querySelector("button[type=submit], button").disabled = false; }
+  function reportError(form, error) { const el = form.closest("dialog")?.querySelector(".dialog-message"); if (el) el.textContent = error.message; else msg("appMessage", error.message); }
+  function route() {
+    const allowed = ["maintenance", "overview", "work-orders", "properties", "residents", "vendors"];
+    const key = allowed.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+    document.querySelectorAll("[data-view]").forEach(el => el.hidden = el.dataset.view !== key);
+    document.querySelectorAll("[data-nav]").forEach(el => { el.classList.toggle("active", el.dataset.nav === key); if (el.dataset.nav === key) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current"); });
+    $("currentView").textContent = key === "work-orders" ? "Work orders" : key[0].toUpperCase() + key.slice(1);
+  }
+  function workOrderMatchesFilter(order, filter, today) {
+    const open = !["completed", "cancelled"].includes(order.status);
+    if (filter === "open") return open;
+    if (filter === "overdue") return open && !!order.target_date && order.target_date < today;
+    if (filter === "unassigned") return open && order.vendor_id == null;
+    if (filter === "closed") return !open;
+    return true;
+  }
+  function vendorMatchesExpiryFilter(vendor, filter, today) {
+    if (filter === "all") return true;
+    const kind = vendorInsuranceStatus(vendor, today).kind;
+    if (filter === "past") return kind === "past";
+    if (filter === "soon") return kind === "today" || kind === "soon";
+    if (filter === "missing") return kind === "missing" || kind === "unknown";
+    return true;
+  }
+  function applySearch() {
+    const today = new Date().toISOString().slice(0, 10);
+    const filter = $("workOrderFilter")?.value || "all";
+    const propertyId = $("workOrderPropertyFilter")?.value || "";
+    const orders = new Map(state.orders.map(order => [String(order.id), order]));
+    const vendorFilter = $("vendorExpiryFilter")?.value || "all";
+    const vendors = new Map((state.vendors || []).map(vendor => [String(vendor.id), vendor]));
+    document.querySelectorAll("[data-search]").forEach(input => {
+      const term = input.value.trim().toLowerCase();
+      const list = $(input.dataset.search);
+      const rows = Array.from(list.querySelectorAll(".record"));
+      rows.forEach(row => {
+        const order = input.dataset.search === "workOrders" ? orders.get(row.dataset.orderId) : null;
+        const matchesFilter = !order || (workOrderMatchesFilter(order, filter, today) && (!propertyId || String(order.property_id) === propertyId));
+        const vendor = input.dataset.search === "vendors" ? vendors.get(row.dataset.vendorId) : null;
+        const matchesVendor = input.dataset.search !== "vendors" || (!!vendor && vendorMatchesExpiryFilter(vendor, vendorFilter, today));
+        row.hidden = !matchesFilter || !matchesVendor || !row.textContent.toLowerCase().includes(term);
+      });
+      if (input.dataset.search === "workOrders" && $("clearWorkOrderFilters")) {
+        $("clearWorkOrderFilters").disabled = filter === "all" && !propertyId && input.value.length === 0;
+      }
+      if (input.dataset.search === "vendors" && $("clearVendorFilters")) {
+        $("clearVendorFilters").disabled = vendorFilter === "all" && input.value.length === 0;
+      }
+      const visible = rows.filter(row => !row.hidden).length;
+      let note = list.querySelector(".search-empty");
+      if (!note) {
+        note = document.createElement("div");
+        note.className = "empty-state search-empty";
+        list.append(note);
+      }
+      note.textContent = input.dataset.search === "workOrders"
+        ? "No work orders match. Try another filter or clear your search."
+        : input.dataset.search === "vendors" ? "No vendors match. Try another expiry filter or clear your search."
+        : "No matching records. Try a different search.";
+      note.hidden = !rows.length || visible > 0;
+      if (input.dataset.search === "workOrders" && $("workOrderFilterCount")) {
+        $("workOrderFilterCount").textContent = visible + " of " + rows.length + " work orders shown";
+      }
+      if (input.dataset.search === "vendors" && $("vendorFilterCount")) {
+        $("vendorFilterCount").textContent = visible + " of " + rows.length + " vendors shown";
+      }
+    });
+  }
+  function clearVendorFilters() {
+    $("vendorExpiryFilter").value = "all";
+    const search = document.querySelector('[data-search="vendors"]');
+    if (search) search.value = "";
+    applySearch();
+  }
+  function clearWorkOrderFilters() {
+    $("workOrderFilter").value = "all";
+    $("workOrderPropertyFilter").value = "";
+    const search = document.querySelector('[data-search="workOrders"]');
+    if (search) search.value = "";
+    applySearch();
+  }
+  function orderedOpenWorkOrders(orders, today) {
+    const priorities = { emergency: 0, high: 1, normal: 2, low: 3 };
+    const group = order => order.priority === "emergency" ? 0 : order.target_date && order.target_date < today ? 1 : 2;
+    return orders.filter(order => !["completed", "cancelled"].includes(order.status)).sort((a, b) => {
+      const category = group(a) - group(b);
+      if (category) return category;
+      const dateA = a.target_date || "9999-12-31", dateB = b.target_date || "9999-12-31";
+      const priority = (priorities[a.priority] ?? 2) - (priorities[b.priority] ?? 2);
+      if (group(a) === 1 && dateA !== dateB) return dateA < dateB ? -1 : 1;
+      if (priority) return priority;
+      if (dateA !== dateB) return dateA < dateB ? -1 : 1;
+      return b.id - a.id;
+    });
+  }
+  function workOrderTargetLabel(order, today) {
+    if (!order.target_date) return "No target date";
+    if (order.target_date < today) return "Overdue · Target " + order.target_date + " (UTC)";
+    if (order.target_date === today) return "Due today (UTC)";
+    return "Target " + order.target_date + " (UTC)";
+  }
+  function renderOverview() {
+    const today = new Date().toISOString().slice(0, 10);
+    const active = orderedOpenWorkOrders(state.orders, today);
+    $("recentOrders").innerHTML = active.length ? active.slice(0,5).map(w => { const p = state.properties.find(p => p.id === w.property_id); return `<button type="button" class="record work-order-row" data-order-id="${esc(w.id)}"><span><strong>${esc(w.title)}</strong><small>${esc(p?.name || "Property")} · ${esc(w.priority)} priority · ${esc(workOrderTargetLabel(w, today))}</small></span><span class="badge">${esc(w.status.replaceAll("_", " "))}</span></button>`; }).join("") : `<div class="empty-state"><strong>Room for a fresh start.</strong><span>Your open maintenance requests will appear here.<br>Create a work order when the next maintenance request comes in.</span></div>`;
+    const hasProperty = state.properties.length > 0;
+    $("nextStep").textContent = hasProperty ? "Your portfolio is taking shape. Capture a maintenance request and keep the next repair moving." : "Start with a property, then bring your people and maintenance together.";
+    $("nextStepButton").dataset.open = hasProperty ? "workOrderFormDialog" : "propertyFormDialog";
+    $("nextStepButton").textContent = hasProperty ? "Add a work order →" : "Add a property →";
+  }
+  window.addEventListener("hashchange", route);
+  document.addEventListener("click", event => { const opener = event.target.closest("[data-open]"); if (opener) { const dialog = $(opener.dataset.open); dialog.querySelector(".dialog-message").textContent = ""; dialog.showModal(); } const closer = event.target.closest("[data-close]"); if (closer) { const dialog = closer.closest("dialog"); if ((dialog.id !== "workOrderDetailDialog" || canCloseWorkOrder()) && (dialog.id !== "propertyEditDialog" || canClosePropertyEdit()) && (dialog.id !== "vendorEditDialog" || canCloseVendorEdit())) dialog.close(); } });
+  document.querySelectorAll("[data-search]").forEach(el => el.addEventListener("input", applySearch));
+  $("workOrderFilter")?.addEventListener("change", applySearch);
+  $("vendorExpiryFilter")?.addEventListener("change", applySearch);
+  $("clearVendorFilters")?.addEventListener("click", clearVendorFilters);
+  $("workOrderPropertyFilter")?.addEventListener("change", applySearch);
+  $("workOrderSort")?.addEventListener("change", () => { render(); applySearch(); });
+  $("clearWorkOrderFilters")?.addEventListener("click", clearWorkOrderFilters);
+  route();
+
+
+  let editingVendor = null;
+  let vendorEditBaseline = null;
+  let vendorSaveVersion = 0;
+  function vendorEditSnapshot() {
+    const form = $("vendorEditForm");
+    return JSON.stringify(["name", "trade", "phone", "email", "insurance_expires"].map(key => form.elements.namedItem(key).value));
+  }
+  function canCloseVendorEdit() {
+    const form = $("vendorEditForm");
+    if (form.dataset.busy) {
+      $("vendorEditDialog").querySelector(".dialog-message").textContent = "Saving changes… Please wait before closing.";
+      return false;
+    }
+    return vendorEditBaseline === null || vendorEditSnapshot() === vendorEditBaseline
+      || window.confirm("Discard your unsaved vendor changes?");
+  }
+  function openVendorEdit(id) {
+    const vendor = state.vendors.find(item => String(item.id) === String(id));
+    if (!vendor) { msg("appMessage", "This vendor is no longer available. Refresh the workspace."); return; }
+    editingVendor = {id: vendor.id, tenantId: String(state.tenantId)};
+    vendorSaveVersion++;
+    const form = $("vendorEditForm"); form.reset();
+    delete form.dataset.busy; delete form.dataset.saveVersion;
+    form.querySelectorAll("input, select, textarea, button").forEach(button => button.disabled = false);
+    for (const key of ["name", "trade", "phone", "email", "insurance_expires"]) form.elements.namedItem(key).value = vendor[key] ?? "";
+    vendorEditBaseline = vendorEditSnapshot();
+    $("vendorEditDialog").querySelector(".dialog-message").textContent = "";
+    $("vendorEditDialog").showModal();
+  }
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-edit-vendor]");
+    if (button) openVendorEdit(button.dataset.editVendor);
+  });
+  $("vendorEditDialog").addEventListener("cancel", event => {
+    if (!canCloseVendorEdit()) event.preventDefault();
+  });
+  $("vendorEditDialog").addEventListener("close", () => {
+    if ($("vendorEditDialog").open) return;
+    editingVendor = null; vendorEditBaseline = null; vendorSaveVersion++;
+    const form = $("vendorEditForm");
+    delete form.dataset.busy; delete form.dataset.saveVersion;
+    form.querySelectorAll("input, select, textarea, button").forEach(button => button.disabled = false);
+  });
+  $("vendorEditForm").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    if (form.dataset.busy) return;
+    if (!editingVendor || editingVendor.tenantId !== String(state.tenantId)) {
+      reportError(form, new Error("The workspace changed. Close and reopen this vendor.")); return;
+    }
+    const selection = editingVendor;
+    const current = () => editingVendor === selection && selection.tenantId === String(state.tenantId) && $("vendorEditDialog").open;
+    const data = payload(form);
+    data.name = data.name.trim(); data.trade = data.trade.trim();
+    data.phone = data.phone.trim() || null; data.email = data.email.trim() || null;
+    data.insurance_expires ||= null;
+    if (!data.name || !data.trade) { reportError(form, new Error("Enter a vendor name and trade.")); return; }
+    const version = String(++vendorSaveVersion);
+    form.dataset.busy = "1"; form.dataset.saveVersion = version;
+    const buttons = Array.from(form.querySelectorAll("input, select, textarea, button")); buttons.forEach(button => button.disabled = true);
+    $("vendorEditDialog").querySelector(".dialog-message").textContent = "Saving changes…";
+    try {
+      const updated = await request(`/products/fieldnest/vendors/${selection.id}`, {
+        method: "PATCH", headers: {"X-Tenant-ID": selection.tenantId}, body: JSON.stringify(data)
+      });
+      if (!current()) return;
+      state.vendors = state.vendors.map(item => item.id === updated.id ? updated : item);
+      render(); renderOverview(); applySearch();
+      $("vendorEditDialog").close();
+      msg("appMessage", "Vendor updated.", true);
+    } catch (error) { if (current()) reportError(form, error); }
+    finally {
+      if (form.dataset.saveVersion === version) {
+        delete form.dataset.busy; delete form.dataset.saveVersion;
+        buttons.forEach(button => button.disabled = false);
+      }
+    }
+  });
+
+  let editingProperty = null;
+  let propertyEditBaseline = null;
+  let propertySaveVersion = 0;
+  function propertyEditSnapshot() {
+    const form = $("propertyEditForm");
+    return JSON.stringify(["name", "address", "total_units", "property_type"].map(key => form.elements.namedItem(key).value));
+  }
+  function canClosePropertyEdit() {
+    const form = $("propertyEditForm");
+    if (form.dataset.busy) {
+      $("propertyEditDialog").querySelector(".dialog-message").textContent = "Saving changes… Please wait before closing.";
+      return false;
+    }
+    return propertyEditBaseline === null || propertyEditSnapshot() === propertyEditBaseline
+      || window.confirm("Discard your unsaved property changes?");
+  }
+  function openPropertyEdit(id) {
+    const property = state.properties.find(item => String(item.id) === String(id));
+    if (!property) { msg("appMessage", "This property is no longer available. Refresh the workspace."); return; }
+    editingProperty = {id: property.id, tenantId: String(state.tenantId)};
+    propertySaveVersion++;
+    const form = $("propertyEditForm"); form.reset();
+    delete form.dataset.busy; delete form.dataset.saveVersion;
+    form.querySelectorAll("button").forEach(button => button.disabled = false);
+    for (const key of ["name", "address", "total_units", "property_type"]) form.elements.namedItem(key).value = property[key];
+    propertyEditBaseline = propertyEditSnapshot();
+    $("propertyEditDialog").querySelector(".dialog-message").textContent = "";
+    $("propertyEditDialog").showModal();
+  }
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-edit-property]");
+    if (button) openPropertyEdit(button.dataset.editProperty);
+  });
+  $("propertyEditDialog").addEventListener("cancel", event => {
+    if (!canClosePropertyEdit()) event.preventDefault();
+  });
+  $("propertyEditDialog").addEventListener("close", () => {
+    if ($("propertyEditDialog").open) return;
+    editingProperty = null; propertyEditBaseline = null; propertySaveVersion++;
+    const form = $("propertyEditForm");
+    delete form.dataset.busy; delete form.dataset.saveVersion;
+    form.querySelectorAll("button").forEach(button => button.disabled = false);
+  });
+  $("propertyEditForm").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    if (form.dataset.busy) return;
+    if (!editingProperty || editingProperty.tenantId !== String(state.tenantId)) {
+      reportError(form, new Error("The workspace changed. Close and reopen this property.")); return;
+    }
+    const selection = editingProperty;
+    const current = () => editingProperty === selection && selection.tenantId === String(state.tenantId) && $("propertyEditDialog").open;
+    const data = payload(form);
+    data.name = data.name.trim(); data.address = data.address.trim();
+    data.total_units = Number(data.total_units);
+    if (!data.name || !data.address) { reportError(form, new Error("Enter a property name and address.")); return; }
+    const version = String(++propertySaveVersion);
+    form.dataset.busy = "1"; form.dataset.saveVersion = version;
+    const buttons = Array.from(form.querySelectorAll("button")); buttons.forEach(button => button.disabled = true);
+    $("propertyEditDialog").querySelector(".dialog-message").textContent = "Saving changes…";
+    try {
+      const updated = await request(`/products/fieldnest/properties/${selection.id}`, {
+        method: "PATCH", headers: {"X-Tenant-ID": selection.tenantId}, body: JSON.stringify(data)
+      });
+      if (!current()) return;
+      state.properties = state.properties.map(item => item.id === updated.id ? updated : item);
+      render(); renderOverview(); applySearch();
+      $("propertyEditDialog").close();
+      msg("appMessage", "Property updated.", true);
+    } catch (error) { if (current()) reportError(form, error); }
+    finally {
+      if (form.dataset.saveVersion === version) {
+        delete form.dataset.busy; delete form.dataset.saveVersion;
+        buttons.forEach(button => button.disabled = false);
+      }
+    }
+  });
+
+  function workOrderSummaryText(order, property, vendor) {
+    return [
+      "FieldNest work order #" + order.id,
+      "Issue: " + order.title,
+      "Property: " + (property?.name || "Property"),
+      "Unit: " + (order.unit || "Not specified"),
+      "Status: " + order.status.replaceAll("_", " "),
+      "Priority: " + order.priority,
+      "Target date: " + (order.target_date ? order.target_date + " (UTC)" : "Not set"),
+      "Vendor: " + (order.vendor_id == null ? "Unassigned" : vendor?.name || "Assigned vendor unavailable"),
+      "",
+      "Description:",
+      order.description || "No description provided."
+    ].join("\n");
+  }
+  let summaryCopyBusy = false;
+  async function copyWorkOrderSummary() {
+    if (summaryCopyBusy || !editingOrder || editingOrder.tenantId !== String(state.tenantId)) return;
+    const dialog = $("workOrderDetailDialog");
+    if (!dialog.open) return;
+    const form = $("workOrderDetailForm");
+    const message = dialog.querySelector(".dialog-message");
+    if (form.dataset.busy) {
+      message.textContent = "Wait for the save to finish before copying.";
+      return;
+    }
+    if (workOrderDraftBaseline !== null && workOrderDraftSnapshot() !== workOrderDraftBaseline) {
+      message.textContent = "Save your changes before copying the summary.";
+      return;
+    }
+    const selection = editingOrder;
+    const order = state.orders.find(item => item.id === selection.id);
+    if (!order) {
+      message.textContent = "This work order is no longer available. Refresh the workspace.";
+      return;
+    }
+    const text = workOrderSummaryText(order,
+      state.properties.find(item => item.id === order.property_id),
+      state.vendors.find(item => item.id === order.vendor_id));
+    const current = () => dialog.open && editingOrder === selection && selection.tenantId === String(state.tenantId);
+    const button = $("copyWorkOrderSummary");
+    $("workOrderSummaryFallback").hidden = true;
+    $("workOrderSummaryText").value = "";
+    summaryCopyBusy = true;
+    button.disabled = true;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      if (current()) message.textContent = "Saved work-order summary copied.";
+    } catch (_) {
+      if (current()) {
+        $("workOrderSummaryText").value = text;
+        $("workOrderSummaryFallback").hidden = false;
+        $("workOrderSummaryText").focus();
+        $("workOrderSummaryText").select();
+        message.textContent = "Automatic copy is unavailable. Copy the saved summary below.";
+      }
+    } finally {
+      summaryCopyBusy = false;
+      button.disabled = !!form.dataset.busy;
+    }
+  }
+  $("copyWorkOrderSummary").addEventListener("click", copyWorkOrderSummary);
+  $("workOrderDetailDialog").addEventListener("close", () => {
+    $("workOrderSummaryFallback").hidden = true;
+    $("workOrderSummaryText").value = "";
+  });
+
+  let workOrderDraftBaseline = null;
+  function workOrderDraftSnapshot() {
+    const form = $("workOrderDetailForm");
+    return JSON.stringify(["title", "status", "priority", "vendor_id", "resident_id", "unit", "target_date", "description"]
+      .map(key => form.elements.namedItem(key).value));
+  }
+  function canCloseWorkOrder() {
+    const form = $("workOrderDetailForm");
+    if (form.dataset.busy) {
+      $("workOrderDetailDialog").querySelector(".dialog-message").textContent = "Saving changes… Please wait before closing.";
+      return false;
+    }
+    return workOrderDraftBaseline === null || workOrderDraftSnapshot() === workOrderDraftBaseline
+      || window.confirm("Discard your unsaved work-order changes?");
+  }
+  $("workOrderDetailDialog").addEventListener("cancel", event => {
+    if (!canCloseWorkOrder()) event.preventDefault();
+  });
+  $("workOrderDetailDialog").addEventListener("close", () => { workOrderDraftBaseline = null; });
+
+  let editingOrder = null;
+  function openWorkOrder(id) {
+    const order = state.orders.find(w => String(w.id) === String(id));
+    if (!order) { msg("appMessage", "This work order is no longer available. Refresh the workspace."); return; }
+    editingOrder = { id: order.id, tenantId: String(state.tenantId) };
+    const form = $("workOrderDetailForm"); form.reset();
+    const property = state.properties.find(p => p.id === order.property_id);
+    $("detailContext").textContent = `${property?.name || "Property"} · Work order #${order.id}`;
+    for (const key of ["title", "unit", "description", "priority", "status", "target_date"]) form.elements.namedItem(key).value = order[key] ?? "";
+    form.elements.namedItem("vendor_id").innerHTML = vendorOptionMarkup(state.vendors);
+    form.elements.namedItem("vendor_id").value = order.vendor_id == null ? "" : String(order.vendor_id);
+    form.elements.namedItem("resident_id").innerHTML = '<option value="">No resident linked</option>' + state.residents.filter(r => r.property_id === order.property_id).map(r => `<option value="${esc(r.id)}">${esc(r.name)} · Unit ${esc(r.unit)}</option>`).join("");
+    form.elements.namedItem("resident_id").value = order.resident_id == null ? "" : String(order.resident_id);
+    $("completeOrderButton").hidden = order.status === "completed";
+    $("workOrderDetailDialog").querySelector(".dialog-message").textContent = "";
+    $("managerTrackingLink").value = ""; $("managerTrackingMessage").textContent = "";
+    $("workOrderSummaryFallback").hidden = true; $("workOrderSummaryText").value = "";
+    $("ownerTrackingControls").hidden = state.clients.find(c => String(c.tenant_id) === String(state.tenantId))?.role !== "owner";
+    loadManagerPhotos({...editingOrder});
+    workOrderDraftBaseline = workOrderDraftSnapshot();
+    $("workOrderDetailDialog").showModal();
+  }
+  document.addEventListener("click", event => { const row = event.target.closest("[data-order-id]"); if (row) openWorkOrder(row.dataset.orderId); });
+  $("completeOrderButton").addEventListener("click", () => { const form = $("workOrderDetailForm"); form.elements.namedItem("status").value = "completed"; form.requestSubmit(); });
+  $("workOrderDetailForm").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    if (form.dataset.busy) return;
+    if (!editingOrder || editingOrder.tenantId !== String(state.tenantId)) { reportError(form, new Error("The workspace changed. Close and reopen this work order.")); return; }
+    const selection = { ...editingOrder }; const data = payload(form);
+    data.vendor_id = data.vendor_id ? Number(data.vendor_id) : null;
+    data.resident_id = data.resident_id ? Number(data.resident_id) : null;
+    data.description ||= null; data.target_date ||= null;
+    const buttons = Array.from(form.querySelectorAll("button")); buttons.forEach(b => b.disabled = true); form.dataset.busy = "1";
+    form.closest("dialog").querySelector(".dialog-message").textContent = "Saving changes…";
+    try {
+      const updated = await request(`/products/fieldnest/work-orders/${selection.id}`, { method: "PATCH", body: JSON.stringify(data) });
+      if (selection.tenantId !== String(state.tenantId)) return;
+      state.orders = state.orders.map(w => w.id === updated.id ? updated : w);
+      render(); renderOverview(); applySearch();
+      form.closest("dialog").close(); editingOrder = null;
+      msg("appMessage", updated.status === "completed" ? "Work order completed." : "Work order updated.", true);
+    } catch (error) { reportError(form, error); }
+    finally { delete form.dataset.busy; buttons.forEach(b => b.disabled = false); }
+  });
+
+
+  let linkProperty = null;
+  const linkDialog = $("residentLinkDialog");
+  document.addEventListener("click", event => {
+    const opener = event.target.closest("[data-resident-link]");
+    if (!opener) return;
+    const prop = state.properties.find(p => String(p.id) === opener.dataset.residentLink);
+    if (!prop) return;
+    linkProperty = {id: prop.id, tenantId: String(state.tenantId)};
+    $("residentLinkProperty").textContent = prop.name;
+    $("residentLinkValue").value = ""; $("residentLinkExpiry").textContent = "";
+    $("copyResidentLink").disabled = true;
+    linkDialog.querySelector(".dialog-message").textContent = "";
+    linkDialog.showModal();
+  });
+  async function changeResidentLink(method) {
+    if (!linkProperty || linkProperty.tenantId !== String(state.tenantId)) return;
+    const selected = {...linkProperty};
+    const buttons = Array.from(linkDialog.querySelectorAll("button"));
+    buttons.forEach(b => b.disabled = true);
+    linkDialog.querySelector(".dialog-message").textContent = "Updating link…";
+    try {
+      const result = await request(`/products/fieldnest/properties/${selected.id}/request-link`, {method});
+      if (!linkProperty || selected.tenantId !== String(state.tenantId) || selected.id !== linkProperty.id) return;
+      $("residentLinkValue").value = result ? location.origin + result.path : "";
+      $("residentLinkExpiry").textContent = result ? "Expires: " + new Date(result.expires_at).toLocaleDateString() : "";
+      linkDialog.querySelector(".dialog-message").textContent = result ? "Link created. Share it with residents of this property." : "Link disabled. Existing copies can no longer submit requests.";
+    } catch (error) { reportError($("residentLinkValue"), error); }
+    finally { buttons.forEach(b => b.disabled = false); $("copyResidentLink").disabled = !$("residentLinkValue").value; }
+  }
+  $("generateResidentLink").addEventListener("click", () => changeResidentLink("POST"));
+  $("revokeResidentLink").addEventListener("click", () => changeResidentLink("DELETE"));
+  $("copyResidentLink").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("residentLinkValue").value); linkDialog.querySelector(".dialog-message").textContent = "Link copied."; }
+    catch (_) { $("residentLinkValue").select(); linkDialog.querySelector(".dialog-message").textContent = "Select and copy the link above."; }
+  });
+
+
+  const managerPhotoUrls = [];
+  let managerPhotoVersion = 0;
+  function clearManagerPhotos() { managerPhotoVersion++; managerPhotoUrls.splice(0).forEach(URL.revokeObjectURL); $("managerPhotoGallery").replaceChildren(); }
+  async function loadManagerPhotos(selection) {
+    clearManagerPhotos(); $("managerPhotoMessage").textContent = "Loading photos…";
+    const version = managerPhotoVersion;
+    const current = () => version === managerPhotoVersion && editingOrder?.id === selection.id && String(state.tenantId) === selection.tenantId;
+    try {
+      const photos = await request(`/products/fieldnest/work-orders/${selection.id}/photos`);
+      if (!current()) return;
+      $("managerPhotoMessage").textContent = photos.length ? "" : "No resident photos attached.";
+      for (const photo of photos) {
+        const response = await fetch(`${API}/products/fieldnest/work-orders/${selection.id}/photos/${encodeURIComponent(photo.id)}`, {credentials: "same-origin", cache: "no-store", headers: {"X-Tenant-ID": selection.tenantId}});
+        if (!response.ok) throw new Error("A photo could not be loaded.");
+        const blob = await response.blob(); if (!current()) return;
+        const url = URL.createObjectURL(blob); managerPhotoUrls.push(url);
+        const image = document.createElement("img"); image.src = url; image.alt = "Resident-supplied maintenance photo";
+        image.width = 240; image.height = 180;
+        $("managerPhotoGallery").append(image);
+      }
+    } catch (error) { if (current()) $("managerPhotoMessage").textContent = error.message; }
+  }
+  $("workOrderDetailDialog").addEventListener("close", clearManagerPhotos);
+  async function updateTrackingLink(method) {
+    if (!editingOrder) return;
+    const selected = {...editingOrder};
+    const buttons = [$("replaceTrackingLink"), $("disableTrackingLink")]; buttons.forEach(b => b.disabled = true);
+    try {
+      const result = await request(`/products/fieldnest/work-orders/${selected.id}/tracking-link`, {method});
+      if (editingOrder?.id !== selected.id || String(state.tenantId) !== selected.tenantId) return;
+      $("managerTrackingLink").value = result ? location.origin + result.path : "";
+      $("managerTrackingMessage").textContent = result ? "Replacement link created. Select and copy it to share with the resident." : "Tracking link disabled.";
+    } catch (error) { $("managerTrackingMessage").textContent = error.message; }
+    finally { buttons.forEach(b => b.disabled = false); }
+  }
+  $("replaceTrackingLink").addEventListener("click", () => updateTrackingLink("POST"));
+  $("disableTrackingLink").addEventListener("click", () => updateTrackingLink("DELETE"));
+
+  (async () => { try { await discover(); showApp(); } catch (error) { showLogin(); if (!/401|Authentication/i.test(error.message)) msg("loginMessage", error.message); } })();
+})();
