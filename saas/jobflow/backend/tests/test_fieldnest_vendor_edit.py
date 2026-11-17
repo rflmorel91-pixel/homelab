@@ -5,7 +5,10 @@ from unittest.mock import patch
 
 from sqlalchemy.orm import Session
 
-import test_fieldnest_property_edit as property_fixture
+if __package__:
+    from . import test_fieldnest_property_edit as property_fixture
+else:
+    import test_fieldnest_property_edit as property_fixture
 from app.products.fieldnest.models import (
     FieldNestVendor, FieldNestWorkOrder, FieldNestMaintenancePlan,
 )
