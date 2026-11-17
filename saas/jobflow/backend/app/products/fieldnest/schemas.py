@@ -64,6 +64,25 @@ class VendorRead(VendorCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VendorUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=180)
+    trade: str | None = Field(default=None, min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=60)
+    email: str | None = Field(default=None, max_length=320)
+    insurance_expires: date | None = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    @model_validator(mode="after")
+    def validate_update(self):
+        for name in ("name", "trade"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        for name in ("phone", "email"):
+            if name in self.model_fields_set and getattr(self, name) == "":
+                setattr(self, name, None)
+        return self
+
+
 class WorkOrderCreate(BaseModel):
     property_id: int
     resident_id: int | None = None
