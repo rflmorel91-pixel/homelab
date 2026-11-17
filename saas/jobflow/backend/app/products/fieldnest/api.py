@@ -19,6 +19,7 @@ from app.products.fieldnest.schemas import (
     ResidentRead,
     VendorCreate,
     VendorRead,
+    VendorUpdate,
     WorkOrderCreate,
     WorkOrderRead,
     WorkOrderUpdate,
@@ -87,6 +88,23 @@ def list_vendors(db: Session = Depends(get_db), tenant: Tenant = Depends(get_cur
 def create_vendor(payload: VendorCreate, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant)):
     row = FieldNestVendor(tenant_id=tenant.id, **payload.model_dump())
     db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.patch("/vendors/{vendor_id}", response_model=VendorRead)
+def update_vendor(vendor_id: int, payload: VendorUpdate, db: Session = Depends(get_db), tenant: Tenant = Depends(get_current_tenant)):
+    row = db.scalar(
+        select(FieldNestVendor).where(
+            FieldNestVendor.id == vendor_id,
+            FieldNestVendor.tenant_id == tenant.id,
+        ).with_for_update()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(row, key, value)
     db.commit()
     db.refresh(row)
     return row
